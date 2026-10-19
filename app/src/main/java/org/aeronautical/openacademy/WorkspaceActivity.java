@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
+import org.aeronautical.openacademy.testing.TestWorkspace;
 import org.json.JSONObject;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -126,6 +127,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         if(account!=null)body.addView(button("☰  Menu",false,this::showMenu),new LinearLayout.LayoutParams(-2,-2));else body.addView(button("‹  Public samples",false,v->finish()));label("Open Academy",30,true);status=label(busy?"Working…":"",13,false);
         if(pickerActive){label("Choose your file to continue.",16,false);return;}
         if(account==null){signIn();return;}
+        if(api.isTest())label("LOCAL TEST · data stays on this device",14,true);
         label(account.optString("name")+" · "+account.optString("role"),15,false);if(!account.isNull("student_number"))label("Student ID · "+account.optString("student_number"),13,false);
         if(account.optBoolean("must_change_password")){passwordForm(true);return;}
         if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(screen.equals("enroll")&&!creator())enrollScreen();else if(screen.equals("learners")&&creator())learnersScreen();else if(screen.equals("results")&&!creator())resultsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
@@ -149,11 +151,20 @@ public final class WorkspaceActivity extends AppCompatActivity {
 
     private void signIn(){
         label("Your subjects. Your next step.",22,true);label("Use the account supplied by your administrator. Public sample materials remain available without an account.",16,false);
-        EditText server=field(body,"Organization HTTPS server",api.vault.base(),false),email=field(body,"Email","",false),password=field(body,"Password","",true);email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);email.setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS);password.setAutofillHints(View.AUTOFILL_HINT_PASSWORD);
+        CheckBox local=new CheckBox(this);local.setText("Local test accounts · no server needed");local.setTextColor(INK);local.setMinHeight(dp(56));
+        local.setChecked(BuildConfig.DEBUG&&(api.vault.base().isEmpty()||api.isTest()));if(BuildConfig.DEBUG)body.addView(local);
+        EditText server=field(body,"Organization HTTPS server",api.isTest()?"":api.vault.base(),false),email=field(body,"Email","",false),password=field(body,"Password","",true);email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);email.setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS);password.setAutofillHints(View.AUTOFILL_HINT_PASSWORD);
+        LinearLayout testPanel=column();testPanel.addView(txt("Use synthetic data only. All test roles share this device’s saved subjects, PDF uploads, submissions and results. Sign out to switch roles. External links need internet and host access.",14,false));
+        testPanel.addView(txt("Default password: "+TestWorkspace.PASSWORD+"\nStudent ID: TEST-001",15,true));
+        Spinner role=new Spinner(this);role.setContentDescription("Choose local test account");role.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Admin · "+TestWorkspace.EMAILS[0],"Instructor · "+TestWorkspace.EMAILS[1],"Student · "+TestWorkspace.EMAILS[2]}));testPanel.addView(role);
+        testPanel.addView(button("Fill test account",false,v->{email.setText(TestWorkspace.EMAILS[role.getSelectedItemPosition()]);password.setText(TestWorkspace.PASSWORD);}));
+        testPanel.addView(button("Reset local test data",false,v->new AlertDialog.Builder(this).setTitle("Reset local test workspace?").setMessage("Deletes this device’s test accounts, subjects, uploads, submissions and results, then restores the three default accounts. Organization server data is unchanged.").setNegativeButton("Keep data",null).setPositiveButton("Reset test data",(d,w)->perform(()->{api.resetTest();return new JSONObject();},r->{email.setText(TestWorkspace.EMAILS[0]);password.setText(TestWorkspace.PASSWORD);Toast.makeText(this,"Test accounts restored",Toast.LENGTH_LONG).show();})).show()));
+        if(BuildConfig.DEBUG)body.addView(testPanel);
+        Runnable mode=()->{server.setVisibility(local.isChecked()?View.GONE:View.VISIBLE);testPanel.setVisibility(local.isChecked()?View.VISIBLE:View.GONE);};mode.run();local.setOnCheckedChangeListener((b,checked)->{password.setText("");email.setText("");mode.run();});
         body.addView(button("Sign in",true,v->{
             try{
-                String base=LearningApi.validateBase(server.getText().toString());JSONObject data=new JSONObject().put("email",email.getText().toString().trim()).put("password",password.getText().toString());password.setText("");
-                perform(()->{api.vault.setBase(base);JSONObject r=api.request("POST","/v1/auth/login",data);api.vault.save(r.getString("token"));return r;},r->{account=r.getJSONObject("account");screen="subjects";if(account.optBoolean("must_change_password"))render();else load();});
+                String base=BuildConfig.DEBUG&&local.isChecked()?TestWorkspace.BASE:LearningApi.validateBase(server.getText().toString());JSONObject data=new JSONObject().put("email",email.getText().toString().trim()).put("password",password.getText().toString());password.setText("");
+                perform(()->{api.vault.setBase(base);JSONObject r=api.request("POST","/v1/auth/login",data);api.vault.save(r.getString("token"));return r;},r->{account=r.getJSONObject("account");screen="subjects";accountOffset=0;rosterOffset=0;discoverOffset=0;selected="";learnerId="";course=null;report=null;learner=null;if(account.optBoolean("must_change_password"))render();else load();});
             }catch(Exception e){error(e);}
         }));
         body.addView(button("Need an account or password reset?",false,v->new AlertDialog.Builder(this).setTitle("Contact your administrator").setMessage("Account registration, access changes, and temporary password resets are managed by your administrator. There is no public self-registration.").setPositiveButton("OK",null).show()));

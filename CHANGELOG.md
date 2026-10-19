@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0-alpha.1
+
+- Add device-local default admin/instructor/student test accounts and role picker in debug APK.
+- Persist shared test subjects, material links/PDF uploads, enrollment, reading/completion, submissions, assessment and XLSX reports across role switches.
+- Add synthetic practice subject, admin-managed account creation/reset, confirmed local reset, and workflow/permission regression tests.
+- Keep organization backend authentication and release builds free of active default accounts.
+
 ## 0.2.0-alpha.1 — 2026-10-19
 
 - Authorized public source delivery; replaced sample subjects with generic A/B/C.

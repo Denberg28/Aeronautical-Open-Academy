@@ -2,9 +2,23 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.5.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.6.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
+
+## Try the three roles on one phone
+
+The development **test APK** includes a persistent, device-local test workspace. Open **Account workspace**, leave **Local test accounts** checked, choose a role, tap **Fill test account**, then **Sign in**. No server address or internet is needed for local account workflows. External materials still need their provider’s internet/access.
+
+| Role | Local test email | Default password |
+| --- | --- | --- |
+| Admin | `admin@academy.test` | `AcademyTest2026!` |
+| Instructor | `instructor@academy.test` | `AcademyTest2026!` |
+| Student | `student@academy.test` | `AcademyTest2026!` |
+
+Student ID: `TEST-001`. A practice subject with reading, written work and a quiz is already enrolled. Admin → Menu → Accounts → Register account creates more instructor/student accounts, with mandatory first-login password changes. Instructor → Open subject → Add learning item creates links/text, activities, quizzes, examinations or uploaded PDFs. Student → Open subject can read PDFs/materials, mark reading done, submit work and view results. Switch back to the instructor to assess work through Students & compliance; results stay available to the student. Use Menu → Sign out to switch roles; all accounts on that installation share the saved test workspace.
+
+**Synthetic data only.** Test accounts, PDF files and records stay in app-private storage on this installation; there is no synchronization between phones. On the sign-in screen, **Reset local test data** confirms deletion of local test work before restoring defaults. Test mode is disabled in release builds. Uncheck Local test accounts to use an organization HTTPS server; the production backend has no default credentials or demo seeding.
 
 ## Minimal workflow
 
@@ -45,7 +59,7 @@ node --env-file=.env src/main.mjs
 
 Copy `server/.env.example` to a private `.env` file and fill it locally. There is no built-in administrator password and no production demo accounts. Keep data/secret files outside Git. The server binds to loopback in development. For Android emulator testing use `http://10.0.2.2:8787` in the debug app's sign-in form. Release builds require your organization's HTTPS origin.
 
-A live hosting destination has **not** been configured. Optional organization Drive upload credentials are also unconfigured; they are not needed for link-only materials. The account screens require a running backend. Public sample PDFs/text can be explored without one. No existing unrelated cloud database was modified. Set MATERIAL_STORAGE=links (the example default) for references only; no Google service account or uploaded file store is required. Accounts, eligibility, materials metadata and results still require the running backend.
+A live hosting destination has **not** been configured. Optional organization Drive upload credentials are also unconfigured; they are not needed for link-only materials. Organization account screens require a running backend; the development APK’s local test workspace does not. Public sample PDFs/text can be explored without one. No existing unrelated cloud database was modified. Set MATERIAL_STORAGE=links (the example default) for references only; no Google service account or uploaded file store is required. Accounts, eligibility, materials metadata and results still require the running backend.
 
 ## Materials and offline access
 

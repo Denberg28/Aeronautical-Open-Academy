@@ -1,10 +1,10 @@
-# Known issues and verification limits — 0.5.0-alpha.1
+# Known issues and verification limits — 0.6.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
 | Severity | Issue | Consequence / next action |
 | --- | --- | --- |
-| BLOCKER | Account backend is not deployed to a public HTTPS origin | Account screens need a configured running service |
+| BLOCKER | Account backend is not deployed to a public HTTPS origin | Organization accounts need a configured service; local test accounts in the test APK work without it |
 | OPTIONAL / UNVERIFIED | Private Drive upload credentials/folder are not configured | Not required for link-only mode; validate if enabling the optional stored-PDF adapter |
 | BLOCKER | Persistent release signing key is not configured | CI debug APK is for testing; unsigned release cannot be installed |
 | UNVERIFIED | Android CI for final published source | Check Actions results; earlier SDK setup/API-26 theme failures were diagnosed and corrected |
@@ -27,3 +27,7 @@ No confirmed critical/high defect remains in the current self-review/host tests.
 | UNVERIFIED | Transitive dependency locks/audit and production host hardening | Complete during release/deployment review |
 
 Public source delivery is authorized. No public repository visibility change is needed. Protected materials, passwords, service-account keys, learner data, and real answer keys remain excluded.
+
+### Local test workspace
+
+Debug/test APK only; not an institutional deployment. Local accounts and files share one installation, persist across sign-out/relaunch, and are removed by reset, app-data clearing or uninstall. Do not put real learner data or protected material in the sandbox. Synthetic default credentials are public by design and grant no backend access. Local tests cover workflow/role behavior, not production authentication security or server synchronization. External host permissions and actual PDF rendering/file pickers/Excel apps still need physical-device checks. Test data JSON is bounded at 16 MB; each PDF at 50 MB. Reset is the recovery path for corrupted test state, with explicit confirmation. Existing debug installs may require uninstall if CI debug signing keys differ; export any wanted test PDFs/reports first.

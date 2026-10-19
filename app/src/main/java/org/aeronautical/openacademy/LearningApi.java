@@ -1,6 +1,7 @@
 package org.aeronautical.openacademy;
 
 import android.content.Context;
+import org.aeronautical.openacademy.testing.TestWorkspace;
 import org.json.JSONObject;
 import org.aeronautical.openacademy.core.TransferPolicy;
 import java.net.URI;
@@ -18,6 +19,12 @@ final class LearningApi {
         final int status;Failure(int status,String message){super(message);this.status=status;}
     }
     LearningApi(Context c){context=c.getApplicationContext();vault=new AccountVault(c);}
+    boolean isTest(){return BuildConfig.DEBUG&&TestWorkspace.BASE.equals(vault.base());}
+    private TestWorkspace testWorkspace()throws IOException{
+        if(!BuildConfig.DEBUG)throw new IOException("Local test mode is available only in the test APK.");
+        return new TestWorkspace(new File(context.getNoBackupFilesDir(),"local-test"));
+    }
+    void resetTest()throws Exception{testWorkspace().reset();if(isTest()){vault.clear();clearProtectedCache();}}
     static String validateBase(String raw){
         try{
             URI uri=URI.create(raw.trim());String host=uri.getHost();
@@ -28,12 +35,17 @@ final class LearningApi {
     }
     private HttpURLConnection connection(String path,String method,boolean authenticated)throws Exception{
         if(!path.matches("/v1/[a-z0-9/?=&-]+"))throw new IllegalArgumentException("Invalid API action.");
+        if(vault.token().startsWith("demo-"))throw new Failure(401,"Sign in with an organization account for server access.");
         String base=validateBase(vault.base());HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
         c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setRequestMethod(method);c.setInstanceFollowRedirects(false);c.setRequestProperty("Accept","application/json");c.setRequestProperty("Accept-Encoding","identity");
         if(authenticated){String token=vault.token();if(token.isEmpty())throw new Failure(401,"Sign in to continue.");c.setRequestProperty("Authorization","Bearer "+token);}
         return c;
     }
     JSONObject request(String method,String path,JSONObject body,String key)throws Exception{
+        if(isTest()){
+            try{return testWorkspace().request(method,path,body,vault.token(),key);}
+            catch(TestWorkspace.Failure e){if(e.status==401)vault.clear();throw new Failure(e.status,e.getMessage());}
+        }
         HttpURLConnection c=connection(path,method,!path.equals("/v1/auth/login"));
         try{
             if(key!=null)c.setRequestProperty("Idempotency-Key",key);
@@ -52,12 +64,17 @@ final class LearningApi {
         File staged=File.createTempFile("upload-",".pdf",context.getCacheDir());HttpURLConnection c=null;
         try{
             try(InputStream in=source;OutputStream out=new FileOutputStream(staged)){copyBounded(in,out,TransferPolicy.MAX_PDF_BYTES);}
-            TransferPolicy.validatePdf(staged.toPath(),"");c=connection("/v1/items/"+id+"/file","POST",true);c.setReadTimeout(150000);c.setRequestProperty("X-Item-Version",String.valueOf(version));c.setRequestProperty("Content-Type","application/pdf");c.setDoOutput(true);c.setFixedLengthStreamingMode(staged.length());
+            TransferPolicy.validatePdf(staged.toPath(),"");if(isTest()){try{testWorkspace().upload(vault.token(),id,version,staged);}catch(TestWorkspace.Failure e){throw new Failure(e.status,e.getMessage());}return;}c=connection("/v1/items/"+id+"/file","POST",true);c.setReadTimeout(150000);c.setRequestProperty("X-Item-Version",String.valueOf(version));c.setRequestProperty("Content-Type","application/pdf");c.setDoOutput(true);c.setFixedLengthStreamingMode(staged.length());
             try(InputStream in=new FileInputStream(staged);OutputStream out=c.getOutputStream()){copyBounded(in,out,TransferPolicy.MAX_PDF_BYTES);}
             int status=c.getResponseCode();if(status<200||status>=300){if(status==401)vault.clear();String message="Upload failed. Check the PDF and connection.";InputStream error=c.getErrorStream();if(error!=null)try(InputStream in=error){message=new JSONObject(AcademyRepository.readText(in,65536)).optString("error",message);}throw new Failure(status,message);}
         }finally{if(c!=null)c.disconnect();staged.delete();}
     }
     File material(String id,boolean download)throws Exception{
+        if(isTest()){
+            File directory=new File(context.getCacheDir(),"protected-pdf");if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Not enough temporary storage.");
+            File file=new File(directory,UUID.randomUUID()+".pdf");
+            try{testWorkspace().material(vault.token(),id,download,file);return file;}catch(TestWorkspace.Failure e){file.delete();throw new Failure(e.status,e.getMessage());}catch(Exception e){file.delete();throw e;}
+        }
         HttpURLConnection c=connection("/v1/items/"+id+"/content"+(download?"?download=1":""),"GET",true);
         File directory=new File(context.getCacheDir(),"protected-pdf");if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Not enough temporary storage.");
         File file=new File(directory,UUID.randomUUID()+".pdf");boolean complete=false;
@@ -70,6 +87,10 @@ final class LearningApi {
         }finally{c.disconnect();if(!complete)file.delete();}
     }
     void exportReport(String subject,int offset,android.net.Uri destination)throws Exception{
+        if(isTest()){
+            byte[] data;try{data=testWorkspace().exportReport(vault.token(),subject,offset);}catch(TestWorkspace.Failure e){throw new Failure(e.status,e.getMessage());}
+            try(OutputStream out=context.getContentResolver().openOutputStream(destination,"wt")){if(out==null)throw new IOException("Cannot write to this location.");out.write(data);}return;
+        }
         HttpURLConnection c=connection("/v1/subjects/"+subject+"/export?offset="+offset,"GET",true);
         try{
             int status=c.getResponseCode();if(status!=200){if(status==401)vault.clear();throw new Failure(status,"Report unavailable. Refresh your session and check subject access.");}
