@@ -86,6 +86,8 @@ jobs:
           assert re.fullmatch(r'\d+\.\d+\.\d+-(alpha|beta|rc)\.\d+',version), 'Test publication requires a prerelease app version'
           with open(os.environ['GITHUB_ENV'],'a') as out: out.write('RELEASE_TAG=v'+version+'-test.'+os.environ['GITHUB_RUN_NUMBER']+'\n')
           PY
+      - name: Collect versioned test release files
+        run: |
           mkdir -p out/release
           cp "$(find out/verified -name app-debug.apk -print -quit)" "out/release/Aeronautical-Open-Academy-$RELEASE_TAG.apk"
           cp "$(find out/verified -name debug-signature.txt -print -quit)" out/release/
