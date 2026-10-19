@@ -1,0 +1,68 @@
+name: Signed candidate
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Unique candidate tag, matching app version (v0.1.0-alpha.1)'
+        required: true
+        default: v0.1.0-alpha.1
+permissions:
+  contents: write
+concurrency:
+  group: academy-candidate
+  cancel-in-progress: false
+jobs:
+  candidate:
+    if: github.repository == 'Denberg28/Aeronautical-Open-Academy'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      AOA_KEYSTORE_PATH: ${{ runner.temp }}/academy-release.jks
+      AOA_KEYSTORE_BASE64: ${{ secrets.AOA_KEYSTORE_BASE64 }}
+      AOA_STORE_PASSWORD: ${{ secrets.AOA_STORE_PASSWORD }}
+      AOA_KEY_ALIAS: ${{ secrets.AOA_KEY_ALIAS }}
+      AOA_KEY_PASSWORD: ${{ secrets.AOA_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate destination, version, and signing inputs
+        run: |
+          test "$GITHUB_REPOSITORY" = Denberg28/Aeronautical-Open-Academy
+          python3 tools/release_gate.py
+          test -n "$AOA_KEYSTORE_BASE64"
+          test -n "$AOA_STORE_PASSWORD"
+          test -n "$AOA_KEY_ALIAS"
+          test -n "$AOA_KEY_PASSWORD"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo 'Release already exists; use a new version.'; exit 1; fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then echo 'Tag already exists; use a new version.'; exit 1; fi
+          printf '%s' "$AOA_KEYSTORE_BASE64" | base64 --decode > "$AOA_KEYSTORE_PATH"
+          chmod 600 "$AOA_KEYSTORE_PATH"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Required candidate checks
+        run: |
+          sh tools/core_checks.sh
+          python3 tools/project_checks.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          sh gradlew --no-daemon :app:coreChecks :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+      - name: Package and verify signed APK
+        run: |
+          mkdir -p out/candidate
+          cp app/build/outputs/apk/release/app-release.apk "out/candidate/Aeronautical-Open-Academy-$RELEASE_TAG.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "out/candidate/Aeronautical-Open-Academy-$RELEASE_TAG.apk" > out/candidate/signature.txt
+          sha256sum out/candidate/*.apk > out/candidate/SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > out/candidate/source-commit.txt
+          cp docs/KNOWN_ISSUES.md docs/TESTING.md docs/RELEASE_NOTES.md out/candidate/
+      - name: Recheck destination and publish prerelease
+        run: |
+          test "$GITHUB_REPOSITORY" = Denberg28/Aeronautical-Open-Academy
+          gh release create "$RELEASE_TAG" out/candidate/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Academy $RELEASE_TAG - test candidate" --notes-file docs/RELEASE_NOTES.md
+      - name: Remove runner signing material
+        if: always()
+        run: rm -f "$AOA_KEYSTORE_PATH"

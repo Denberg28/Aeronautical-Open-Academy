@@ -1,0 +1,9 @@
+Copyright (c) 2026 Aeronautical Open Academy contributors.
+
+All rights reserved for application source and branding until the repository owner selects a software license. Possession of this source package does not itself authorize redistribution.
+
+Original bundled demonstration educational content in app/src/main/assets/materials/ and its matching text companions in catalog.json is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+Attribution: Aeronautical Open Academy, demonstration educational content, revision 1 (2026).
+
+Third-party components, including the Gradle wrapper, AndroidX, ZXing, JUnit, and test-only JSON-java, retain their own licenses. See THIRD_PARTY_NOTICES.md.

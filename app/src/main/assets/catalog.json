@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "version": 1,
+  "title": "Aeronautical Open Academy - Sample Library",
+  "subjects": [
+    {
+      "id": "a",
+      "code": "A",
+      "title": "Subject A",
+      "description": "Explore a lesson, try an activity, and check your understanding.",
+      "resources": [
+        {
+          "id": "a-guide",
+          "title": "Learning guide & practice situation",
+          "module": "Getting started",
+          "description": "A short demonstration guide with one professional practice situation. Text and PDF versions contain the same notes.",
+          "source": "asset://materials/a-learning-guide.pdf",
+          "downloadUrl": "asset://materials/a-learning-guide.pdf",
+          "downloadable": true,
+          "mimeType": "application/pdf",
+          "revision": 1,
+          "sha256": "3b9e96e1ed2630283a1d7358bc1a429202ee3c32066cc0b3c4ae1f20364607e6",
+          "license": "Original Academy sample content - CC BY 4.0",
+          "text": "A - Subject A\n\nDEMONSTRATION MATERIAL - NOT AN APPROVED SYLLABUS\n\nExplore a lesson, try an activity, and check your understanding.\n\nLearn\nRead the lesson material and identify its main idea. Use the text companion whenever you prefer a readable text version.\n\nActivity\nWrite a short explanation of one idea in your own words. In the learning workspace, mark the activity complete after doing the work.\n\nQuiz\nSubmit your answer when ready. A quiz is marked submitted by the server; marking an activity complete does not create a quiz grade."
+        }
+      ]
+    },
+    {
+      "id": "b",
+      "code": "B",
+      "title": "Subject B",
+      "description": "Practice applying a concept to a simple situation.",
+      "resources": [
+        {
+          "id": "b-guide",
+          "title": "Learning guide & practice situation",
+          "module": "Getting started",
+          "description": "A short demonstration guide with one professional practice situation. Text and PDF versions contain the same notes.",
+          "source": "asset://materials/b-learning-guide.pdf",
+          "downloadUrl": "asset://materials/b-learning-guide.pdf",
+          "downloadable": true,
+          "mimeType": "application/pdf",
+          "revision": 1,
+          "sha256": "d262dbb36d41c252b8a1fbe91fa98a11b459ed8a27426b773998c840f57c36d0",
+          "license": "Original Academy sample content - CC BY 4.0",
+          "text": "B - Subject B\n\nDEMONSTRATION MATERIAL - NOT AN APPROVED SYLLABUS\n\nPractice applying a concept to a simple situation.\n\nLearn\nCompare two possible approaches to a problem. Identify the evidence you need before choosing.\n\nActivity\nDescribe your preferred approach and one observation that would make you reconsider it.\n\nQuiz\nReview the question and options. Submit once, then read the recorded result. Practice samples are separate from official learning records."
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "code": "C",
+      "title": "Subject C",
+      "description": "Reflect on your work and plan the next learning step.",
+      "resources": [
+        {
+          "id": "c-guide",
+          "title": "Learning guide & practice situation",
+          "module": "Getting started",
+          "description": "A short demonstration guide with one professional practice situation. Text and PDF versions contain the same notes.",
+          "source": "asset://materials/c-learning-guide.pdf",
+          "downloadUrl": "asset://materials/c-learning-guide.pdf",
+          "downloadable": true,
+          "mimeType": "application/pdf",
+          "revision": 1,
+          "sha256": "abe939db8bf8345a813e97894d1668a578f791899687b27e0f0b2c5296ce49b0",
+          "license": "Original Academy sample content - CC BY 4.0",
+          "text": "C - Subject C\n\nDEMONSTRATION MATERIAL - NOT AN APPROVED SYLLABUS\n\nReflect on your work and plan the next learning step.\n\nLearn\nReview the lesson objective and connect it with something you have already learned.\n\nActivity\nRecord one thing you understood and one question to ask your instructor. Mark completion only after doing the activity.\n\nQuiz\nSubmit your own answer. Completion, submission, and achievement are separate states; a completed quiz is not necessarily a passing grade."
+        }
+      ]
+    }
+  ]
+}

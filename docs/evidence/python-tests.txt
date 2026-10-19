@@ -1,0 +1,13 @@
+test_bad_checksum_rejected (test_catalog.CatalogChecks.test_bad_checksum_rejected) ... ok
+test_boolean_version_rejected (test_catalog.CatalogChecks.test_boolean_version_rejected) ... ok
+test_duplicate_id_rejected (test_catalog.CatalogChecks.test_duplicate_id_rejected) ... ok
+test_invalid_host_and_redirect_destination (test_catalog.CatalogChecks.test_invalid_host_and_redirect_destination) ... ok
+test_negative_revision_rejected (test_catalog.CatalogChecks.test_negative_revision_rejected) ... ok
+test_private_file_uri_rejected (test_catalog.CatalogChecks.test_private_file_uri_rejected) ... ok
+test_unknown_schema_rejected (test_catalog.CatalogChecks.test_unknown_schema_rejected) ... ok
+test_valid_remote_structure (test_catalog.CatalogChecks.test_valid_remote_structure) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.003s
+
+OK
