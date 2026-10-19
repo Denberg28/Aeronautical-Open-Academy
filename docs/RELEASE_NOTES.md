@@ -1,11 +1,15 @@
-# Aeronautical Open Academy 0.2.0-alpha.1 — test build
+# Aeronautical Open Academy 0.3.0-alpha.1 — development test build
 
-Adds generic Subject A/B/C samples and a separate role-based account workspace: administrator registration/status/role/password/enrollment/announcements, creator-owned instructor materials/activities/quizzes, and enrolled student viewing/completion/server-scored submissions.
+Adds student self-enrollment into instructor-opened subjects, an enrolled-subject home with progress bars, reading percentage, participation completion, own results and feedback. A compact left dropdown provides navigation. Existing signed-in users relaunch into the workspace.
 
-Includes a portable Node/SQLite backend, organization Shared Drive adapter, Android Keystore session storage, bounded private material viewing, and role/integration tests. The backend is not deployed; organization Drive and physical-device behavior remain unverified. Public sample library works separately from accounts.
+Instructors can publish written activities/examinations, review per-student outputs and quiz choices/results, grade written work 0–100 with feedback, and see submission compliance/awaiting-assessment counts. Genuine Excel workbooks export up to 100 roster students per page with summary, item status/results and report notes. Reading is self-reported; completion/submission is distinct from grades or passing.
 
-Configured compatibility: Android 8.0/API 26+, SDK 35, JDK 17; backend Node 24.19.0. Debug package ends in .test. A debug build uses a development key and is not an institutional stable release. Unsigned release APKs are build evidence only. Candidate workflow requires organization-owned signing secrets.
+Self-enrollment defaults closed. Administrator removal prevents self-rejoining. Written submissions are immutable/idempotent per revision; grade edits detect stale writes. Student drafts are encrypted locally and cleared on sign-out. Excel export is restricted to the subject owner/admin, uses literal strings, and requires choosing a destination. Keep exported student records in approved organization storage.
 
-No default login or administrator password is included. See server/README.md to start a private local backend and bootstrap its first administrator. Use the organization's verified HTTPS origin for device access. Production deployment, signing, real Drive, camera/permission/lifecycle/accessibility/load/install/upgrade checks remain required.
+Upgrade both app and backend. SQLite v1 automatically migrates to v2 while preserving existing identities, enrollments, material references and results. Stop the backend and back up database/materials first. Old activity self-checkmarks no longer complete written work. Current UI/reports show current published revisions; prior records remain in the database. One-question quizzes and written examinations are supported; attachments, timed/proctored exams, weighted course grades and private offline sync are outside this build.
 
-Rollback: prefer a forward-version correction with the same certificate. Uninstall/Clear storage deletes local data. Stop the backend and retain a consistent database/material backup before changes. Exported files cannot be remotely revoked.
+Compatibility: Android 8.0/API 26+, SDK 35, JDK 17; backend Node 24.19.0. Debug package ends in .test and uses a development signing key; it is not a stable institutional release. CI debug keys may differ between builds, requiring uninstall before installation (local data is lost). Unsigned release APKs are build evidence only.
+
+The backend is not deployed; organization Drive credentials, retained production signing and physical-device accessibility/lifecycle/install/upgrade validation remain blocked or not tested. No default credentials are included. See server/README.md for private setup. Public Subject A/B/C samples work separately without accounts.
+
+Rollback: prefer a forward-version correction signed with the same retained certificate. For server rollback restore the complete pre-upgrade database/material backup with its matching server; older code refuses schema v2. Do not silently downgrade the live database. Already exported files cannot be remotely revoked.

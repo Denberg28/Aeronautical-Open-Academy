@@ -30,7 +30,11 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private LearningApi api;
     private LinearLayout body;
     private TextView status;
-    private JSONObject account,course;
+    private JSONObject account,course,report,learner;
+    private JSONArray available=new JSONArray();
+    private String learnerId="",reportSubject="",draftKey="";
+    private int rosterOffset,discoverOffset;
+    private EditText draftInput;
     private JSONArray subjects=new JSONArray(),announcements=new JSONArray(),accounts=new JSONArray();
     private String selected="",screen="subjects",pendingUpload="";
     private String exportPath="";
@@ -54,14 +58,19 @@ public final class WorkspaceActivity extends AppCompatActivity {
             return new JSONObject();
         },r->{Toast.makeText(this,"PDF saved to your chosen location",Toast.LENGTH_LONG).show();load();});
     });
+    private final ActivityResultLauncher<String> excelExporter=registerForActivityResult(new ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),uri->{
+        pickerActive=false;final String id=reportSubject;reportSubject="";final int offset=rosterOffset;
+        if(uri==null){load();return;}
+        perform(()->{api.exportReport(id,offset,uri);return new JSONObject();},r->{Toast.makeText(this,"Excel report saved. Keep student data private.",Toast.LENGTH_LONG).show();load();});
+    });
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);api=new LearningApi(this);
         String requested=getIntent().getStringExtra("subject_id");if(requested!=null&&requested.matches("[a-f0-9-]{36}"))selected=requested;
-        if(saved!=null){selected=saved.getString("selected","");screen=saved.getString("screen","subjects");pendingUpload=saved.getString("upload","");exportPath=saved.getString("export","");pickerActive=saved.getBoolean("picker",false);accountOffset=saved.getInt("offset",0);}
-        getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){public void handleOnBackPressed(){if(!selected.isEmpty()||!screen.equals("subjects")){selected="";screen="subjects";load();}else finish();}});
+        if(saved!=null){selected=saved.getString("selected","");screen=saved.getString("screen","subjects");pendingUpload=saved.getString("upload","");exportPath=saved.getString("export","");pickerActive=saved.getBoolean("picker",false);accountOffset=saved.getInt("offset",0);learnerId=saved.getString("learner","");rosterOffset=saved.getInt("roster",0);discoverOffset=saved.getInt("discover",0);reportSubject=saved.getString("report_subject","");}
+        getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){public void handleOnBackPressed(){if(!learnerId.isEmpty()){learnerId="";load();}else if(screen.equals("learners")){screen="subjects";load();}else if(!selected.isEmpty()||!screen.equals("subjects")){selected="";screen="subjects";load();}else finish();}});
         render();if(!pickerActive)load();
     }
-    @Override protected void onSaveInstanceState(Bundle out){out.putString("selected",selected);out.putString("screen",screen);out.putString("upload",pendingUpload);out.putString("export",exportPath);out.putBoolean("picker",pickerActive);out.putInt("offset",accountOffset);super.onSaveInstanceState(out);}
+    @Override protected void onSaveInstanceState(Bundle out){if(draftInput!=null)api.vault.saveDraft(draftKey,draftInput.getText().toString());out.putString("learner",learnerId);out.putInt("roster",rosterOffset);out.putInt("discover",discoverOffset);out.putString("report_subject",reportSubject);out.putString("selected",selected);out.putString("screen",screen);out.putString("upload",pendingUpload);out.putString("export",exportPath);out.putBoolean("picker",pickerActive);out.putInt("offset",accountOffset);super.onSaveInstanceState(out);}
     @Override protected void onDestroy(){io.shutdown();super.onDestroy();}
     private boolean admin(){return account!=null&&account.optString("role").equals("admin");}
     private boolean creator(){return account!=null&&!account.optString("role").equals("student");}
@@ -69,13 +78,13 @@ public final class WorkspaceActivity extends AppCompatActivity {
         if(busy)return;busy=true;if(status!=null)status.setText("Working…");
         io.execute(()->{
             try{JSONObject result=action.run();runOnUiThread(()->{if(isDestroyed())return;busy=false;try{done.accept(result);}catch(Exception e){error(e);}if(status!=null&&!busy)status.setText("");});}
-            catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;busy=false;if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==401){api.vault.clear();account=null;course=null;subjects=new JSONArray();selected="";render();}error(e);});}
+            catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;busy=false;if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==404){course=null;report=null;learner=null;learnerId="";selected="";screen="subjects";render();}if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==401){api.vault.clear();account=null;course=null;subjects=new JSONArray();selected="";render();}error(e);});}
         });
     }
     private void error(Exception e){if(status!=null)status.setText("Request not completed");new AlertDialog.Builder(this).setTitle("Please check").setMessage(e.getMessage()==null?"Connection unavailable. Try again.":e.getMessage()).setPositiveButton("OK",null).show();}
     private void load(){
         if(pickerActive)return;
-        final String id=selected,view=screen;final int offset=accountOffset;
+        final String id=selected,view=screen,studentId=learnerId;final int offset=accountOffset,roster=rosterOffset,browse=discoverOffset;
         perform(()->{
             if(api.vault.token().isEmpty())return new JSONObject().put("signed_out",true);
             JSONObject me=api.request("GET","/v1/me",null),a=me.getJSONObject("account");
@@ -84,25 +93,44 @@ public final class WorkspaceActivity extends AppCompatActivity {
             me.put("announcements",api.request("GET","/v1/announcements",null).getJSONArray("announcements"));
             if(!id.isEmpty())try{me.put("course",api.request("GET","/v1/subjects/"+id,null));}catch(LearningApi.Failure e){if(e.status==404)me.put("course_unavailable",true);else throw e;}
             if(a.getString("role").equals("admin")&&view.equals("accounts"))me.put("accounts",api.request("GET","/v1/admin/accounts?offset="+offset,null).getJSONArray("accounts"));
+            if(view.equals("enroll"))me.put("available",api.request("GET","/v1/subjects/discover?offset="+browse,null).getJSONArray("subjects"));
+            if(view.equals("learners")&&!id.isEmpty()){
+                me.put("report",api.request("GET","/v1/subjects/"+id+"/learners?offset="+roster,null));
+                if(!studentId.isEmpty())me.put("learner",api.request("GET","/v1/subjects/"+id+"/learners/"+studentId,null));
+            }
             return me;
         },r->{
-            account=r.optJSONObject("account");course=r.optJSONObject("course");subjects=r.optJSONArray("subjects")==null?new JSONArray():r.getJSONArray("subjects");announcements=r.optJSONArray("announcements")==null?new JSONArray():r.getJSONArray("announcements");accounts=r.optJSONArray("accounts")==null?new JSONArray():r.getJSONArray("accounts");if(r.optBoolean("course_unavailable"))selected="";render();if(r.optBoolean("course_unavailable"))new AlertDialog.Builder(this).setTitle("Subject unavailable").setMessage("This subject is unavailable or you need enrollment. Ask your administrator to check access.").setPositiveButton("OK",null).show();
+            report=r.optJSONObject("report");learner=r.optJSONObject("learner");available=r.optJSONArray("available")==null?new JSONArray():r.getJSONArray("available");account=r.optJSONObject("account");course=r.optJSONObject("course");subjects=r.optJSONArray("subjects")==null?new JSONArray():r.getJSONArray("subjects");announcements=r.optJSONArray("announcements")==null?new JSONArray():r.getJSONArray("announcements");accounts=r.optJSONArray("accounts")==null?new JSONArray():r.getJSONArray("accounts");if(r.optBoolean("course_unavailable"))selected="";render();if(r.optBoolean("course_unavailable"))new AlertDialog.Builder(this).setTitle("Subject unavailable").setMessage("This subject is unavailable or you need enrollment. Use Enroll subjects from the menu if enrollment is open, or contact your administrator.").setPositiveButton("OK",null).show();
         });
     }
     private void render(){
         LinearLayout root=column();root.setBackgroundColor(PAPER);setContentView(root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets b=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return insets;});ViewCompat.requestApplyInsets(root);
         ScrollView scroll=new ScrollView(this);body=column();body.setPadding(dp(22),dp(12),dp(22),dp(28));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
-        body.addView(button("‹  Public samples",false,v->finish()));label("Open Academy",30,true);status=label(busy?"Working…":"",13,false);
+        if(account!=null)body.addView(button("☰  Menu",false,this::showMenu),new LinearLayout.LayoutParams(-2,-2));else body.addView(button("‹  Public samples",false,v->finish()));label("Open Academy",30,true);status=label(busy?"Working…":"",13,false);
         if(pickerActive){label("Choose your file to continue.",16,false);return;}
         if(account==null){signIn();return;}
         label(account.optString("name")+" · "+account.optString("role"),15,false);
         if(account.optBoolean("must_change_password")){passwordForm(true);return;}
-        LinearLayout menu=row();menu.addView(button("My subjects",false,v->{selected="";screen="subjects";load();}));menu.addView(button("News",false,v->{selected="";screen="news";render();}));if(admin())menu.addView(button("Accounts",false,v->{selected="";screen="accounts";load();}));body.addView(menu);
-        if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
-        gap();body.addView(button("Refresh",false,v->load()));body.addView(button("Change password",false,v->passwordForm(false)));
-        body.addView(button("Sign out",false,v->perform(()->{JSONObject result=new JSONObject();try{api.request("POST","/v1/auth/logout",new JSONObject());}catch(Exception e){result.put("warning",true);}finally{api.vault.clear();api.clearProtectedCache();}return result;},r->{account=null;selected="";course=null;subjects=new JSONArray();render();if(r.optBoolean("warning"))new AlertDialog.Builder(this).setTitle("Signed out on this device").setMessage("Server sign-out could not be confirmed. The server session remains subject to its inactivity and expiry limits.").setPositiveButton("OK",null).show();})));
+        if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(screen.equals("enroll")&&!creator())enrollScreen();else if(screen.equals("learners")&&creator())learnersScreen();else if(screen.equals("results")&&!creator())resultsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
     }
+    private void showMenu(View anchor){
+        PopupMenu menu=new PopupMenu(this,anchor,android.view.Gravity.START);
+        menu.getMenu().add(0,1,0,"My subjects");
+        if(!creator()){menu.getMenu().add(0,2,1,"Enroll subjects");menu.getMenu().add(0,3,2,"My results");}
+        if(creator()&&!selected.isEmpty())menu.getMenu().add(0,4,3,"Students & compliance");
+        menu.getMenu().add(0,5,4,"Announcements");if(admin())menu.getMenu().add(0,6,5,"Accounts");
+        menu.getMenu().add(0,7,6,"Refresh");menu.getMenu().add(0,8,7,"Change password");menu.getMenu().add(0,9,8,"Public samples / QR scanner");menu.getMenu().add(0,10,9,"Sign out");
+        menu.setOnMenuItemClickListener(item->{if(busy)return true;int id=item.getItemId();
+            if(id==7)load();else if(id==8)passwordForm(false);else if(id==9)finish();else if(id==10)signOut();else{
+                learnerId="";if(id!=4)selected="";screen=id==2?"enroll":id==3?"results":id==4?"learners":id==5?"news":id==6?"accounts":"subjects";load();
+            }return true;
+        });menu.show();
+    }
+    private void signOut(){
+        perform(()->{JSONObject result=new JSONObject();try{api.request("POST","/v1/auth/logout",new JSONObject());}catch(Exception e){result.put("warning",true);}finally{api.vault.clear();api.clearProtectedCache();}return result;},r->{account=null;selected="";learnerId="";course=null;report=null;learner=null;subjects=new JSONArray();render();if(r.optBoolean("warning"))new AlertDialog.Builder(this).setTitle("Signed out on this device").setMessage("Server sign-out could not be confirmed. The server session remains subject to its inactivity and expiry limits.").setPositiveButton("OK",null).show();});
+    }
+
     private void signIn(){
         label("Your subjects. Your next step.",22,true);label("Use the account supplied by your administrator. Public sample materials remain available without an account.",16,false);
         EditText server=field(body,"Organization HTTPS server",api.vault.base(),false),email=field(body,"Email","",false),password=field(body,"Password","",true);email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);email.setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS);password.setAutofillHints(View.AUTOFILL_HINT_PASSWORD);
@@ -126,12 +154,12 @@ public final class WorkspaceActivity extends AppCompatActivity {
     }
     private void subjectList(){
         gap();label("My subjects",24,true);if(creator())body.addView(button("Create subject",true,v->subjectForm()));
-        if(subjects.length()==0)label("No subjects yet. Your administrator can enroll you, or an instructor can create a subject.",16,false);
+        if(subjects.length()==0)label(creator()?"No subjects yet. Create your first subject.":"No enrolled subjects yet. Choose Enroll subjects in the menu, or ask your administrator for access.",16,false);
         for(int n=0;n<subjects.length();n++){
-            JSONObject s=subjects.optJSONObject(n);LinearLayout card=card();card.addView(txt(s.optString("title"),22,true));card.addView(txt(s.optString("description"),15,false));
+            JSONObject s=subjects.optJSONObject(n);LinearLayout card=card();card.addView(txt(s.optString("title"),22,true));card.addView(txt(s.optString("description"),15,false));if(!creator())progress(card,s.optJSONObject("summary"));
             card.addView(button("Open subject",true,v->{selected=s.optString("id");screen="subjects";load();}));body.addView(card);gap();
         }
-        if(announcements.length()>0){label("Latest announcement",18,true);JSONObject a=announcements.optJSONObject(0);label(a.optString("title"),17,true);label(a.optString("body"),15,false);}
+        if(creator()&&announcements.length()>0){label("Latest announcement",18,true);JSONObject a=announcements.optJSONObject(0);label(a.optString("title"),17,true);label(a.optString("body"),15,false);}
     }
     private void subjectForm(){
         if(admin())perform(()->api.request("GET","/v1/admin/accounts",null),r->showSubjectForm(r.getJSONArray("accounts")));
@@ -148,22 +176,24 @@ public final class WorkspaceActivity extends AppCompatActivity {
     }
     private void courseScreen(){
         JSONObject subject=course.optJSONObject("subject");label(subject.optString("title"),26,true);label(subject.optString("description"),15,false);
-        label("Subject QR: aoa://subject/"+subject.optString("id"),12,false);
+        if(!creator()){progress(body,course.optJSONObject("summary"));body.addView(button("View results & feedback",false,v->{screen="results";render();}));}
         body.addView(button("Show subject QR",false,v->{try{
             android.graphics.Bitmap bitmap=new com.journeyapps.barcodescanner.BarcodeEncoder().encodeBitmap("aoa://subject/"+subject.optString("id"),com.google.zxing.BarcodeFormat.QR_CODE,720,720);
             ImageView qr=new ImageView(this);qr.setImageBitmap(bitmap);qr.setAdjustViewBounds(true);qr.setContentDescription("Subject QR code for "+subject.optString("title"));qr.setPadding(dp(24),dp(24),dp(24),dp(24));
             new AlertDialog.Builder(this).setTitle(subject.optString("title")).setMessage("Scanning identifies this subject. Enrollment and sign-in are still required.").setView(qr).setPositiveButton("Close",null).show();
         }catch(Exception e){error(e);}}));
         if(creator()){
-            body.addView(button("Add material / activity / quiz",true,v->new AlertDialog.Builder(this).setTitle("Add to subject").setItems(new String[]{"PDF material","Activity","Quiz"},(d,w)->itemForm(new String[]{"material","activity","quiz"}[w])).show()));
+            body.addView(button("Add learning item",true,v->new AlertDialog.Builder(this).setTitle("Add to subject").setItems(new String[]{"PDF material","Written activity","Quiz (one question)","Written examination"},(d,w)->itemForm(new String[]{"material","activity","quiz","examination"}[w])).show()));
+            body.addView(button("Students & compliance",true,v->{screen="learners";learnerId="";rosterOffset=0;load();}));
+            body.addView(button(subject.optInt("self_enrol")==1?"Close self-enrollment":"Open self-enrollment",false,v->{final boolean open=subject.optInt("self_enrol")!=1;new AlertDialog.Builder(this).setTitle(open?"Open enrollment?":"Close enrollment?").setMessage(open?"Any active student account can find and join this subject. Materials stay private until enrollment.":"New self-enrollment will stop. Existing enrollments remain.").setNegativeButton("Cancel",null).setPositiveButton("Confirm",(d,w)->{try{JSONObject data=new JSONObject().put("self_enrol",open);perform(()->api.request("POST","/v1/subjects/"+selected,data),r->load());}catch(Exception e){error(e);}}).show();}));
             if(admin())body.addView(button("Enroll or remove student",false,v->enrollmentForm()));
         }
         JSONArray items=course.optJSONArray("items");int done=0;for(int n=0;n<items.length();n++)if(items.optJSONObject(n).optBoolean("completed"))done++;
-        if(!creator())label(done+" of "+items.length()+" items completed · quiz scores are recorded separately",14,false);
+
         if(items.length()==0)label("No published learning items yet.",16,false);
         for(int n=0;n<items.length();n++){
             JSONObject item=items.optJSONObject(n);LinearLayout card=card();String kind=item.optString("kind"),id=item.optString("id");final boolean manage=admin()||account.optString("id").equals(item.optString("owner_id"));
-            card.addView(txt(kind.toUpperCase(java.util.Locale.ROOT)+(item.optBoolean("published")?"":" · Draft"),12,false));card.addView(txt(item.optString("title"),21,true));card.addView(txt(item.optString("body"),16,false));
+            card.addView(txt((item.optString("assessment_type").equals("examination")?"examination":kind).toUpperCase(java.util.Locale.ROOT)+(item.optBoolean("published")?"":" · Draft"),12,false));card.addView(txt(item.optString("title"),21,true));card.addView(txt(item.optString("body"),16,false));
             if(kind.equals("material")){
                 if(item.optBoolean("has_file")){
                     card.addView(button("Read PDF",true,v->perform(()->new JSONObject().put("path",api.material(id,false).getAbsolutePath()),r->startActivity(new Intent(this,PdfActivity.class).putExtra("secure_path",r.getString("path")).putExtra("title",item.optString("title")).putExtra("allow_export",manage).putExtra("item_id",id)))));
@@ -184,11 +214,78 @@ public final class WorkspaceActivity extends AppCompatActivity {
                         }).show();
                     }));
                 }
-            }else if(!creator())card.addView(button(item.optBoolean("completed")?"Completed · undo":"Mark activity complete",false,v->{try{JSONObject data=new JSONObject().put("completed",!item.optBoolean("completed"));perform(()->api.request("POST","/v1/items/"+id+"/complete",data),r->load());}catch(Exception e){error(e);}}));
+            }else if(!creator()&&kind.equals("activity")){
+                JSONObject submission=item.optJSONObject("submission");
+                if(submission==null)card.addView(button("Write & submit output",true,v->submitOutput(item)));
+                else{card.addView(txt(submission.isNull("score")?"Submitted · awaiting assessment":"Result: "+submission.optDouble("score")+" / 100",16,true));card.addView(txt(submission.optString("feedback"),15,false));card.addView(button("View my submission",false,v->showText("My submitted output",submission.optString("output"))));}
+            }else if(!creator())card.addView(button(item.optBoolean("completed")?"Read · undo":"Mark as read",false,v->{try{JSONObject data=new JSONObject().put("completed",!item.optBoolean("completed"));perform(()->api.request("POST","/v1/items/"+id+"/complete",data),r->load());}catch(Exception e){error(e);}}));
             if(manage)card.addView(button("Edit / publish / archive",false,v->editItem(item)));
             body.addView(card);gap();
         }
     }
+    private void progress(LinearLayout parent,JSONObject m){
+        if(m==null)return;int percent=m.optInt("completion_percent");parent.addView(txt(percent+"% complete · "+m.optInt("completed")+" / "+m.optInt("total")+" items",16,true));
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(percent);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(INK));bar.setContentDescription("Completion "+percent+" percent");parent.addView(bar,new LinearLayout.LayoutParams(-1,dp(14)));
+        parent.addView(txt("Read "+m.optInt("read_percent")+"% (self-reported) · Submitted "+m.optInt("submitted")+" / "+m.optInt("required"),14,false));
+    }
+    private void enrollScreen(){
+        label("Enroll subjects",24,true);label("Only subjects opened for self-enrollment appear here.",15,false);
+        if(available.length()==0)label("No open subjects on this page. Ask your administrator about restricted subjects.",16,false);
+        for(int i=0;i<available.length();i++){JSONObject s=available.optJSONObject(i);LinearLayout c=card();c.addView(txt(s.optString("title"),21,true));c.addView(txt(s.optString("description"),15,false));c.addView(button("Enroll",true,v->new AlertDialog.Builder(this).setTitle("Enroll in "+s.optString("title")+"?").setNegativeButton("Cancel",null).setPositiveButton("Enroll",(d,w)->perform(()->api.request("POST","/v1/subjects/"+s.optString("id")+"/enrol",new JSONObject()),r->{selected=s.optString("id");screen="subjects";discoverOffset=0;load();})).show()));body.addView(c);gap();}
+        if(discoverOffset>0)body.addView(button("Previous subjects",false,v->{discoverOffset=Math.max(0,discoverOffset-100);load();}));if(available.length()==100)body.addView(button("More subjects",false,v->{discoverOffset+=100;load();}));
+    }
+    private void resultsScreen(){
+        label("My results",24,true);
+        if(course==null||selected.isEmpty()){
+            for(int i=0;i<subjects.length();i++){JSONObject s=subjects.optJSONObject(i);body.addView(button(s.optString("title"),false,v->{selected=s.optString("id");load();}));}
+            if(subjects.length()==0)label("Enroll in a subject to see your results.",16,false);return;
+        }
+        label(course.optJSONObject("subject").optString("title"),20,true);progress(body,course.optJSONObject("summary"));label("Completion tracks participation. Grades are separate; no course pass/fail is inferred.",14,false);
+        JSONArray items=course.optJSONArray("items");
+        for(int i=0;i<items.length();i++){
+            JSONObject item=items.optJSONObject(i);if(item.optString("kind").equals("material"))continue;
+            LinearLayout c=card();c.addView(txt(item.optString("title"),20,true));JSONObject q=item.optJSONObject("attempt"),w=item.optJSONObject("submission");
+            c.addView(txt(q!=null?"Quiz result: "+q.optInt("score")+" / 1":w==null?"Not submitted":w.isNull("score")?"Submitted · awaiting assessment":"Result: "+w.optDouble("score")+" / 100",16,true));
+            if(w!=null){c.addView(txt(w.optString("feedback").isEmpty()?"No feedback yet":w.optString("feedback"),15,false));c.addView(button("View my submission",false,v->showText("My output",w.optString("output"))));}body.addView(c);gap();
+        }
+        body.addView(button("Back to learning items",true,v->{screen="subjects";render();}));
+    }
+    private void submitOutput(JSONObject item){
+        final String key=account.optString("id")+":"+item.optString("id")+":"+item.optInt("revision");
+        LinearLayout form=column();form.addView(txt("Submit written work once for this version. Review your answer before submitting. Drafts stay encrypted on this device until sign-out.",14,false));
+        EditText output=field(form,"Your written output",api.vault.draft(key),false);output.setSingleLine(false);output.setMinLines(5);output.setMaxLines(12);output.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(12000)});draftInput=output;draftKey=key;
+        ScrollView scroll=new ScrollView(this);scroll.addView(form);boolean[] submitted={false};
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(item.optString("title")).setView(scroll).setNegativeButton("Save draft",null).setPositiveButton("Submit final output",null).create();
+        dialog.setOnDismissListener(d->{if(submitted[0])api.vault.removeDraft(key);else if(!api.vault.saveDraft(key,output.getText().toString()))Toast.makeText(this,"Draft could not be saved on this device.",Toast.LENGTH_LONG).show();draftInput=null;draftKey="";});
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            if(output.getText().toString().trim().isEmpty()){output.setError("Write your output first");return;}
+            try{JSONObject data=new JSONObject().put("output",output.getText().toString());api.vault.saveDraft(key,output.getText().toString());perform(()->api.request("POST","/v1/items/"+item.optString("id")+"/submission",data,UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString()),r->{submitted[0]=true;dialog.dismiss();load();});}catch(Exception e){error(e);}
+        }));dialog.show();
+    }
+    private void learnersScreen(){
+        label("Students & compliance",24,true);if(report==null){label("Refresh to load student data.",16,false);return;}
+        if(learner!=null&&!learnerId.isEmpty()){
+            JSONObject student=learner.optJSONObject("student");label(student.optString("name"),22,true);label(student.optString("email")+" · "+student.optString("status"),14,false);progress(body,learner.optJSONObject("summary"));
+            JSONArray items=learner.optJSONArray("items");for(int i=0;i<items.length();i++){
+                JSONObject item=items.optJSONObject(i);LinearLayout c=card();c.addView(txt(item.optString("title"),20,true));c.addView(txt(item.optString("status"),16,true));
+                if(!item.isNull("score"))c.addView(txt("Score "+item.optDouble("score")+" / "+item.optInt("max_score"),16,true));
+                if(item.has("answer"))c.addView(txt("Selected answer: "+item.optString("answer"),15,false));
+                if(!item.optString("output").isEmpty()){c.addView(button("Read submitted output",false,v->showText(item.optString("title"),item.optString("output"))));c.addView(txt(item.optString("feedback"),15,false));c.addView(button(item.isNull("score")?"Assess output":"Edit assessment",true,v->gradeOutput(item)));}body.addView(c);gap();
+            }
+            body.addView(button("Back to roster",false,v->{learnerId="";load();}));return;
+        }
+        JSONArray rows=report.optJSONArray("learners");label(report.optInt("total")+" enrolled students · page starts at "+(rosterOffset+1),15,false);label("Compliance = submitted / required assessments. Reading is self-reported. No due dates or automatic pass/fail.",14,false);
+        body.addView(button("Export this roster page to Excel",true,v->new AlertDialog.Builder(this).setTitle("Export confidential student data?").setMessage("This Excel file covers up to 100 students on this roster page, with current published revisions. Save only to approved organization storage. Exported files cannot be revoked.").setNegativeButton("Cancel",null).setPositiveButton("Choose location",(d,w)->{reportSubject=selected;pickerActive=true;excelExporter.launch("academy-progress-page-"+(rosterOffset/100+1)+".xlsx");}).show()));
+        if(rows.length()==0)label("No enrolled students on this page.",16,false);
+        for(int i=0;i<rows.length();i++){JSONObject row=rows.optJSONObject(i),student=row.optJSONObject("student"),m=row.optJSONObject("summary");LinearLayout c=card();c.addView(txt(student.optString("name")+" · "+student.optString("status"),20,true));progress(c,m);c.addView(txt("Compliance "+m.optInt("compliance_percent")+"% · Awaiting assessment "+m.optInt("awaiting_assessment"),15,false));c.addView(button("Review work & results",true,v->{learnerId=student.optString("id");load();}));body.addView(c);gap();}
+        if(rosterOffset>0)body.addView(button("Previous students",false,v->{rosterOffset=Math.max(0,rosterOffset-100);load();}));if(!report.isNull("next_offset"))body.addView(button("Next students",false,v->{rosterOffset=report.optInt("next_offset");load();}));
+    }
+    private void gradeOutput(JSONObject item){
+        LinearLayout form=column();EditText score=field(form,"Score (0–100)",item.isNull("score")?"":String.valueOf(item.optDouble("score")),false);score.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);EditText feedback=field(form,"Feedback (up to 1000 characters)",item.optString("feedback"),false);feedback.setSingleLine(false);feedback.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(1000)});
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Assess "+item.optString("title")).setView(form).setNegativeButton("Cancel",null).setPositiveButton("Save assessment",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{double n=Double.parseDouble(score.getText().toString());if(!Double.isFinite(n)||n<0||n>100)throw new IllegalArgumentException("Enter a score from 0 to 100.");JSONObject data=new JSONObject().put("score",n).put("feedback",feedback.getText().toString()).put("expected_graded_at",item.opt("graded_at"));perform(()->api.request("POST","/v1/submissions/"+item.optString("submission_id")+"/grade",data),r->{dialog.dismiss();load();});}catch(Exception e){score.setError("Enter a score from 0 to 100.");}}));dialog.show();
+    }
+    private void showText(String title,String text){ScrollView scroll=new ScrollView(this);TextView view=txt(text,16,false);view.setPadding(dp(20),dp(12),dp(20),dp(20));view.setTextIsSelectable(true);scroll.addView(view);new AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).show();}
     private void itemForm(String kind){
         LinearLayout form=column();EditText title=field(form,"Title","",false),bodyText=field(form,kind.equals("quiz")?"Question":"Instructions / accessible text","",false);bodyText.setSingleLine(false);
         EditText first=kind.equals("quiz")?field(form,"Choice 1","",false):null,second=kind.equals("quiz")?field(form,"Choice 2","",false):null;

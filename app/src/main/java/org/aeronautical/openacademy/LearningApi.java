@@ -39,7 +39,7 @@ final class LearningApi {
             if(key!=null)c.setRequestProperty("Idempotency-Key",key);
             if(body!=null){byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);c.setFixedLengthStreamingMode(bytes.length);try(OutputStream out=c.getOutputStream()){out.write(bytes);}}
             int status=c.getResponseCode();InputStream stream=status>=200&&status<300?c.getInputStream():c.getErrorStream();
-            String raw;try(InputStream in=stream){raw=in==null?"{}":AcademyRepository.readText(in,4*1024*1024);}
+            String raw;try(InputStream in=stream){raw=in==null?"{}":AcademyRepository.readText(in,8*1024*1024);}
             JSONObject response;
             try{response=new JSONObject(raw);}catch(Exception e){throw new Failure(status,"Server response is unavailable. Check the organization address.");}
             if(status<200||status>=300){if(status==401)vault.clear();throw new Failure(status,response.optString("error","Request unavailable. Try again."));}
@@ -68,6 +68,16 @@ final class LearningApi {
             if(length>=0&&length!=file.length())throw new IOException("Transfer interrupted. Please try again.");
             TransferPolicy.validatePdf(file.toPath(),c.getHeaderField("X-Content-SHA256"));complete=true;return file;
         }finally{c.disconnect();if(!complete)file.delete();}
+    }
+    void exportReport(String subject,int offset,android.net.Uri destination)throws Exception{
+        HttpURLConnection c=connection("/v1/subjects/"+subject+"/export?offset="+offset,"GET",true);
+        try{
+            int status=c.getResponseCode();if(status!=200){if(status==401)vault.clear();throw new Failure(status,"Report unavailable. Refresh your session and check subject access.");}
+            if(!"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(c.getContentType()))throw new IOException("The server did not return an Excel workbook.");
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){copyBounded(in,bytes,16L*1024*1024);}byte[] data=bytes.toByteArray();
+            if(data.length<4||data[0]!='P'||data[1]!='K'||(c.getContentLengthLong()>=0&&c.getContentLengthLong()!=data.length))throw new IOException("Report transfer is incomplete. Try again.");
+            try(OutputStream out=context.getContentResolver().openOutputStream(destination,"wt")){if(out==null)throw new IOException("Cannot write to this location.");out.write(data);}
+        }finally{c.disconnect();}
     }
     static void copyBounded(InputStream in,OutputStream out,long max)throws IOException{
         if(in==null)throw new IOException("File is unavailable.");byte[] buffer=new byte[16384];long total=0;int n;

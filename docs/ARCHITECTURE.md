@@ -2,7 +2,7 @@
 
 ## Android
 
-Native Java/framework views, AppCompat, WorkManager, and ZXing Embedded. MainActivity offers the public sample catalog, QR/manual entry, and public Downloads. WorkspaceActivity provides the signed-in role workflow. AccountVault encrypts an opaque session token with Android Keystore AES-GCM; passwords are never retained. LearningApi uses an explicitly configured HTTPS origin, fixed API routes, bounded transfers, and no redirects. Debug-only cleartext exceptions are limited to emulator/loopback hosts.
+Native Java/framework views, AppCompat, WorkManager, and ZXing Embedded. MainActivity offers the public sample catalog, QR/manual entry, and public Downloads. WorkspaceActivity provides the signed-in role workflow. AccountVault encrypts an opaque session token with Android Keystore AES-GCM; passwords are never retained. The same device key encrypts written drafts, cleared with the session. A left PopupMenu groups navigation; signed-in relaunch enters enrolled subjects with revision-aware progress bars. LearningApi uses an explicitly configured HTTPS origin, fixed API routes, bounded transfers, and no redirects. Debug-only cleartext exceptions are limited to emulator/loopback hosts.
 
 QrRouter resolves A/B/C locally. UUID subject QR values route to the workspace and remain subject to backend enrollment. PdfActivity reauthorizes protected PDF access on open/page change, uses a temporary app-private file, blocks ordinary screenshots, and removes that temporary file on close. Public sample downloads retain the existing atomic completion/index behavior. Protected student offline downloads are intentionally not offered yet; source samples are not real course records.
 
@@ -38,3 +38,9 @@ Public Drive link catalogs are a separate optional public-content feature. They 
 - https://gradle.org/release-checksums/
 
 The Gradle wrapper/distribution checksums remain checked by tools/project_checks.py. Direct dependencies/toolchain are pinned; transitive lock review remains a release follow-up.
+
+## Progress and assessment increment
+
+SQLite v2 adds opt-in self-enrollment, administrative rejoining blocks, an examination subtype and immutable written submissions with score/feedback/grader timestamps. Migration is additive and transactional; prior quiz/material/account identities survive. Published current revisions determine reading, submission compliance and participation completion; grades remain separate. Editing a content revision invalidates current completion without deleting historical records.
+
+Instructor roster pages have 100 students, with separate student-detail responses for written outputs and selected quiz choices. Written assessment writes enforce ownership and last grading timestamp. XLSX export uses a small built-in-zlib OOXML writer with literal strings/numbers and no external relationships; report metadata describes pagination/current-revision scope. Reports stream to the selected Android document destination after a bounded authenticated transfer; no report is cached to public storage by default.

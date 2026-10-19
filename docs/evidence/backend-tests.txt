@@ -1,19 +1,24 @@
-✔ passwords are salted and verified; ownership never follows a client role claim (173.90872ms)
-✔ registration is admin-only; temporary passwords and user-selected roles do not grant access (701.904306ms)
-✔ subject enrolment, creator ownership, draft visibility, and answer-key isolation (843.744012ms)
-✔ quiz grading is server-side, idempotent, bounded, and separate from completion flags (587.940622ms)
-✔ suspension, deletion, logout and expiry revoke access rather than relying on UI (773.543593ms)
-✔ protected files require enrolment and creator authority; view does not grant offline permission (801.249655ms)
-✔ global announcements are admin-only and visible to active accounts (340.934843ms)
-✔ role changes and password resets revoke old sessions; unauthorized ownership writes fail (478.403549ms)
-✔ suspension during an upstream upload wins before publishing metadata (369.067815ms)
-✔ Drive token/upload stay server-side, stream bytes, and preserve private references (19.815584ms)
-✔ Drive upload cannot redirect a server credential to an unapproved host (2.697725ms)
-ℹ tests 11
+✔ passwords are salted and verified; ownership never follows a client role claim (146.5063ms)
+✔ registration is admin-only; temporary passwords and user-selected roles do not grant access (515.433439ms)
+✔ subject enrolment, creator ownership, draft visibility, and answer-key isolation (801.27851ms)
+✔ quiz grading is server-side, idempotent, bounded, and separate from completion flags (534.878018ms)
+✔ suspension, deletion, logout and expiry revoke access rather than relying on UI (623.822342ms)
+✔ protected files require enrolment and creator authority; view does not grant offline permission (757.127605ms)
+✔ global announcements are admin-only and visible to active accounts (349.262389ms)
+✔ role changes and password resets revoke old sessions; unauthorized ownership writes fail (473.01728ms)
+✔ suspension during an upstream upload wins before publishing metadata (334.501328ms)
+✔ self-enrollment is opt-in, identity-bound and idempotent; discovery never reveals protected content (794.118311ms)
+✔ reading, written output, exams, quiz results and grading have separate revision-aware measures (1101.063036ms)
+✔ Excel export is a real, scoped workbook with literal strings, numeric results and pagination metadata (613.502239ms)
+✔ roster pagination is bounded and deletion removes written records and rejoining blocks (698.061179ms)
+✔ Drive token/upload stay server-side, stream bytes, and preserve private references (15.153765ms)
+✔ Drive upload cannot redirect a server credential to an unapproved host (1.958738ms)
+✔ v1 data migrates without changing identity, enrollment, file references or results; v2 reopens safely (27.99966ms)
+ℹ tests 16
 ℹ suites 0
-ℹ pass 11
+ℹ pass 16
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 5201.464064
+ℹ duration_ms 7843.614967

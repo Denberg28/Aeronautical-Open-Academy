@@ -53,4 +53,4 @@ CREATE TABLE IF NOT EXISTS audit (
  id INTEGER PRIMARY KEY, actor_id TEXT, action TEXT NOT NULL, target_id TEXT,
  created_at INTEGER NOT NULL
 ) STRICT;
-PRAGMA user_version=1;
+-- user_version is advanced transactionally by store.mjs.

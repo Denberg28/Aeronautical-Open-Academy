@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.2.0-alpha.1
+# Known issues and verification limits — 0.3.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -10,8 +10,11 @@ No confirmed critical/high defect remains in the current self-review/host tests.
 | UNVERIFIED | Android CI for final published source | Check Actions results; earlier SDK setup/API-26 theme failures were diagnosed and corrected |
 | UNVERIFIED | Physical-device camera, TalkBack/200% fonts, lifecycle, protected cache, signed upgrade, performance | Complete docs/TESTING.md procedures before stable |
 | LIMITATION | Student private offline downloads/sync are not implemented | Online authorization required for protected materials; public samples remain offline-capable |
-| LIMITATION | One question per quiz item; two choices in Android authoring (API supports 2–6) | Multi-question exams/retakes/gradebook are future work |
-| LIMITATION | Enrollment picker currently lists the first 100 registered accounts | Backend account list is paginated; larger deployments need searchable enrollment UI |
+| LIMITATION | One-question quiz items and untimed written examinations; no attachment upload, retakes, deadlines or weighted course grade | Use written text outputs and per-item results; no proctoring or automatic qualification claim |
+| LIMITATION | Admin enrollment picker lists the first 100 accounts; student open-subject discovery and instructor rosters are paginated | Use self-enrollment where intended; searchable administrative enrollment remains future work |
+| LIMITATION | Excel exports cover up to 100 students per roster page and current published revisions only | Advance roster pages and export each; full written outputs and historical revisions are excluded |
+| LIMITATION | Reading percentage is self-reported and compliance has no due-date policy | Participation completion is not mastery or a passing grade |
+| LIMITATION | Written drafts are device-local and cleared when session ends | No private offline final submission/sync; device key/storage/lifecycle still needs validation |
 | LIMITATION | PDF signature/end checks are not antivirus or full structural validation | Organization must curate approved PDFs and validate scanning policy |
 | LIMITATION | Admin MFA and distributed rate limiting are not implemented | Require deployment security review before real institutional use |
 | LIMITATION | Node/SQLite backend is single-instance, with operator-managed backup/retention | Deployment/load/restore validation required; do not run replicas against the same file |

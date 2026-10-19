@@ -8,6 +8,6 @@ test_unknown_schema_rejected (test_catalog.CatalogChecks.test_unknown_schema_rej
 test_valid_remote_structure (test_catalog.CatalogChecks.test_valid_remote_structure) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 0.003s
+Ran 8 tests in 0.004s
 
 OK

@@ -7,8 +7,8 @@ android {
         applicationId 'org.aeronautical.openacademy'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 20000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 2)
-        versionName '0.2.0-alpha.1'
+        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 30000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 3)
+        versionName '0.3.0-alpha.1'
         buildConfigField 'String', 'SOURCE_COMMIT', '"' + (System.getenv('GITHUB_SHA') ?: 'local') + '"'
     }
     buildFeatures { buildConfig true }

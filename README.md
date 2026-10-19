@@ -2,15 +2,17 @@
 
 Android learning workspace with **admin, instructor, and student accounts**, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.2.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.3.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 ## Minimal workflow
 
-- Student: sign in → My subjects → lesson/activity/quiz → read, submit, or mark activity done.
-- Instructor: create subject → add PDF/activity/quiz as draft → upload/review → publish. Edit/download only creator-owned materials.
+- Student: sign in → enrolled subjects with progress bars → read / submit written work or quiz → My results. Use the left Menu to enroll in open subjects.
+- Instructor: create subject → draft PDF/activity/quiz/written examination → review/publish → optionally open self-enrollment → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
 - Admin: register accounts → assign role → enroll students → manage suspension/reactivation/deletion and password reset → publish global announcements. Administrators can oversee all content.
 
-Students cannot self-register, select their own role, enroll themselves, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. A subject QR identifies a subject; sign-in and enrollment are still enforced by the backend.
+Students cannot self-register, select their own role, join closed/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Self-enrollment is instructor-controlled and defaults closed. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. Written activities/exams accept text output; quizzes have one question per item.
+
+A subject QR identifies a subject; sign-in and enrollment are still enforced by the backend.
 
 ## Android build
 

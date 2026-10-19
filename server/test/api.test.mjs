@@ -17,7 +17,7 @@ async function fixture(options={}){
   const headers={};if(token)headers.Authorization='Bearer '+token;if(key)headers['Idempotency-Key']=key;
   if(body!==undefined)headers['Content-Type']='application/json';if(binary)headers['Content-Type']='application/pdf';
   const response=await fetch(base+path,{method,headers,body:binary|| (body===undefined?undefined:JSON.stringify(body))});
-  return {status:response.status,headers:response.headers,body:response.headers.get('content-type')?.startsWith('application/pdf')?Buffer.from(await response.arrayBuffer()):await response.json()};
+  return {status:response.status,headers:response.headers,body:(/^(application\/pdf|application\/vnd.openxmlformats)/.test(response.headers.get('content-type')||''))?Buffer.from(await response.arrayBuffer()):await response.json()};
  }
  async function login(emailAddress,password=pass){const r=await call('/v1/auth/login',{method:'POST',body:{email:emailAddress,password}});assert.equal(r.status,200,JSON.stringify(r.body));return r.body.token;}
  const admin=await login('admin@example.test');
@@ -151,4 +151,113 @@ test('suspension during an upstream upload wins before publishing metadata',asyn
   assert.equal((await upload).status,401);assert.equal(removed,true);
   assert.equal(f.app.db.prepare('select file_ref from items where id=?').get(item).file_ref,null);
  }finally{proceed.resolve();await f.close();}
+});
+
+test('self-enrollment is opt-in, identity-bound and idempotent; discovery never reveals protected content',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('enroll-i@example.test','instructor'),s=await f.account('enroll-s@example.test','student'),other=await f.account('enroll-o@example.test','student');
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Enrollment sample'}})).body.id;
+  assert.equal((await f.call('/v1/subjects/discover',{token:s.token})).body.subjects.length,0);
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{}})).status,404);
+  assert.equal((await f.call('/v1/subjects/'+id,{method:'POST',token:s.token,body:{self_enrol:true}})).status,404);
+  assert.equal((await f.call('/v1/subjects/'+id,{method:'POST',token:i.token,body:{self_enrol:true}})).status,200);
+  const discovered=(await f.call('/v1/subjects/discover',{token:s.token})).body.subjects;assert.deepEqual(Object.keys(discovered[0]).sort(),['description','id','title']);
+  for(let n=0;n<2;n++)assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{student_id:other.id}})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:other.token})).status,404);
+  assert.equal((await f.call('/v1/subjects/discover',{token:s.token})).body.subjects.length,0);
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id,enrolled:false}});
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{}})).status,404);
+  assert.equal((await f.call('/v1/subjects/discover',{token:s.token})).body.subjects.length,0);
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  await f.call('/v1/subjects/'+id,{method:'POST',token:i.token,body:{self_enrol:false}});
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:other.token,body:{}})).status,404);
+ }finally{await f.close();}
+});
+
+test('reading, written output, exams, quiz results and grading have separate revision-aware measures',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('grade-i@example.test','instructor'),s=await f.account('grade-s@example.test','student'),o=await f.account('grade-o@example.test','student'),j=await f.account('grade-j@example.test','instructor');
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject B',description:'Assessment sample'}})).body.id;
+  for(const student of [s,o])await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:student.id}});
+  const add=async kind=>(await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:i.token,body:{kind,title:kind,body:'Submit your answer',published:true,...(kind==='quiz'?{options:['A','B'],correct_index:1}:{})}})).body.id;
+  const material=await add('material'),work=await add('activity'),exam=await add('examination'),quiz=await add('quiz');
+  await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:i.token,body:{kind:'activity',title:'Draft',body:'Draft excluded'}});
+  assert.equal((await f.call('/v1/items/'+work+'/complete',{method:'POST',token:s.token,body:{completed:true}})).status,409);
+  assert.equal((await f.call('/v1/items/'+material+'/complete',{method:'POST',token:s.token,body:{completed:true}})).status,200);
+  const key=randomUUID(),output='My assessed written output';
+  assert.equal((await f.call('/v1/items/'+work+'/submission',{method:'POST',token:s.token,key,body:{output,score:100,student_id:o.id}})).status,201);
+  assert.equal((await f.call('/v1/items/'+work+'/submission',{method:'POST',token:s.token,key,body:{output}})).status,200);
+  assert.equal((await f.call('/v1/items/'+work+'/submission',{method:'POST',token:s.token,key,body:{output:'changed'}})).status,409);
+  assert.equal((await f.call('/v1/items/'+work+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output}})).status,409);
+  await f.call('/v1/items/'+exam+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output:'Written examination response'}});
+  await f.call('/v1/items/'+quiz+'/quiz',{method:'POST',token:s.token,key:randomUUID(),body:{choice:0,score:1}});
+  let view=(await f.call('/v1/subjects/'+id,{token:s.token})).body;
+  assert.deepEqual(view.summary,{read:1,materials:1,read_percent:100,submitted:3,required:3,compliance_percent:100,graded:1,awaiting_assessment:2,completed:4,total:4,completion_percent:100});
+  assert.equal(view.items.find(x=>x.id===exam).assessment_type,'examination');
+  assert.equal(view.items.find(x=>x.id===work).submission.score,null);
+  assert.ok(!JSON.stringify((await f.call('/v1/subjects/'+id,{token:o.token})).body).includes(output));
+  for(const denied of [s,o,j]){
+   assert.equal((await f.call('/v1/subjects/'+id+'/learners',{token:denied.token})).status,404);
+   assert.equal((await f.call('/v1/subjects/'+id+'/learners/'+s.id,{token:denied.token})).status,404);
+   assert.equal((await f.call('/v1/subjects/'+id+'/export',{token:denied.token})).status,404);
+  }
+  let detail=(await f.call('/v1/subjects/'+id+'/learners/'+s.id,{token:i.token})).body;
+  assert.equal(detail.items.find(x=>x.id===work).output,output);assert.equal(detail.items.find(x=>x.id===quiz).answer,'A');
+  const submission=detail.items.find(x=>x.id===work).submission_id;
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:j.token,body:{score:100,feedback:'Bad'}})).status,404);
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:s.token,body:{score:100,feedback:'Bad'}})).status,403);
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:101,feedback:'Bad'}})).status,400);
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:0,feedback:'Please revisit section 1.'}})).status,200);
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:99,feedback:'Stale overwrite'}})).status,409);
+  detail=(await f.call('/v1/subjects/'+id+'/learners/'+s.id,{token:i.token})).body;assert.equal(detail.summary.graded,2);assert.equal(detail.summary.awaiting_assessment,1);
+  view=(await f.call('/v1/subjects/'+id,{token:s.token})).body;assert.equal(view.items.find(x=>x.id===work).submission.score,0);assert.equal(view.items.find(x=>x.id===work).submission.feedback,'Please revisit section 1.');
+  await f.call('/v1/items/'+work,{method:'POST',token:i.token,body:{body:'New instructions'}});
+  view=(await f.call('/v1/subjects/'+id,{token:s.token})).body;assert.equal(view.summary.completion_percent,75);assert.equal(view.summary.submitted,2);assert.equal(view.items.find(x=>x.id===work).submission,null);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE id=?').get(submission).n,1);
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id,enrolled:false}});
+  assert.equal((await f.call('/v1/subjects/'+id+'/learners/'+s.id,{token:i.token})).status,404);
+ }finally{await f.close();}
+});
+
+test('Excel export is a real, scoped workbook with literal strings, numeric results and pagination metadata',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('export-i@example.test','instructor'),s=await f.account('export-s@example.test','student');
+  f.app.db.prepare('UPDATE accounts SET name=? WHERE id=?').run('=HYPERLINK("https://example.invalid","Name") & <tag>',s.id);
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject C',description:'Export'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  const result=await f.call('/v1/subjects/'+id+'/export',{token:i.token});assert.equal(result.status,200);assert.equal(result.headers.get('cache-control'),'no-store');assert.equal(result.body.subarray(0,2).toString(),'PK');
+  const {spawnSync}=await import('node:child_process');
+  const checked=spawnSync('python3',['-c',`import sys,io,zipfile,xml.etree.ElementTree as E
+z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None
+n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Summary','Assessments','Report notes']
+for f in z.namelist():
+ if f.endswith('.xml'):
+  x=E.fromstring(z.read(f)); assert not x.findall('.//s:f',n)
+s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
+assert 'Total enrolled students' in z.read('xl/worksheets/sheet3.xml').decode()
+print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`],{input:result.body});
+  assert.equal(checked.status,0,checked.stderr?.toString());
+  const empty=await f.call('/v1/subjects/'+id+'/learners?offset=100',{token:i.token});assert.equal(empty.body.learners.length,0);assert.equal(empty.body.total,1);assert.equal(empty.body.next_offset,null);
+  assert.ok(f.app.db.prepare("SELECT id FROM audit WHERE action='gradebook-export' AND target_id=?").get(id));
+ }finally{await f.close();}
+});
+
+test('roster pagination is bounded and deletion removes written records and rejoining blocks',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('page-i@example.test','instructor'),s=await f.account('page-s@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Paged roster'}})).body.id;
+  const insert=f.app.db.prepare("INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at) VALUES(?,?,?,'student','test-only',0,1)"),enrol=f.app.db.prepare('INSERT INTO enrolments VALUES(?,?)');
+  for(let n=0;n<101;n++){const id=randomUUID();insert.run(id,'fixture'+n+'@example.test','Student '+String(n).padStart(3,'0'));enrol.run(subject,id);}
+  let page=(await f.call('/v1/subjects/'+subject+'/learners',{token:i.token})).body;assert.equal(page.learners.length,100);assert.equal(page.total,101);assert.equal(page.next_offset,100);
+  const second=(await f.call('/v1/subjects/'+subject+'/learners?offset=100',{token:i.token})).body;assert.equal(second.learners.length,1);assert.equal(second.next_offset,null);assert.ok(!page.learners.some(x=>x.student.id===second.learners[0].student.id));
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id}});
+  const item=(await f.call('/v1/subjects/'+subject+'/items',{method:'POST',token:i.token,body:{kind:'activity',title:'Output',body:'Write',published:true}})).body.id;
+  await f.call('/v1/items/'+item+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output:'Delete with my account'}});
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id,enrolled:false}});
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,1);
+  await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{status:'deleted',confirm_email:s.email}});
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,0);assert.equal(f.app.db.prepare('SELECT count(*) n FROM enrolment_blocks WHERE student_id=?').get(s.id).n,0);
+ }finally{await f.close();}
 });

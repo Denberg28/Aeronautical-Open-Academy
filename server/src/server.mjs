@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
+import { workbook } from './xlsx.mjs';
 import { openDatabase } from './store.mjs';
 import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES } from './security.mjs';
 
@@ -66,8 +67,34 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(attempt)copy.attempt=attempt;
   }
   const progress=get('SELECT completed,revision FROM progress WHERE student_id=? AND item_id=?',a.id,item.id);
-  copy.completed=item.kind==='quiz'?!!copy.attempt:!!(progress?.completed&&progress.revision===item.revision);
+  copy.assessment_type=item.assessment_type;
+  if(item.kind==='activity')copy.submission=get('SELECT id,revision,output,score,feedback,submitted_at,graded_at FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision)||null;
+  copy.completed=item.kind==='quiz'?!!copy.attempt:item.kind==='activity'?!!copy.submission:!!(progress?.completed&&progress.revision===item.revision);
   return copy;
+ }
+ // Published current revisions form the denominator; self-reported reading is never a grade.
+ function learnerView(student,subjectId,items,detail=false){
+  const progress=new Map(all('SELECT p.* FROM progress p JOIN items i ON i.id=p.item_id WHERE i.subject_id=? AND p.student_id=?',subjectId,student.id).map(p=>[p.item_id,p]));
+  const attempts=new Map(all('SELECT t.* FROM attempts t JOIN items i ON i.id=t.item_id WHERE i.subject_id=? AND t.student_id=? AND t.revision=i.revision',subjectId,student.id).map(t=>[t.item_id,t]));
+  const submissions=new Map(all('SELECT t.* FROM submissions t JOIN items i ON i.id=t.item_id WHERE i.subject_id=? AND t.student_id=? AND t.revision=i.revision',subjectId,student.id).map(t=>[t.item_id,t]));
+  let read=0,materials=0,submitted=0,required=0,graded=0;
+  const states=items.map(item=>{
+   const p=progress.get(item.id),q=attempts.get(item.id),w=submissions.get(item.id);
+   const done=item.kind==='material'?!!(p?.completed&&p.revision===item.revision):item.kind==='quiz'?!!q:!!w;
+   if(item.kind==='material'){materials++;if(done)read++;}else{required++;if(done)submitted++;if(q||w?.score!=null)graded++;}
+   const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.kind==='quiz'?1:item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
+   if(detail){result.body=item.body;result.output=w?.output||'';if(q)result.answer=JSON.parse(item.options_json)[q.choice];}
+   return result;
+  });
+  const pct=(n,d)=>d?Math.round(n*100/d):0;
+  const summary={read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
+  return {student:{id:student.id,name:student.name,email:student.email,status:student.status},summary,...(detail?{items:states}:{})};
+ }
+ const publishedItems=id=>all('SELECT * FROM items WHERE subject_id=? AND published=1 AND archived=0 ORDER BY created_at,id',id);
+ function reportPage(subjectId,offset){
+  const items=publishedItems(subjectId),total=get("SELECT count(*) n FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted'",subjectId).n;
+  const students=all("SELECT a.id,a.name,a.email,a.status FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 100 OFFSET ?",subjectId,offset);
+  return {items,students,total,offset,next_offset:offset+students.length<total?offset+students.length:null};
  }
  const server=createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'");
@@ -75,7 +102,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.2.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.3.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -114,7 +141,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     if(d.status==='deleted'){
      requireThat(d.confirm_email===target.email,400,'Confirm the exact email before account deletion.');
      run('UPDATE accounts SET status=?,email=?,name=?,password_hash=?,must_change_password=1 WHERE id=?','deleted',target.id+'@deleted.invalid','Deleted account','',target.id);
-     run('DELETE FROM enrolments WHERE student_id=?',target.id);run('DELETE FROM progress WHERE student_id=?',target.id);run('DELETE FROM attempts WHERE student_id=?',target.id);
+     run('DELETE FROM enrolments WHERE student_id=?',target.id);run('DELETE FROM enrolment_blocks WHERE student_id=?',target.id);run('DELETE FROM progress WHERE student_id=?',target.id);run('DELETE FROM attempts WHERE student_id=?',target.id);run('DELETE FROM submissions WHERE student_id=?',target.id);
     }else run('UPDATE accounts SET status=?,role=? WHERE id=?',d.status,nextRole,target.id);
     run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'account-'+d.status,target.id);return send(200,{status:d.status});
    }
@@ -125,16 +152,66 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if(path==='/v1/admin/enrolments'&&method==='POST'){
     admin(a);const d=payload;requireThat(get("SELECT 1 FROM accounts WHERE id=? AND role='student' AND status='active'",d.student_id),400,'Choose an active student.');subjectFor(a,d.subject_id);
-    if(d.enrolled===false)run('DELETE FROM enrolments WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);
-    else run('INSERT OR IGNORE INTO enrolments VALUES(?,?)',d.subject_id,d.student_id);
+    if(d.enrolled===false){run('DELETE FROM enrolments WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run('INSERT OR IGNORE INTO enrolment_blocks VALUES(?,?)',d.subject_id,d.student_id);}
+    else{run('DELETE FROM enrolment_blocks WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run('INSERT OR IGNORE INTO enrolments VALUES(?,?)',d.subject_id,d.student_id);}
     audit(a.id,d.enrolled===false?'unenrol':'enrol',d.student_id);return send(200,{saved:true});
    }
    if(path==='/v1/announcements'&&method==='GET')return send(200,{announcements:all('SELECT id,title,body,created_at FROM announcements WHERE archived=0 ORDER BY created_at DESC LIMIT 30')});
    if(path==='/v1/announcements'&&method==='POST'){admin(a);const d=payload,id=randomUUID();run('INSERT INTO announcements(id,title,body,author_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.body,'announcement',5000),a.id,now());audit(a.id,'announcement-create',id);return send(201,{id});}
    if((match=path.match(/^\/v1\/announcements\/([a-f0-9-]{36})$/))&&method==='DELETE'){admin(a);run('UPDATE announcements SET archived=1 WHERE id=?',match[1]);audit(a.id,'announcement-archive',match[1]);return send(200,{archived:true});}
+   if(path==='/v1/subjects/discover'&&method==='GET'){
+    requireThat(a.role==='student',403,'Student access required.');
+    const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0)));
+    const subjects=all('SELECT s.id,s.title,s.description FROM subjects s WHERE s.archived=0 AND s.self_enrol=1 AND NOT EXISTS(SELECT 1 FROM enrolment_blocks b WHERE b.subject_id=s.id AND b.student_id=?) AND NOT EXISTS(SELECT 1 FROM enrolments e WHERE e.subject_id=s.id AND e.student_id=?) ORDER BY s.title,s.id LIMIT 100 OFFSET ?',a.id,a.id,offset);
+    return send(200,{subjects});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/enrol$/))&&method==='POST'){
+    requireThat(a.role==='student',403,'Student access required.');
+    requireThat(get('SELECT 1 FROM subjects WHERE id=? AND archived=0 AND self_enrol=1',match[1]),404,'Self-enrollment is closed. Contact your administrator.');
+    requireThat(!get('SELECT 1 FROM enrolment_blocks WHERE subject_id=? AND student_id=?',match[1],a.id),404,'Enrollment requires administrator approval.');
+    run('INSERT OR IGNORE INTO enrolments VALUES(?,?)',match[1],a.id);audit(a.id,'self-enrol',match[1]);return send(200,{enrolled:true});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/learners(?:\/([a-f0-9-]{36}))?$/))&&method==='GET'){
+    subjectFor(a,match[1],true);
+    if(match[2]){
+     const student=get("SELECT a.id,a.name,a.email,a.status FROM accounts a JOIN enrolments e ON e.student_id=a.id WHERE a.id=? AND e.subject_id=? AND a.role='student' AND a.status<>'deleted'",match[2],match[1]);requireThat(student,404,'Enrolled student unavailable.');
+     return send(200,learnerView(student,match[1],publishedItems(match[1]),true));
+    }
+    const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(match[1],offset);
+    return send(200,{learners:page.students.map(s=>learnerView(s,match[1],page.items)),total:page.total,offset,next_offset:page.next_offset});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/export$/))&&method==='GET'){
+    const subject=subjectFor(a,match[1],true),offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(subject.id,offset);
+    const summary=[['Student ID','Name','Email','Account status','Read','Reading items','Read percent (self-reported)','Submitted','Required assessments','Compliance percent','Graded','Awaiting assessment','Completed items','Total items','Completion percent']];
+    const details=[['Student ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC']];
+    for(const student of page.students){const view=learnerView(student,subject.id,page.items,true),m=view.summary;
+     summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent]);
+     for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'']);
+    }
+    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz 0–1; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
+    audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
+   }
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/submission$/))&&method==='POST'){
+    const item=itemFor(a,match[1]),d=payload;requireThat(a.role==='student'&&item.kind==='activity',403,'Student written submission required.');
+    const output=text(d.output,'written output',12000),key=String(req.headers['idempotency-key']||'');requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');
+    const old=get('SELECT * FROM submissions WHERE student_id=? AND request_key=?',a.id,key);
+    if(old){requireThat(old.item_id===item.id&&old.revision===item.revision&&old.output===output,409,'This submission key was used for different work.');return send(200,{submitted:true});}
+    requireThat(!get('SELECT id FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision),409,'Work has already been submitted for this version.');
+    run('INSERT INTO submissions(id,student_id,item_id,revision,output,submitted_at,request_key) VALUES(?,?,?,?,?,?,?)',randomUUID(),a.id,item.id,item.revision,output,now(),key);audit(a.id,'work-submit',item.id);return send(201,{submitted:true});
+   }
+   if((match=path.match(/^\/v1\/submissions\/([a-f0-9-]{36})\/grade$/))&&method==='POST'){
+    const submission=get('SELECT * FROM submissions WHERE id=?',match[1]);requireThat(submission,404,'Submission unavailable.');
+    const item=itemFor(a,submission.item_id,true);requireThat(submission.revision===item.revision,409,'This work belongs to an older item revision.');
+    requireThat(get('SELECT 1 FROM enrolments WHERE subject_id=? AND student_id=?',item.subject_id,submission.student_id),404,'Student is no longer enrolled.');
+    const d=payload;requireThat(typeof d.score==='number'&&Number.isFinite(d.score)&&d.score>=0&&d.score<=100,400,'Score must be 0–100.');
+    const feedback=d.feedback===''?'':text(d.feedback,'feedback',1000);
+    requireThat((d.expected_graded_at??null)===submission.graded_at,409,'The assessment changed. Refresh before saving.');
+    const gradedAt=Math.max(now(),(submission.graded_at||0)+1);
+    run('UPDATE submissions SET score=?,feedback=?,grader_id=?,graded_at=? WHERE id=?',d.score,feedback,a.id,gradedAt,submission.id);audit(a.id,'work-grade',submission.id);return send(200,{graded:true});
+   }
    if(path==='/v1/subjects'&&method==='GET'){
     const rows=a.role==='admin'?all('SELECT * FROM subjects WHERE archived=0 ORDER BY title LIMIT 200'):a.role==='instructor'?all('SELECT * FROM subjects WHERE archived=0 AND owner_id=? ORDER BY title LIMIT 200',a.id):all('SELECT s.* FROM subjects s JOIN enrolments e ON e.subject_id=s.id WHERE e.student_id=? AND s.archived=0 ORDER BY s.title LIMIT 200',a.id);
-    return send(200,{subjects:rows});
+    return send(200,{subjects:rows.map(s=>a.role==='student'?{...s,summary:learnerView(a,s.id,publishedItems(s.id)).summary}:s)});
    }
    if(path==='/v1/subjects'&&method==='POST'){
     requireThat(a.role==='admin'||a.role==='instructor',403,'Instructor access required.');const d=payload,id=randomUUID();
@@ -143,30 +220,32 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
     const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i));
-    return send(200,{subject,items});
+    return send(200,{subject,items,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
-    subjectFor(a,match[1],true);const d=payload;run('UPDATE subjects SET title=?,description=? WHERE id=?',text(d.title,'title',160),text(d.description,'description',1000),match[1]);audit(a.id,'subject-edit',match[1]);return send(200,{saved:true});
+    const old=subjectFor(a,match[1],true),d=payload;
+    requireThat(d.self_enrol===undefined||typeof d.self_enrol==='boolean',400,'Set self_enrol true or false.');
+    run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);audit(a.id,'subject-edit',match[1]);return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
-    subjectFor(a,match[1],true);const d=payload;requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
+    subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
     let options=null,answer=null;
     if(d.kind==='quiz'){
      requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
      requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
     }
-    const id=randomUUID();run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now());audit(a.id,'item-create',id);return send(201,{id});
+    const id=randomUUID();run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now());run('UPDATE items SET assessment_type=? WHERE id=?',examination?'examination':'standard',id);audit(a.id,'item-create',id);return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const item=itemFor(a,match[1],true),d=payload;
     // Ownership/kind/subject cannot be reassigned. Quiz answer changes require a new item.
-    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
+    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+? WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,(title!==item.title||body!==item.body)?1:0,item.id);audit(a.id,'item-edit',item.id);return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/complete$/))&&method==='POST'){
-    const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind!=='quiz',409,'Submit the quiz to record completion.');const d=payload;
+    const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind==='material',409,'Submit an answer or written output to record completion.');const d=payload;
     requireThat(typeof d.completed==='boolean',400,'Set completed true or false.');run('INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(student_id,item_id) DO UPDATE SET completed=excluded.completed,revision=excluded.revision,updated_at=excluded.updated_at',a.id,item.id,item.revision,d.completed?1:0,now());return send(200,{completed:d.completed});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/quiz$/))&&method==='POST'){

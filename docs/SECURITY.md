@@ -2,7 +2,7 @@
 
 ## Enforced in code
 
-- Default-deny authenticated account API. No public registration, role switching, enrollment, grade write, direct file path, or unauthenticated protected-material route.
+- Default-deny authenticated account API. No public registration, client-selected roles/grades, direct file paths or unauthenticated protected-material routes. Student self-enrollment is allowed only for instructor-opened subjects; administrative removal blocks rejoining until restored.
 - Current account status/role, session expiry/idle timeout, creator ownership, enrollment, and published state are checked on the server. Old opaque tokens do not retain authority after suspension, deletion, reset, role change, or successful logout.
 - Passwords use salted asynchronous scrypt (production N=131072, r=8, p=1) with bounded concurrent derivations. Tests explicitly use a lower-cost fixture to keep the suite quick. Client stores only a Keystore-encrypted session token.
 - Admin-only account operations require a sign-in within 15 minutes. First-use temporary password change is required. Last-admin/self-lockout protection prevents accidental administrator removal.
@@ -16,10 +16,16 @@
 
 Access control cannot stop a legitimate reader from photographing or otherwise copying visible content. Already exported offline bytes cannot be immediately revoked. An in-progress authorized response/current rendered page is not guaranteed to disappear instantly after suspension. Protected student offline storage is disabled rather than claiming revocable offline DRM.
 
-Student activity checkmarks are self-reported completion, not a grade. Quiz submitted/completed and quiz passed are separate. Account deletion anonymizes account identity and removes that student's enrollment/progress/attempts; authored content remains for administrator review. Organization retention/backup policy must be established before real data is introduced.
+Material read/unread is self-reported, not a grade. Activities and written examinations require an immutable output; quizzes require an actual attempt. Submitted/completed and graded/passed are separate; no pass/fail is inferred. Grading uses an optimistic timestamp to prevent stale overwrites. Account deletion anonymizes account identity and removes that student's enrollment/blocks/progress/attempts/written submissions; authored content remains for administrator review. Organization retention/backup policy must be established before real data is introduced.
 
 ## Required before institutional use
 
 Verify HTTPS host/reverse proxy, DNS, organization identity/Drive membership, scoped secret handling/rotation, password delivery/recovery, administrator MFA/organization access safeguards, backup restoration, monitoring/rate limits, approved PDF scanning/accessibility, intended load, Android runtime/permissions/caching, signing continuity, and adversarial access tests against the actual deployed service. There is no blanket claim of production readiness from unit tests.
 
 The local development store is not a public download directory. Production startup requires Drive configuration. Backend data directories, environment/keystore/service-account files, and private key material are excluded from Git. Do not deploy test-mode fixtures or default credentials.
+
+## Learner privacy and exports
+
+Roster/detail/Excel routes require the subject owner or administrator; item grading additionally requires creator ownership/admin. Students receive only their own outputs/results. Discover exposes only opt-in subject title/description/ID. Export uses explicit fields and literal inline string cells, so formula-like names/feedback are not formulas. It includes account identity and results; it never includes keys, direct file references or full written answers. Exports are audited, authenticated and no-store, saved only after explicit user destination selection. Exported data cannot be revoked. Do not attach real learner spreadsheets to public issues/releases.
+
+Android written drafts are AES-GCM encrypted with the device Keystore, scoped by account/item/revision, and removed on sign-out or session invalidation. Completed final submissions clear the local draft. Server submissions remain authoritative. Offline final submit and private course/result caching are not offered. Device lifecycle/storage-failure validation is still required.

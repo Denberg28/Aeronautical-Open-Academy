@@ -36,5 +36,13 @@ final class AccountVault {
         try{Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(prefs.getString("iv",""),Base64.NO_WRAP)));return new String(c.doFinal(Base64.decode(prefs.getString("token",""),Base64.NO_WRAP)),StandardCharsets.UTF_8);}
         catch(Exception e){clear();return "";}
     }
-    void clear(){prefs.edit().remove("token").remove("iv").commit();}
+    String draft(String id){
+        try{String value=prefs.getString("draft:"+id,"");if(value.isEmpty())return "";String[] parts=value.split(":",2);Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(parts[0],Base64.NO_WRAP)));return new String(c.doFinal(Base64.decode(parts[1],Base64.NO_WRAP)),StandardCharsets.UTF_8);}catch(Exception e){return "";}
+    }
+    boolean saveDraft(String id,String value){
+        if(id.isEmpty()||token().isEmpty())return false;
+        try{Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.ENCRYPT_MODE,key());return prefs.edit().putString("draft:"+id,Base64.encodeToString(c.getIV(),Base64.NO_WRAP)+":"+Base64.encodeToString(c.doFinal(value.getBytes(StandardCharsets.UTF_8)),Base64.NO_WRAP)).commit();}catch(Exception e){return false;}
+    }
+    void removeDraft(String id){prefs.edit().remove("draft:"+id).commit();}
+    void clear(){SharedPreferences.Editor edit=prefs.edit();for(String name:prefs.getAll().keySet())if(name.startsWith("draft:"))edit.remove(name);edit.commit();prefs.edit().remove("token").remove("iv").commit();}
 }

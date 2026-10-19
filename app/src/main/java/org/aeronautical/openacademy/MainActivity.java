@@ -69,6 +69,7 @@ public final class MainActivity extends AppCompatActivity {
             }
         });
         render();
+        if(state==null&&pendingCode.isEmpty()&&getIntent().getData()==null&&!new AccountVault(this).token().isEmpty())startActivity(new Intent(this,WorkspaceActivity.class));
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("tab",tab);state.putString("subject",subjectId);state.putString("query",query);

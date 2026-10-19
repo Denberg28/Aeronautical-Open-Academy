@@ -30,7 +30,20 @@ Authenticated routes require `Authorization: Bearer <opaque-session-token>`. JSO
 - GET/POST /v1/announcements; DELETE /v1/announcements/{id}.
 - GET/POST /v1/subjects; GET/POST/PATCH /v1/subjects/{id}; POST /v1/subjects/{id}/items.
 - GET/POST/PATCH /v1/items/{id}; POST /v1/items/{id}/file; GET /v1/items/{id}/content.
-- POST /v1/items/{id}/complete with completed boolean (material/activity only).
+- POST /v1/items/{id}/complete with completed boolean (material reading only).
 - POST /v1/items/{id}/quiz with choice index and Idempotency-Key UUID. Grades are server-generated.
 
 Roles are server-stored, never accepted from session/client metadata as authorization. Student subject access requires enrollment and published items. All sensitive admin actions enforce fresh sign-in and prevent removing the last active administrator. Sessions are revoked on account access changes; deleted account identity/learning data is removed while authored materials are retained for admin review.
+
+## Enrollment, assessment and Excel (0.3)
+
+- GET /v1/subjects/discover?offset=0: student-only, title/description/ID of open subjects not already joined or blocked. POST /v1/subjects/{id}/enrol: authenticated student only; idempotent. POST /v1/subjects/{id} with self_enrol boolean: subject owner/admin. Default closed. Administrative removal creates a rejoining block; administrative enrollment removes it.
+- POST /v1/subjects/{id}/items additionally accepts kind examination, stored as a written activity with assessment_type examination. Maximum 200 nonarchived items/subject. Existing kinds remain valid.
+- POST /v1/items/{id}/submission with output (1–12,000 characters) and Idempotency-Key UUID. One immutable written activity/exam submission per student/current revision. Never accept a student-supplied grade. Material /complete is read/unread only.
+- GET /v1/subjects/{id}/learners?offset=0: owner/admin, up to 100 students, summary measures, total and next_offset. GET /v1/subjects/{id}/learners/{student_id}: current published outputs/choices/results, feedback and graded_at. Student subject/list responses include only their own progress/results.
+- POST /v1/submissions/{id}/grade: authorized creator/admin, score numeric 0–100, feedback ≤1,000 characters (empty permitted), expected_graded_at null for first assessment or last returned timestamp. Stale edits return 409. Subject owner can see roster but cannot edit another creator's content.
+- GET /v1/subjects/{id}/export?offset=0: owner/admin, no-store authenticated genuine XLSX, up to 100 students/file. Summary/Assessments/Report notes include scope, total and next offset. Current published revisions only. No answer keys or full written output in export. Audit event records export; confidential file leaves application control when saved.
+
+Schema v1 → v2 migrates transactionally at startup. Back up the stopped service's database/WAL/materials before upgrading. Reopening v2 preserves data; versions newer than supported are refused. Roll back by restoring the complete matching backup/server, never by running the old server on v2. Upgrade app/backend together: previous activity self-completion is replaced by written submission. Historical attempts/submissions stay stored until deletion/retention review; current UI/report excludes prior revisions. Single-instance capacity and ≤2 s API target need deployment measurement.
+
+The OOXML writer uses built-in zlib, literal inline string cells, numeric result cells, ZIP CRC and fixed workbook relationships. No formulas, macros or external links are generated. Tests independently parse ZIP/XML with Python standard libraries; real Excel/Android document-provider checks remain a device/operator gate.
