@@ -435,3 +435,25 @@ test('drafts, changed links, removed enrollment and suspension cannot open a mat
   await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{status:'suspended'}});assert.equal((await open('https://www.example.org/replacement',2)).status,401);
  }finally{await f.close();}
 });
+
+test('entry order is owner-controlled, atomic, persistent and independent of learning revisions',async()=>{
+ const f=await fixture();try{
+  const owner=await f.account('sequence-owner@example.test','instructor'),other=await f.account('sequence-other@example.test','instructor'),student=await f.account('sequence-student@example.test','student','SEQ-001');
+  const created=await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Sequence subject',description:'Practice order'}}),subject=created.body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{student_id:student.id,subject_id:subject,enrolled:true}});
+  const ids=[];for(const title of ['First','Second','Third']){const r=await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',material_mode:'text',title,body:title,published:true}});assert.equal(r.status,201);ids.push(r.body.id);}
+  await f.call(`/v1/items/${ids[0]}/complete`,{method:'POST',token:student.token,body:{completed:true}});
+  const course=await f.call(`/v1/subjects/${subject}`,{token:owner.token}),revision=course.body.subject.order_revision,order={item_ids:[...ids].reverse(),expected_revision:revision};
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:student.token,body:order})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:other.token,body:order})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{...order,item_ids:[ids[0],ids[0],ids[2]]}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:order})).status,200);
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:order})).status,409);
+  const view=await f.call(`/v1/subjects/${subject}`,{token:student.token});assert.deepEqual(view.body.items.map(i=>i.id),[...ids].reverse());assert.equal(view.body.summary.read,1);assert.ok(view.body.items.every(i=>i.revision===1));
+  const added=await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',material_mode:'text',title:'Fourth',body:'Appended',published:true}});
+  const latest=await f.call(`/v1/subjects/${subject}`,{token:owner.token});assert.equal(latest.body.items.at(-1).id,added.body.id);
+  await f.call(`/v1/items/${ids[1]}`,{method:'POST',token:owner.token,body:{archived:true,expected_edit_version:1}});
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{item_ids:latest.body.items.map(i=>i.id),expected_revision:latest.body.subject.order_revision}})).status,409);
+  assert.ok(!(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body.items.some(i=>i.id===ids[1]));
+ }finally{await f.close();}
+});

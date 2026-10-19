@@ -2,28 +2,30 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.6.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.7.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
 ## Try the three roles on one phone
 
-The development **test APK** includes a persistent, device-local test workspace. Open **Account workspace**, leave **Local test accounts** checked, choose a role, tap **Fill test account**, then **Sign in**. No server address or internet is needed for local account workflows. External materials still need their provider’s internet/access.
+Open **Sign in**, leave **Local test accounts** checked and enter:
 
-| Role | Local test email | Default password |
+| Role | Username | Password |
 | --- | --- | --- |
-| Admin | `admin@academy.test` | `AcademyTest2026!` |
-| Instructor | `instructor@academy.test` | `AcademyTest2026!` |
-| Student | `student@academy.test` | `AcademyTest2026!` |
+| Admin | `admin` | `admin` |
+| Instructor | `instructor` | `instructor` |
+| Student | `student` | `student` |
 
-Student ID: `TEST-001`. A practice subject with reading, written work and a quiz is already enrolled. Admin → Menu → Accounts → Register account creates more instructor/student accounts, with mandatory first-login password changes. Instructor → Open subject → Add learning item creates links/text, activities, quizzes, examinations or uploaded PDFs. Student → Open subject can read PDFs/materials, mark reading done, submit work and view results. Switch back to the instructor to assess work through Students & compliance; results stay available to the student. Use Menu → Sign out to switch roles; all accounts on that installation share the saved test workspace.
+These defaults are for the development test APK’s local workspace. No server is required. Student ID: `TEST-001`. The original `@academy.test` email aliases also work with the new matching passwords. Previous unchanged defaults migrate automatically; customized passwords remain unchanged. Subjects, files and learning records are preserved. Reset local test data restores defaults after confirmation.
 
-**Synthetic data only.** Test accounts, PDF files and records stay in app-private storage on this installation; there is no synchronization between phones. On the sign-in screen, **Reset local test data** confirms deletion of local test work before restoring defaults. Test mode is disabled in release builds. Uncheck Local test accounts to use an organization HTTPS server; the production backend has no default credentials or demo seeding.
+Open a subject as admin or instructor → tap **+** below the last entry → choose Material / links, Quiz, Written activity, Written examination or PDF → enter text → **Done**. Web addresses become clickable references. The first line supplies the title. Done saves and publishes; PDF entries require a selected file and publish after upload. The list scrolls to its final entry and the + button remains below it. Hold the drag handle to move entries; drop above/below another entry or on + to append. Entry **⋮** offers Edit, Move up, Move down and Delete. Deleting removes the entry from the current course while retaining historical learning records. Subject QR, eligibility, enrollment and student reports are in Menu.
+
+Sign out to switch roles. All local accounts share the saved test workspace on this installation; nothing synchronizes across phones. Use synthetic data. Organization sign-in still requires an HTTPS backend and its own accounts; short default credentials never authenticate to that service. Test mode is disabled in release builds.
 
 ## Minimal workflow
 
 - Student: sign in → enrolled subjects with progress bars → read / submit written work or quiz → My results. Use the left Menu to scan the instructor’s subject QR; eligible accounts enroll automatically.
-- Instructor: create subject → Material text / links (one field) or activity/quiz/written examination → review/publish → set eligible student IDs or All students → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
+- Instructor: create subject → + → enter material/quiz/work → Done → Menu → set eligible student IDs or All students → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
 - Admin: register accounts → assign role → enroll students → manage suspension/reactivation/deletion and password reset → publish global announcements. Administrators can oversee all content.
 
 Students cannot self-register, select their own role, join ineligible/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Automatic enrollment is instructor-controlled and defaults closed. Admins assign verified unique student ID numbers; instructors allow those IDs or select All students. Administrative removal blocks rejoining; admin/pre-update enrollments remain overrides. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. Written activities/exams accept text output; quizzes have one question per item.

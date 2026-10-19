@@ -1,6 +1,6 @@
 {
   "name": "aeronautical-open-academy-server",
-  "version": "0.5.0-alpha.1",
+  "version": "0.7.0-alpha.1",
   "private": true,
   "type": "module",
   "engines": { "node": "24.x" },

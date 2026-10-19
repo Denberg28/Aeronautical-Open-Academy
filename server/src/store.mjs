@@ -5,7 +5,7 @@ export function openDatabase(path){
   if(path!==':memory:')mkdirSync(dirname(path),{recursive:true,mode:0o700});
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>4){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>5){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
   if(version<2){
@@ -48,6 +48,16 @@ export function openDatabase(path){
     db.exec(`BEGIN IMMEDIATE;
       ALTER TABLE items ADD COLUMN material_mode TEXT NOT NULL DEFAULT 'file' CHECK(material_mode IN ('file','text'));
       PRAGMA user_version=4;
+      COMMIT;`);
+  }
+  if(version<5){
+    db.exec(`BEGIN IMMEDIATE;
+      ALTER TABLE subjects ADD COLUMN order_revision INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+      WITH ranked AS (SELECT id,ROW_NUMBER() OVER (PARTITION BY subject_id ORDER BY created_at,id)-1 AS position FROM items)
+      UPDATE items SET sort_order=(SELECT position FROM ranked WHERE ranked.id=items.id);
+      CREATE INDEX items_sequence ON items(subject_id,archived,sort_order,created_at,id);
+      PRAGMA user_version=5;
       COMMIT;`);
   }
   db.exec('PRAGMA busy_timeout=5000;');

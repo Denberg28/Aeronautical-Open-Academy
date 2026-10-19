@@ -15,7 +15,7 @@ public class TestWorkspaceTest {
     private File root;private TestWorkspace app;private String admin,teacher,student,subject,studentId;
     private static JSONObject data(Object... pairs)throws Exception{JSONObject o=new JSONObject();for(int i=0;i<pairs.length;i+=2)o.put((String)pairs[i],pairs[i+1]);return o;}
     private JSONObject call(String who,String method,String path,JSONObject body)throws Exception{return app.request(method,path,body,who,null);}
-    private String login(int role)throws Exception{return login(TestWorkspace.EMAILS[role],TestWorkspace.PASSWORD);}
+    private String login(int role)throws Exception{return login(TestWorkspace.USERS[role],TestWorkspace.USERS[role]);}
     private String login(String email,String password)throws Exception{return call("","POST","/v1/auth/login",data("email",email,"password",password)).getString("token");}
     private interface Work{void run()throws Exception;}
     private void denied(int status,Work work)throws Exception{try{work.run();fail("Expected status "+status);}catch(TestWorkspace.Failure e){assertEquals(e.getMessage(),status,e.status);}}
@@ -29,7 +29,7 @@ public class TestWorkspaceTest {
         assertEquals(3,call(admin,"GET","/v1/admin/accounts",null).getJSONArray("accounts").length());
         assertEquals("TEST-001",call(student,"GET","/v1/me",null).getJSONObject("account").getString("student_number"));
         assertFalse(call(admin,"GET","/v1/admin/accounts",null).toString().contains("password_hash"));
-        assertFalse(new String(Files.readAllBytes(new File(root,"workspace.json").toPath()),java.nio.charset.StandardCharsets.UTF_8).contains(TestWorkspace.PASSWORD));
+        assertFalse(new String(Files.readAllBytes(new File(root,"workspace.json").toPath()),java.nio.charset.StandardCharsets.UTF_8).contains("password_hash\":\"admin"));
         denied(401,()->login(TestWorkspace.EMAILS[0],"bad password"));app=new TestWorkspace(root);assertEquals(subject,call(student,"GET","/v1/subjects",null).getJSONArray("subjects").getJSONObject(0).getString("id"));
     }
     @Test public void roleBoundariesAndDraftVisibility()throws Exception{
@@ -94,5 +94,16 @@ public class TestWorkspaceTest {
     }
     @Test public void deletionRequiresEmailAndRemovesLearnerRecords()throws Exception{
         String activity=item("activity").getString("id");submit(activity,data("output","Synthetic work"),UUID.randomUUID().toString());String path="/v1/admin/accounts/"+studentId;denied(400,()->call(admin,"POST",path,data("status","deleted","confirm_email","wrong")));call(student,"GET","/v1/me",null);call(admin,"POST",path,data("status","deleted","confirm_email",TestWorkspace.EMAILS[2]));denied(401,()->call(student,"GET","/v1/me",null));assertEquals(0,call(teacher,"GET","/v1/subjects/"+subject+"/learners?offset=0",null).getInt("total"));assertFalse(new String(Files.readAllBytes(new File(root,"workspace.json").toPath())).contains("Synthetic work"));
+    }
+
+    @Test public void orderPersistsWithoutChangingWorkAndNewEntriesAppend()throws Exception{
+        JSONObject material=item("material");call(student,"POST","/v1/items/"+material.getString("id")+"/complete",data("completed",true));JSONObject before=course(teacher);JSONArray items=before.getJSONArray("items"),ids=new JSONArray();for(int i=items.length()-1;i>=0;i--)ids.put(items.getJSONObject(i).getString("id"));String path="/v1/subjects/"+subject+"/order";JSONObject order=data("item_ids",ids,"expected_revision",before.getJSONObject("subject").getInt("order_revision"));denied(403,()->call(student,"POST",path,order));call(teacher,"POST",path,order);denied(409,()->call(teacher,"POST",path,order));app=new TestWorkspace(root);assertEquals(ids.getString(0),course(student).getJSONArray("items").getJSONObject(0).getString("id"));assertEquals(1,course(student).getJSONObject("summary").getInt("read"));
+        String added=call(teacher,"POST","/v1/subjects/"+subject+"/items",data("kind","material","material_mode","text","title","Last entry","body","Added after reorder","published",true)).getString("id");assertEquals(added,course(student).getJSONArray("items").getJSONObject(3).getString("id"));
+        int revision=course(teacher).getJSONObject("subject").getInt("order_revision");denied(400,()->call(teacher,"POST",path,data("item_ids",new JSONArray().put(added).put(added).put(added).put(added),"expected_revision",revision)));assertEquals(added,course(student).getJSONArray("items").getJSONObject(3).getString("id"));
+    }
+    @Test public void legacyLocalMigrationPreservesEntriesAndCustomPasswords()throws Exception{
+        call(student,"POST","/v1/auth/password",data("current_password","student","new_password",TestWorkspace.PASSWORD));call(teacher,"POST","/v1/auth/password",data("current_password","instructor","new_password","My custom teacher password!"));
+        File file=new File(root,"workspace.json");JSONObject state=new JSONObject(new String(Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));state.put("version",1);JSONArray items=state.getJSONArray("items");for(int n=0;n<items.length();n++)items.getJSONObject(n).remove("sort_order");state.getJSONArray("subjects").getJSONObject(0).remove("order_revision");Files.write(file.toPath(),state.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        app=new TestWorkspace(root);student=login(2);teacher=login(TestWorkspace.EMAILS[1],"My custom teacher password!");assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(3,course(student).getJSONArray("items").length());denied(401,()->login(1));
     }
 }

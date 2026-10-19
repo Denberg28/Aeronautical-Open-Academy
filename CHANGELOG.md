@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0-alpha.1
+
+- Replace multiple material forms with bottom + → type/text → Done, a compact entry menu, drag sequencing and accessible move commands.
+- Save ordering without invalidating learner work; retain history when entries are deleted.
+- Change local defaults to admin/admin, instructor/instructor and student/student; migrate unchanged defaults and retain custom passwords/data.
+- Add transactionally migrated backend ordering and conflict checks, local migration/ordering tests and lifecycle draft restoration.
+
 ## 0.6.0-alpha.1
 
 - Add device-local default admin/instructor/student test accounts and role picker in debug APK.

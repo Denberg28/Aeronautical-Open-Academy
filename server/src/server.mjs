@@ -109,7 +109,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   const summary={read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
   return {student:{id:student.id,name:student.name,email:student.email,status:student.status,student_number:student.student_number??null},summary,...(detail?{items:states}:{})};
  }
- const publishedItems=id=>all('SELECT * FROM items WHERE subject_id=? AND published=1 AND archived=0 ORDER BY created_at,id',id);
+ const publishedItems=id=>all('SELECT * FROM items WHERE subject_id=? AND published=1 AND archived=0 ORDER BY sort_order,created_at,id',id);
  function reportPage(subjectId,offset){
   const items=publishedItems(subjectId),total=get("SELECT count(*) n FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted'",subjectId).n;
   const students=all("SELECT a.id,a.name,a.email,a.status,a.student_number FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 100 OFFSET ?",subjectId,offset);
@@ -121,7 +121,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.5.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.7.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -256,7 +256,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     run('INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.description,'description',1000),owner,now());audit(a.id,'subject-create',id);return send(201,{id});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
-    const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i));
+    const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i));
     return send(200,{subject,items,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -264,6 +264,14 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat((d.expected_description===undefined||d.expected_description===old.description)&&(d.expected_title===undefined||d.expected_title===old.title),409,'Subject text changed. Refresh before saving.');
     requireThat(d.self_enrol===undefined||typeof d.self_enrol==='boolean',400,'Set self_enrol true or false.');
     transaction(()=>{run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);if(d.self_enrol!==undefined){run('UPDATE subjects SET eligibility_all=?,eligibility_revision=eligibility_revision+1 WHERE id=?',d.self_enrol?1:0,old.id);run('DELETE FROM eligible_students WHERE subject_id=?',old.id);if(!d.self_enrol)run("DELETE FROM enrolments WHERE subject_id=? AND source IN ('qr','self')",old.id);}audit(a.id,'subject-edit',match[1]);});return send(200,{saved:true});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/order$/))&&method==='POST'){
+    const subject=subjectFor(a,match[1],true),d=payload;
+    requireThat(Number.isInteger(d.expected_revision)&&d.expected_revision===subject.order_revision,409,'Entries changed. Refresh before moving them.');
+    const current=all('SELECT id FROM items WHERE subject_id=? AND archived=0',subject.id).map(i=>i.id);
+    requireThat(Array.isArray(d.item_ids)&&d.item_ids.length===current.length&&new Set(d.item_ids).size===current.length&&d.item_ids.every(id=>typeof id==='string'&&current.includes(id)),400,'Move the current entries of this subject only.');
+    transaction(()=>{d.item_ids.forEach((id,index)=>run('UPDATE items SET sort_order=? WHERE id=?',index,id));run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',subject.id);audit(a.id,'item-order',subject.id);});
+    return send(200,{saved:true,revision:subject.order_revision+1});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
     subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
@@ -277,7 +285,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
     requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
     requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
-    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');audit(a.id,'item-create',id);});return send(201,{id});
+    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -288,7 +296,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
     const changed=title!==item.title||body!==item.body;
-    transaction(()=>{run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,changed?1:0,item.id);audit(a.id,'item-edit',item.id);});return send(200,{saved:true});
+    transaction(()=>{run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,changed?1:0,item.id);if(d.archived===true)run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',item.subject_id);audit(a.id,'item-edit',item.id);});return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/open-link$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(Number.isInteger(payload.expected_revision)&&payload.expected_revision===item.revision,409,'This material changed. Refresh and review the link before opening it.');

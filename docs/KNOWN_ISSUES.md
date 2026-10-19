@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.6.0-alpha.1
+# Known issues and verification limits — 0.7.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -31,3 +31,7 @@ Public source delivery is authorized. No public repository visibility change is 
 ### Local test workspace
 
 Debug/test APK only; not an institutional deployment. Local accounts and files share one installation, persist across sign-out/relaunch, and are removed by reset, app-data clearing or uninstall. Do not put real learner data or protected material in the sandbox. Synthetic default credentials are public by design and grant no backend access. Local tests cover workflow/role behavior, not production authentication security or server synchronization. External host permissions and actual PDF rendering/file pickers/Excel apps still need physical-device checks. Test data JSON is bounded at 16 MB; each PDF at 50 MB. Reset is the recovery path for corrupted test state, with explicit confirmation. Existing debug installs may require uninstall if CI debug signing keys differ; export any wanted test PDFs/reports first.
+
+### 0.7 entry editor/ordering compatibility
+
+Organization sequencing requires the matching server with schema v5; the APK cannot upgrade a remotely hosted server. Back up before migration; old servers deliberately reject schema v5. Local workspace v2 preserves prior entries and migrates unchanged synthetic default passwords, retaining customized passwords. Old APKs cannot read local v2 without reverting/restoring/resetting test data. Deleted entries are archived: hidden from current views/denominators, with historical work retained. New failed PDF uploads remain unpublished drafts for retry; an upload and metadata publication are separate requests. Existing quiz choices/answers remain immutable; create a new quiz to change them. Physical-device drag/autoscroll, font scaling, file-picker rotation and editor recovery remain NOT TESTED.
