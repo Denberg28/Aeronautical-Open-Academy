@@ -1,33 +1,39 @@
-✔ passwords are salted and verified; ownership never follows a client role claim (143.276256ms)
-✔ registration is admin-only; temporary passwords and user-selected roles do not grant access (513.552465ms)
-✔ subject enrolment, creator ownership, draft visibility, and answer-key isolation (888.029034ms)
-✔ quiz grading is server-side, idempotent, bounded, and separate from completion flags (677.323296ms)
-✔ suspension, deletion, logout and expiry revoke access rather than relying on UI (735.719422ms)
-✔ protected files require enrolment and creator authority; view does not grant offline permission (871.404567ms)
-✔ global announcements are admin-only and visible to active accounts (366.361376ms)
-✔ role changes and password resets revoke old sessions; unauthorized ownership writes fail (502.650682ms)
-✔ suspension during an upstream upload wins before publishing metadata (365.997166ms)
-✔ self-enrollment is opt-in, identity-bound and idempotent; discovery never reveals protected content (798.029834ms)
-✔ reading, written output, exams, quiz results and grading have separate revision-aware measures (1070.366045ms)
-✔ Excel export is a real, scoped workbook with literal strings, numeric results and pagination metadata (651.537089ms)
-✔ roster pagination is bounded and deletion removes written records and rejoining blocks (810.065977ms)
-✔ student IDs are admin-managed, normalized, unique, and not trusted from enrollment payloads (833.632593ms)
-✔ all-students, narrowing eligibility, administrative overrides, blocks and suspension obey authority (1006.821607ms)
-✔ correcting or deleting an ID removes old eligibility, automatic enrollments and sessions without losing work (618.780117ms)
+✔ passwords are salted and verified; ownership never follows a client role claim (151.148468ms)
+✔ registration is admin-only; temporary passwords and user-selected roles do not grant access (546.396651ms)
+✔ subject enrolment, creator ownership, draft visibility, and answer-key isolation (848.656517ms)
+✔ quiz grading is server-side, idempotent, bounded, and separate from completion flags (595.07221ms)
+✔ suspension, deletion, logout and expiry revoke access rather than relying on UI (784.516412ms)
+✔ protected files require enrolment and creator authority; view does not grant offline permission (969.531434ms)
+✔ global announcements are admin-only and visible to active accounts (406.110594ms)
+✔ role changes and password resets revoke old sessions; unauthorized ownership writes fail (500.098778ms)
+✔ suspension during an upstream upload wins before publishing metadata (402.959085ms)
+✔ self-enrollment is opt-in, identity-bound and idempotent; discovery never reveals protected content (907.944283ms)
+✔ reading, written output, exams, quiz results and grading have separate revision-aware measures (1213.867926ms)
+✔ Excel export is a real, scoped workbook with literal strings, numeric results and pagination metadata (716.386855ms)
+✔ roster pagination is bounded and deletion removes written records and rejoining blocks (776.183527ms)
+✔ student IDs are admin-managed, normalized, unique, and not trusted from enrollment payloads (858.712605ms)
+✔ all-students, narrowing eligibility, administrative overrides, blocks and suspension obey authority (1041.487064ms)
+✔ correcting or deleting an ID removes old eligibility, automatic enrollments and sessions without losing work (640.68651ms)
 academy request failed: ERR_SQLITE_ERROR
-✔ account edits roll back on failure, and the subject owner can assess administrator-authored work (574.159756ms)
-✔ stale content edits and upload completion cannot overwrite a newer item version (445.277264ms)
+✔ account edits roll back on failure, and the subject owner can assess administrator-authored work (587.573743ms)
+✔ stale content edits and upload completion cannot overwrite a newer item version (350.686264ms)
 academy request failed: ERR_SQLITE_ERROR
-✔ material metadata and audit fail atomically, preserving the prior readable PDF (3396.954621ms)
-✔ Drive token/upload stay server-side, stream bytes, and preserve private references (14.367225ms)
-✔ Drive upload cannot redirect a server credential to an unapproved host (2.151606ms)
-✔ v1 data migrates without changing identity, enrollment, file references or results; v3 reopens safely (31.461336ms)
-✔ published v2 database upgrades to v3 with prior enrollments, open courses and assessed work intact (19.184781ms)
-ℹ tests 23
+✔ material metadata and audit fail atomically, preserving the prior readable PDF (3389.87609ms)
+✔ text-first materials work without file storage; links remain private references and do not imply reading (1097.446187ms)
+✔ drafts, changed links, removed enrollment and suspension cannot open a material through stale metadata (574.464173ms)
+✔ Drive token/upload stay server-side, stream bytes, and preserve private references (18.653063ms)
+✔ Drive upload cannot redirect a server credential to an unapproved host (2.065518ms)
+✔ web references allow public HTTP/HTTPS services while blocking unsafe schemes, credentials and local destinations (7.4726ms)
+✔ inline extraction preserves balanced URL punctuation and exact-reference checks reject replaced or injected URLs (1.58667ms)
+✔ production links-only startup needs no Drive credential or material directory (1238.628872ms)
+✔ v1 data migrates without changing identity, enrollment, file references or results; v4 reopens safely (38.373984ms)
+✔ published v2 database upgrades to v4 with prior enrollments, open courses and assessed work intact (29.257863ms)
+✔ published v3 upgrades to v4 without changing IDs, eligibility, file materials, or source authority (31.371087ms)
+ℹ tests 29
 ℹ suites 0
-ℹ pass 23
+ℹ pass 29
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 15396.1066
+ℹ duration_ms 17488.859842

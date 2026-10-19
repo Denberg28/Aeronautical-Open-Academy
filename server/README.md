@@ -14,7 +14,7 @@ Run `npm test`; the suite starts real loopback HTTP services with isolated tempo
 
 ## Production configuration (not deployed here)
 
-Set NODE_ENV=production, MATERIAL_STORAGE=drive, GOOGLE_SERVICE_ACCOUNT_JSON, DRIVE_FOLDER_ID, a persistent ACADEMY_DATA_DIR, and HOST/PORT behind a configured HTTPS reverse proxy. The organization must provision service-account access to an approved Shared Drive folder. Credential contents stay in secret management, outside source and Android builds. drive.file scope is used for files this app creates; broader organization browsing is not implemented.
+For link-only production set NODE_ENV=production, MATERIAL_STORAGE=links, a persistent ACADEMY_DATA_DIR, and HOST/PORT behind a configured HTTPS reverse proxy. No Google service account or file store is needed. Optional private PDF upload deployments use MATERIAL_STORAGE=drive with GOOGLE_SERVICE_ACCOUNT_JSON and DRIVE_FOLDER_ID. The organization must provision service-account access to an approved Shared Drive folder. Credential contents stay in secret management, outside source and Android builds. drive.file scope is used for files this app creates; broader organization browsing is not implemented.
 
 Only one server instance may use the SQLite file. Use a local persistent volume and restrict its permissions. Size the host for scrypt memory (up to two concurrent 128 MiB derivations), uploads (at most two, capped at 50 MiB each), API/viewer load, and backup needs; measure the actual deployment. Proxy/body/connection/rate controls, security updates, admin MFA, health monitoring, backup/restore, and retention policies require operator setup/validation. The Dockerfile is source preparation, not evidence of a deployed server.
 
@@ -60,3 +60,16 @@ POST /v1/subjects/{id}/enrol accepts optional source=qr. It uses database identi
 GET item includes edit_version. Android mutations include expected_edit_version; PDF upload includes X-Item-Version. Conflict returns 409; refresh and review before retry. Every upload, including older clients, compares the item version after async storage and commits metadata/audit atomically. Subject owner/admin may assess current enrolled active learners; this does not grant another creator's content-edit permission.
 
 SQLite v3 upgrades from v1/v2; older servers refuse it. Stop and take a complete consistent backup first. See docs/CODE_REVIEW.md and TESTING.md for failure injection, migration, pending QR/lifecycle and remaining deployment gates.
+
+
+## 0.5 text-first knowledge links
+
+Text is the interface: material kind material with material_mode text, title, body and published. Android derives the title from the first text line; no separate URL or type field is stored. Body ≤12,000 characters and subject description ≤1,000. Paste HTTP/HTTPS addresses directly into either. Google Docs/presentations/spreadsheets, Drive PDFs, Excel links, YouTube and websites become compact clickable references. The server never fetches or previews them.
+
+GET /v1/me returns capabilities.external_links and capabilities.material_upload. MATERIAL_STORAGE=links initializes no material adapter or directory and needs no Drive credential. This is the example configuration and default production mode if the variable is absent. local remains development-only; drive remains an explicit optional adapter. Keep the original adapter when serving legacy file materials; link-only mode cannot serve previously uploaded file bytes. A metadata/account backend and HTTPS deployment are still needed.
+
+POST /v1/items/{id}/open-link with url and expected_revision checks current active role/enrollment/publication and exact URL membership in current item body. POST /v1/subjects/{id}/open-link with url and expected_description checks the current accessible subject text. They return canonical url/host JSON, never a redirect, bearer token or file. Unsupported/local/IP/credential/custom-port addresses are not clickable. A stale or injected reference returns 409; unavailable/revoked access returns 404/401. These endpoints do not mark reading or track the external page. Native app external launch has no extra confirmation/button after the intentional link tap.
+
+Material body/subject-description changes use existing optimistic guards; subject UI includes expected_description/expected_title when saving. Link replacement changes item revision and requires new self-reported reading. Provider edits at the same URL are outside app revision tracking. Text material cannot accept uploaded files or an app-controlled offline_allowed grant; external offline/download permission belongs to the host. Existing file mode remains compatible.
+
+Schema v4 adds material_mode default file for existing items. New Android material entries explicitly use text. Old v1/v2/v3 databases migrate additively; older code refuses v4. Back up the stopped database/material store first; rollback restores the complete matching backup/server. External links and actual host permissions/browser handoff need operator/real-device validation; the server suite does not contact Google/YouTube or third-party websites.

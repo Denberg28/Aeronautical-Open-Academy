@@ -30,3 +30,19 @@ Editing instructions creates a new revision and resets current participation req
 0.4 setup: Admin → Accounts → Assign verified student ID for migrated students (or include it when registering a new student). Instructor → subject → Enrollment eligibility → enter one ID per line or check All students → Save eligibility. All includes active registered students; blank list with All unchecked closes automatic joins. Students use the left menu Scan subject QR or Enter subject code; camera denial offers manual entry. They must sign in/change temporary password before enrollment succeeds.
 
 A narrower rule removes new automatic enrollments but retains progress/results. Administrator and pre-v3 legacy enrollments remain overrides; admin removal revokes access and blocks rejoin. Correcting an ID clears its old allowlist grants and automatic enrollment, so instructors must authorize the corrected ID and the student re-scans. Do not distribute eligibility lists or student reports publicly.
+
+
+## 0.5 minimal linked material
+
+1. Subject → Add learning item → Material text / links. Enter one text field, for example:
+
+   Week 1 resources
+   Read https://docs.google.com/document/d/your-document-id/edit
+   Watch https://www.youtube.com/watch?v=your-video-id
+
+2. First line becomes the title; leave Published unchecked while reviewing, then publish. Web addresses render as underlined compact links with an external arrow, not separate buttons. HTTP is supported and labeled HTTP; prefer HTTPS where the host offers it. For subject-level links, use Menu → Edit subject text.
+3. Students tap the link to open the host app/browser after the Academy permission/reference check. They may need their organization Google/other host account. Set intended host sharing yourself; the Academy never makes documents public or bypasses those permissions.
+4. Keep students' reading mark separate from opening. The app cannot know that they read/watched or finished an external document. Quiz/assessment records remain in the Academy workspace.
+5. Editing the text/link creates a new item revision; current reading resets. Archiving removes the app reference while the original stays on its platform. Same-URL provider edits are not detected; revise the material text when you want to reset the requirement.
+
+For link-only deployment use MATERIAL_STORAGE=links; service-account credentials are not required. No upload/download/transcoding/iframe/preview is performed for references. Existing uploaded PDFs require their original configured adapter, or create replacement hosted-link entries. Do not put credentials or sensitive student records into link text, and do not post real private links in the public repository.

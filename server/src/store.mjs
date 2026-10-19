@@ -5,7 +5,7 @@ export function openDatabase(path){
   if(path!==':memory:')mkdirSync(dirname(path),{recursive:true,mode:0o700});
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>3){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>4){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
   if(version<2){
@@ -42,6 +42,12 @@ export function openDatabase(path){
       ) STRICT;
       CREATE INDEX eligible_student_number ON eligible_students(student_number,subject_id);
       PRAGMA user_version=3;
+      COMMIT;`);
+  }
+  if(version<4){
+    db.exec(`BEGIN IMMEDIATE;
+      ALTER TABLE items ADD COLUMN material_mode TEXT NOT NULL DEFAULT 'file' CHECK(material_mode IN ('file','text'));
+      PRAGMA user_version=4;
       COMMIT;`);
   }
   db.exec('PRAGMA busy_timeout=5000;');

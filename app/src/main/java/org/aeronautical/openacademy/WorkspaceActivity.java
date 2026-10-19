@@ -33,7 +33,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private JSONObject account,course,report,learner;
     private JSONArray available=new JSONArray();
     private String learnerId="",reportSubject="",draftKey="",qrSubject="";
-    private boolean formOpen;
+    private boolean formOpen,uploadAllowed;
     private int rosterOffset,discoverOffset;
     private EditText draftInput;
     private JSONArray subjects=new JSONArray(),announcements=new JSONArray(),accounts=new JSONArray();
@@ -116,7 +116,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
             }
             return me;
         },r->{
-            report=r.optJSONObject("report");learner=r.optJSONObject("learner");available=r.optJSONArray("available")==null?new JSONArray():r.getJSONArray("available");account=r.optJSONObject("account");course=r.optJSONObject("course");subjects=r.optJSONArray("subjects")==null?new JSONArray():r.getJSONArray("subjects");announcements=r.optJSONArray("announcements")==null?new JSONArray():r.getJSONArray("announcements");accounts=r.optJSONArray("accounts")==null?new JSONArray():r.getJSONArray("accounts");if(r.optBoolean("qr_done"))qrSubject="";if(r.optBoolean("qr_enrolled"))selected=id;if(r.optBoolean("course_unavailable")||r.optBoolean("qr_denied"))selected="";render();if(r.optBoolean("qr_denied"))showText("Not eligible for this subject","Ask your instructor to add your administrator-verified student ID, or select All students. Administratively removed access requires administrator restoration.");else if(r.optBoolean("qr_enrolled"))Toast.makeText(this,"Enrollment confirmed",Toast.LENGTH_SHORT).show();if(r.optBoolean("course_unavailable"))new AlertDialog.Builder(this).setTitle("Subject unavailable").setMessage("This subject is unavailable or you need enrollment. Use Enroll subjects from the menu if enrollment is open, or contact your administrator.").setPositiveButton("OK",null).show();
+            uploadAllowed=r.optJSONObject("capabilities")!=null&&r.optJSONObject("capabilities").optBoolean("material_upload");report=r.optJSONObject("report");learner=r.optJSONObject("learner");available=r.optJSONArray("available")==null?new JSONArray():r.getJSONArray("available");account=r.optJSONObject("account");course=r.optJSONObject("course");subjects=r.optJSONArray("subjects")==null?new JSONArray():r.getJSONArray("subjects");announcements=r.optJSONArray("announcements")==null?new JSONArray():r.getJSONArray("announcements");accounts=r.optJSONArray("accounts")==null?new JSONArray():r.getJSONArray("accounts");if(r.optBoolean("qr_done"))qrSubject="";if(r.optBoolean("qr_enrolled"))selected=id;if(r.optBoolean("course_unavailable")||r.optBoolean("qr_denied"))selected="";render();if(r.optBoolean("qr_denied"))showText("Not eligible for this subject","Ask your instructor to add your administrator-verified student ID, or select All students. Administratively removed access requires administrator restoration.");else if(r.optBoolean("qr_enrolled"))Toast.makeText(this,"Enrollment confirmed",Toast.LENGTH_SHORT).show();if(r.optBoolean("course_unavailable"))new AlertDialog.Builder(this).setTitle("Subject unavailable").setMessage("This subject is unavailable or you need enrollment. Use Enroll subjects from the menu if enrollment is open, or contact your administrator.").setPositiveButton("OK",null).show();
         });
     }
     private void render(){
@@ -134,11 +134,11 @@ public final class WorkspaceActivity extends AppCompatActivity {
         PopupMenu menu=new PopupMenu(this,anchor,android.view.Gravity.START);
         menu.getMenu().add(0,1,0,"My subjects");menu.getMenu().add(0,11,1,"Scan subject QR");menu.getMenu().add(0,12,2,"Enter subject code");
         if(!creator()){menu.getMenu().add(0,2,1,"Enroll subjects");menu.getMenu().add(0,3,2,"My results");}
-        if(creator()&&!selected.isEmpty())menu.getMenu().add(0,4,3,"Students & compliance");
+        if(creator()&&!selected.isEmpty()){menu.getMenu().add(0,4,3,"Students & compliance");menu.getMenu().add(0,13,3,"Edit subject text");}
         menu.getMenu().add(0,5,4,"Announcements");if(admin())menu.getMenu().add(0,6,5,"Accounts");
         menu.getMenu().add(0,7,6,"Refresh");menu.getMenu().add(0,8,7,"Change password");menu.getMenu().add(0,9,8,"Public samples / QR scanner");menu.getMenu().add(0,10,9,"Sign out");
         menu.setOnMenuItemClickListener(item->{if(busy)return true;int id=item.getItemId();
-            if(id==11)scanSubject();else if(id==12)enterSubjectCode();else if(id==7)load();else if(id==8)passwordForm(false);else if(id==9)finish();else if(id==10)signOut();else{
+            if(id==13){if(course!=null)editSubjectText(course.optJSONObject("subject"));}else if(id==11)scanSubject();else if(id==12)enterSubjectCode();else if(id==7)load();else if(id==8)passwordForm(false);else if(id==9)finish();else if(id==10)signOut();else{
                 learnerId="";if(id!=4)selected="";screen=id==2?"enroll":id==3?"results":id==4?"learners":id==5?"news":id==6?"accounts":"subjects";load();
             }return true;
         });menu.show();
@@ -173,7 +173,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         if(!creator()&&subjects.length()==0)body.addView(button("Scan subject QR",true,v->scanSubject()));
         if(subjects.length()==0)label(creator()?"No subjects yet. Create your first subject.":"No enrolled subjects yet. Scan your instructor’s subject QR to check eligibility and enroll.",16,false);
         for(int n=0;n<subjects.length();n++){
-            JSONObject s=subjects.optJSONObject(n);LinearLayout card=card();card.addView(txt(s.optString("title"),22,true));card.addView(txt(s.optString("description"),15,false));if(!creator())progress(card,s.optJSONObject("summary"));
+            JSONObject s=subjects.optJSONObject(n);LinearLayout card=card();card.addView(txt(s.optString("title"),22,true));card.addView(linkedText(s.optString("description"),15,url->openSubjectLink(s,url)));if(!creator())progress(card,s.optJSONObject("summary"));
             card.addView(button("Open subject",true,v->{selected=s.optString("id");screen="subjects";load();}));body.addView(card);gap();
         }
         if(creator()&&announcements.length()>0){label("Latest announcement",18,true);JSONObject a=announcements.optJSONObject(0);label(a.optString("title"),17,true);label(a.optString("body"),15,false);}
@@ -183,7 +183,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         else showSubjectForm(new JSONArray());
     }
     private void showSubjectForm(JSONArray available){
-        LinearLayout form=column();EditText title=field(form,"Subject title","",false),description=field(form,"Description","",false);description.setSingleLine(false);
+        LinearLayout form=column();EditText title=field(form,"Subject title","",false),description=field(form,"Subject text · paste web links","",false);description.setSingleLine(false);
         java.util.List<String> ownerIds=new java.util.ArrayList<>(),ownerNames=new java.util.ArrayList<>();ownerIds.add(account.optString("id"));ownerNames.add("Owned by me");
         for(int i=0;i<available.length();i++){JSONObject a=available.optJSONObject(i);if(a.optString("role").equals("instructor")&&a.optString("status").equals("active")){ownerIds.add(a.optString("id"));ownerNames.add(a.optString("name")+" · "+a.optString("email"));}}
         Spinner owner=new Spinner(this);owner.setContentDescription("Subject owner");owner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,ownerNames));if(admin())form.addView(owner);
@@ -191,8 +191,12 @@ public final class WorkspaceActivity extends AppCompatActivity {
             try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("description",description.getText().toString());if(admin())data.put("owner_id",ownerIds.get(owner.getSelectedItemPosition()));perform(()->api.request("POST","/v1/subjects",data),r->{selected=r.getString("id");load();});}catch(Exception e){error(e);}
         }).show();
     }
+    private void editSubjectText(JSONObject subject){
+        LinearLayout form=column();EditText title=field(form,"Subject title",subject.optString("title"),false),notes=field(form,"Subject text · paste web links",subject.optString("description"),false);notes.setSingleLine(false);notes.setMinLines(4);notes.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(1000)});ScrollView scroll=new ScrollView(this);scroll.addView(form);formOpen=true;
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Edit subject").setView(scroll).setNegativeButton("Cancel",null).setPositiveButton("Save",null).create();dialog.setOnDismissListener(d->formOpen=false);dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("description",notes.getText().toString()).put("expected_description",subject.optString("description")).put("expected_title",subject.optString("title"));perform(()->api.request("POST","/v1/subjects/"+subject.optString("id"),data),r->{dialog.dismiss();load();});}catch(Exception e){error(e);}}));dialog.show();
+    }
     private void courseScreen(){
-        JSONObject subject=course.optJSONObject("subject");label(subject.optString("title"),26,true);label(subject.optString("description"),15,false);
+        JSONObject subject=course.optJSONObject("subject");label(subject.optString("title"),26,true);body.addView(linkedText(subject.optString("description"),15,url->openSubjectLink(subject,url)));
         if(!creator()){progress(body,course.optJSONObject("summary"));body.addView(button("View results & feedback",false,v->{screen="results";render();}));}
         body.addView(button("Show subject QR",false,v->{try{
             android.graphics.Bitmap bitmap=new com.journeyapps.barcodescanner.BarcodeEncoder().encodeBitmap("aoa://subject/"+subject.optString("id"),com.google.zxing.BarcodeFormat.QR_CODE,720,720);
@@ -200,7 +204,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
             new AlertDialog.Builder(this).setTitle(subject.optString("title")).setMessage("Eligible signed-in students enroll when they scan. Your instructor controls eligibility; the QR contains no student data.").setView(qr).setPositiveButton("Close",null).show();
         }catch(Exception e){error(e);}}));
         if(creator()){
-            body.addView(button("Add learning item",true,v->new AlertDialog.Builder(this).setTitle("Add to subject").setItems(new String[]{"PDF material","Written activity","Quiz (one question)","Written examination"},(d,w)->itemForm(new String[]{"material","activity","quiz","examination"}[w])).show()));
+            body.addView(button("Add learning item",true,v->new AlertDialog.Builder(this).setTitle("Add to subject").setItems(uploadAllowed?new String[]{"Material text / links","Written activity","Quiz (one question)","Written examination","Upload PDF"}:new String[]{"Material text / links","Written activity","Quiz (one question)","Written examination"},(d,w)->{if(w==0)materialTextForm(null);else itemForm(new String[]{"text","activity","quiz","examination","material"}[w]);}).show()));
             body.addView(button("Students & compliance",true,v->{screen="learners";learnerId="";rosterOffset=0;load();}));
             body.addView(button("Enrollment eligibility",false,v->eligibilityForm(subject.optString("id"))));
             if(admin())body.addView(button("Enroll or remove student",false,v->enrollmentForm()));
@@ -209,14 +213,14 @@ public final class WorkspaceActivity extends AppCompatActivity {
 
         if(items.length()==0)label("No published learning items yet.",16,false);
         for(int n=0;n<items.length();n++){
-            JSONObject item=items.optJSONObject(n);LinearLayout card=card();String kind=item.optString("kind"),id=item.optString("id");final boolean manage=admin()||account.optString("id").equals(item.optString("owner_id"));
-            card.addView(txt((item.optString("assessment_type").equals("examination")?"examination":kind).toUpperCase(java.util.Locale.ROOT)+(item.optBoolean("published")?"":" · Draft"),12,false));card.addView(txt(item.optString("title"),21,true));card.addView(txt(item.optString("body"),16,false));
-            if(kind.equals("material")){
-                if(item.optBoolean("has_file")){
+            JSONObject item=items.optJSONObject(n);LinearLayout card=card();String kind=item.optString("kind"),id=item.optString("id");final boolean manage=admin()||account.optString("id").equals(item.optString("owner_id"));final boolean textMaterial=kind.equals("material")&&item.optString("material_mode").equals("text");
+            card.addView(txt((item.optString("assessment_type").equals("examination")?"examination":kind).toUpperCase(java.util.Locale.ROOT)+(item.optBoolean("published")?"":" · Draft"),12,false));if(!textMaterial)card.addView(txt(item.optString("title"),21,true));card.addView(linkedText(item.optString("body"),textMaterial?18:16,url->openItemLink(item,url)));
+            if(kind.equals("material")&&!item.optString("material_mode").equals("text")){
+                if(item.optBoolean("has_file")&&uploadAllowed){
                     card.addView(button("Read PDF",true,v->perform(()->new JSONObject().put("path",api.material(id,false).getAbsolutePath()),r->startActivity(new Intent(this,PdfActivity.class).putExtra("secure_path",r.getString("path")).putExtra("title",item.optString("title")).putExtra("allow_export",manage).putExtra("item_id",id)))));
                     if(manage)card.addView(button("Download own material",false,v->perform(()->new JSONObject().put("path",api.material(id,true).getAbsolutePath()),r->{exportPath=r.getString("path");pickerActive=true;exporter.launch("academy-material.pdf");})));
-                }else card.addView(txt("PDF has not been uploaded yet.",14,false));
-                if(manage)card.addView(button("Upload / replace PDF",false,v->{if(busy)return;pendingUpload=id;pendingUploadVersion=item.optInt("edit_version");pickerActive=true;picker.launch(new String[]{"application/pdf"});}));
+                }else card.addView(txt(uploadAllowed?"PDF has not been uploaded yet.":"File storage is unavailable. Ask the instructor to add a web link instead.",14,false));
+                if(manage&&uploadAllowed)card.addView(button("Upload / replace PDF",false,v->{if(busy)return;pendingUpload=id;pendingUploadVersion=item.optInt("edit_version");pickerActive=true;picker.launch(new String[]{"application/pdf"});}));
             }
             if(kind.equals("quiz")&&!creator()){
                 JSONObject attempt=item.optJSONObject("attempt");
@@ -248,7 +252,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private void enrollScreen(){
         label("Enroll subjects",24,true);label("Only subjects you are eligible to join appear here. You can also scan your instructor’s QR.",15,false);
         if(available.length()==0)label("No open subjects on this page. Ask your administrator about restricted subjects.",16,false);
-        for(int i=0;i<available.length();i++){JSONObject s=available.optJSONObject(i);LinearLayout c=card();c.addView(txt(s.optString("title"),21,true));c.addView(txt(s.optString("description"),15,false));c.addView(button("Enroll",true,v->new AlertDialog.Builder(this).setTitle("Enroll in "+s.optString("title")+"?").setNegativeButton("Cancel",null).setPositiveButton("Enroll",(d,w)->perform(()->api.request("POST","/v1/subjects/"+s.optString("id")+"/enrol",new JSONObject()),r->{selected=s.optString("id");screen="subjects";discoverOffset=0;load();})).show()));body.addView(c);gap();}
+        for(int i=0;i<available.length();i++){JSONObject s=available.optJSONObject(i);LinearLayout c=card();c.addView(txt(s.optString("title"),21,true));c.addView(button("Enroll",true,v->new AlertDialog.Builder(this).setTitle("Enroll in "+s.optString("title")+"?").setNegativeButton("Cancel",null).setPositiveButton("Enroll",(d,w)->perform(()->api.request("POST","/v1/subjects/"+s.optString("id")+"/enrol",new JSONObject()),r->{selected=s.optString("id");screen="subjects";discoverOffset=0;load();})).show()));body.addView(c);gap();}
         if(discoverOffset>0)body.addView(button("Previous subjects",false,v->{discoverOffset=Math.max(0,discoverOffset-100);load();}));if(available.length()==100)body.addView(button("More subjects",false,v->{discoverOffset+=100;load();}));
     }
     private void resultsScreen(){
@@ -320,6 +324,29 @@ public final class WorkspaceActivity extends AppCompatActivity {
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{double n=Double.parseDouble(score.getText().toString());if(!Double.isFinite(n)||n<0||n>100)throw new IllegalArgumentException("Enter a score from 0 to 100.");JSONObject data=new JSONObject().put("score",n).put("feedback",feedback.getText().toString()).put("expected_graded_at",item.opt("graded_at"));perform(()->api.request("POST","/v1/submissions/"+item.optString("submission_id")+"/grade",data),r->{dialog.dismiss();load();});}catch(Exception e){score.setError("Enter a score from 0 to 100.");}}));dialog.show();
     }
     private void showText(String title,String text){ScrollView scroll=new ScrollView(this);TextView view=txt(text,16,false);view.setPadding(dp(20),dp(12),dp(20),dp(20));view.setTextIsSelectable(true);scroll.addView(view);new AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).show();}
+    private interface LinkAction {void open(String url);}
+    private TextView linkedText(String text,int sp,LinkAction action){
+        android.text.SpannableStringBuilder content=new android.text.SpannableStringBuilder();int end=0;
+        for(org.aeronautical.openacademy.core.KnowledgeLinks.Link link:org.aeronautical.openacademy.core.KnowledgeLinks.inText(text)){
+            content.append(text,end,link.start);int start=content.length();content.append(link.label).append(" ↗");content.setSpan(new android.text.style.ClickableSpan(){@Override public void onClick(View v){if(!busy)action.open(link.url);}@Override public void updateDrawState(android.text.TextPaint paint){paint.setColor(INK);paint.setUnderlineText(true);}},start,content.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);end=link.end;
+        }
+        content.append(text,end,text.length());TextView view=txt("",sp,false);view.setText(content);view.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());view.setHighlightColor(0xfffff0c4);return view;
+    }
+    private void openItemLink(JSONObject item,String url){try{openExternal(url,()->api.request("POST","/v1/items/"+item.optString("id")+"/open-link",new JSONObject().put("url",url).put("expected_revision",item.optInt("revision"))));}catch(Exception e){error(e);}}
+    private void openSubjectLink(JSONObject subject,String url){try{openExternal(url,()->api.request("POST","/v1/subjects/"+subject.optString("id")+"/open-link",new JSONObject().put("url",url).put("expected_description",subject.optString("description"))));}catch(Exception e){error(e);}}
+    private void openExternal(String raw,Action check){
+        org.aeronautical.openacademy.core.KnowledgeLinks.require(raw);
+        perform(check,result->{String destination=result.getString("url");org.aeronautical.openacademy.core.KnowledgeLinks.require(destination);try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(destination)).addCategory(Intent.CATEGORY_BROWSABLE));}catch(android.content.ActivityNotFoundException e){showText("No app available","Install or enable a browser or the host's application, then tap the link again.");}});
+    }
+    private String materialTitle(String text){String first=text.trim().split("\\R",2)[0];java.util.List<org.aeronautical.openacademy.core.KnowledgeLinks.Link> links=org.aeronautical.openacademy.core.KnowledgeLinks.inText(first);if(!links.isEmpty()&&links.get(0).start==0)return links.get(0).label;return first.length()>100?first.substring(0,100):first;}
+    private void materialTextForm(JSONObject item){
+        LinearLayout form=column();EditText notes=field(form,"Material text · paste HTTP/HTTPS links",item==null?"":item.optString("body"),false);notes.setSingleLine(false);notes.setMinLines(5);notes.setMaxLines(12);notes.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(12000)});
+        form.addView(txt("First line becomes the title. Web addresses become compact hyperlinks; originals stay on their host platforms.",14,false));CheckBox publish=new CheckBox(this);publish.setText("Published");publish.setChecked(item!=null&&item.optBoolean("published"));form.addView(publish);
+        ScrollView scroll=new ScrollView(this);scroll.addView(form);formOpen=true;
+        AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle(item==null?"Add material":"Edit material").setView(scroll).setNegativeButton("Cancel",null).setPositiveButton("Save",null);
+        if(item!=null)builder.setNeutralButton("Archive",(d,w)->new AlertDialog.Builder(this).setTitle("Archive material?").setMessage("Students will no longer see it. The host's original stays unchanged.").setNegativeButton("Keep",null).setPositiveButton("Archive",(x,y)->{try{JSONObject data=new JSONObject().put("archived",true).put("expected_edit_version",item.optInt("edit_version"));perform(()->api.request("POST","/v1/items/"+item.optString("id"),data),r->load());}catch(Exception e){error(e);}}).show());
+        AlertDialog dialog=builder.create();dialog.setOnDismissListener(d->formOpen=false);dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{String text=notes.getText().toString().trim();if(text.isEmpty()){notes.setError("Enter material text or a web link");return;}JSONObject data=new JSONObject().put("title",materialTitle(text)).put("body",text).put("published",publish.isChecked());String path;if(item==null){data.put("kind","material").put("material_mode","text");path="/v1/subjects/"+selected+"/items";}else{data.put("expected_edit_version",item.optInt("edit_version"));path="/v1/items/"+item.optString("id");}perform(()->api.request("POST",path,data),r->{dialog.dismiss();load();});}catch(Exception e){error(e);}}));dialog.show();
+    }
     private void itemForm(String kind){
         LinearLayout form=column();EditText title=field(form,"Title","",false),bodyText=field(form,kind.equals("quiz")?"Question":"Instructions / accessible text","",false);bodyText.setSingleLine(false);
         EditText first=kind.equals("quiz")?field(form,"Choice 1","",false):null,second=kind.equals("quiz")?field(form,"Choice 2","",false):null;
@@ -331,6 +358,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         }).show();
     }
     private void editItem(JSONObject item){
+        if(item.optString("kind").equals("material")&&item.optString("material_mode").equals("text")){materialTextForm(item);return;}
         LinearLayout form=column();EditText title=field(form,"Title",item.optString("title"),false),text=field(form,"Instructions",item.optString("body"),false);text.setSingleLine(false);CheckBox publish=new CheckBox(this);publish.setText("Published");publish.setChecked(item.optBoolean("published"));form.addView(publish);
         new AlertDialog.Builder(this).setTitle("Edit your item").setView(form).setNegativeButton("Cancel",null).setNeutralButton("Archive",(d,w)->new AlertDialog.Builder(this).setTitle("Archive this item?").setMessage("Students will no longer see it. Existing quiz records are kept.").setNegativeButton("Keep",null).setPositiveButton("Archive",(x,y)->{try{JSONObject data=new JSONObject().put("archived",true).put("expected_edit_version",item.optInt("edit_version"));perform(()->api.request("POST","/v1/items/"+item.optString("id"),data),r->load());}catch(Exception e){error(e);}}).show()).setPositiveButton("Save",(d,w)->{try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("body",text.getText().toString()).put("published",publish.isChecked()).put("expected_edit_version",item.optInt("edit_version"));perform(()->api.request("POST","/v1/items/"+item.optString("id"),data),r->load());}catch(Exception e){error(e);}}).show();
     }

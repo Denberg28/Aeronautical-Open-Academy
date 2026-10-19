@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
+import { linkFromText } from './links.mjs';
 import { workbook } from './xlsx.mjs';
 import { openDatabase } from './store.mjs';
 import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber } from './security.mjs';
@@ -77,7 +78,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   else if(a.role==='student')requireThat(item.published,404,'Material or activity unavailable.');return item;
  }
  function presentItem(a,item){
-  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,has_file:!!item.file_ref};
+  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
    copy.options=JSON.parse(item.options_json);
    if(canManage(a,item.owner_id))copy.correct_index=item.correct_index;
@@ -120,7 +121,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.4.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.5.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -136,7 +137,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a)});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -195,8 +196,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(path==='/v1/subjects/discover'&&method==='GET'){
     requireThat(a.role==='student',403,'Student access required.');
     const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0)));
-    const subjects=all('SELECT s.id,s.title,s.description FROM subjects s WHERE s.archived=0 AND s.self_enrol=1 AND (s.eligibility_all=1 OR EXISTS(SELECT 1 FROM eligible_students e WHERE e.subject_id=s.id AND e.student_number=?)) AND NOT EXISTS(SELECT 1 FROM enrolment_blocks b WHERE b.subject_id=s.id AND b.student_id=?) AND NOT EXISTS(SELECT 1 FROM enrolments e WHERE e.subject_id=s.id AND e.student_id=?) ORDER BY s.title,s.id LIMIT 100 OFFSET ?',a.student_number,a.id,a.id,offset);
-    return send(200,{subjects});
+    const subjects=all('SELECT s.id,s.title FROM subjects s WHERE s.archived=0 AND s.self_enrol=1 AND (s.eligibility_all=1 OR EXISTS(SELECT 1 FROM eligible_students e WHERE e.subject_id=s.id AND e.student_number=?)) AND NOT EXISTS(SELECT 1 FROM enrolment_blocks b WHERE b.subject_id=s.id AND b.student_id=?) AND NOT EXISTS(SELECT 1 FROM enrolments e WHERE e.subject_id=s.id AND e.student_id=?) ORDER BY s.title,s.id LIMIT 100 OFFSET ?',a.student_number,a.id,a.id,offset);
+    return send(200,{subjects:subjects.map(s=>({...s,description:'Join to view subject text and resources.'}))});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/enrol$/))&&method==='POST'){
     requireThat(a.role==='student',403,'Student access required.');
@@ -260,6 +261,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
+    requireThat((d.expected_description===undefined||d.expected_description===old.description)&&(d.expected_title===undefined||d.expected_title===old.title),409,'Subject text changed. Refresh before saving.');
     requireThat(d.self_enrol===undefined||typeof d.self_enrol==='boolean',400,'Set self_enrol true or false.');
     transaction(()=>{run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);if(d.self_enrol!==undefined){run('UPDATE subjects SET eligibility_all=?,eligibility_revision=eligibility_revision+1 WHERE id=?',d.self_enrol?1:0,old.id);run('DELETE FROM eligible_students WHERE subject_id=?',old.id);if(!d.self_enrol)run("DELETE FROM enrolments WHERE subject_id=? AND source IN ('qr','self')",old.id);}audit(a.id,'subject-edit',match[1]);});return send(200,{saved:true});
    }
@@ -270,7 +272,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
      requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
     }
-    const id=randomUUID();run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now());run('UPDATE items SET assessment_type=? WHERE id=?',examination?'examination':'standard',id);audit(a.id,'item-create',id);return send(201,{id});
+    const mode=d.material_mode??(materials?'file':'text');requireThat(['file','text'].includes(mode),400,'Choose text or file material mode.');
+    requireThat(d.kind==='material'||d.material_mode===undefined,400,'Only materials have a material mode.');
+    requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
+    requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
+    requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
+    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');audit(a.id,'item-create',id);});return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -279,7 +286,17 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     // Ownership/kind/subject cannot be reassigned. Quiz answer changes require a new item.
     requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
-    run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,(title!==item.title||body!==item.body)?1:0,item.id);audit(a.id,'item-edit',item.id);return send(200,{saved:true});
+    requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
+    const changed=title!==item.title||body!==item.body;
+    transaction(()=>{run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,changed?1:0,item.id);audit(a.id,'item-edit',item.id);});return send(200,{saved:true});
+   }
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/open-link$/))&&method==='POST'){
+    const item=itemFor(a,match[1]);requireThat(Number.isInteger(payload.expected_revision)&&payload.expected_revision===item.revision,409,'This material changed. Refresh and review the link before opening it.');
+    const destination=linkFromText(payload.url,item.body);return send(200,{url:destination,host:new URL(destination).hostname});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/open-link$/))&&method==='POST'){
+    const subject=subjectFor(a,match[1]);requireThat(payload.expected_description===subject.description,409,'Subject text changed. Refresh and review the link before opening it.');
+    const destination=linkFromText(payload.url,subject.description);return send(200,{url:destination,host:new URL(destination).hostname});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/complete$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind==='material',409,'Submit an answer or written output to record completion.');const d=payload;
@@ -294,7 +311,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const id=randomUUID(),score=d.choice===item.correct_index?1:0;run('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?)',id,a.id,item.id,item.revision,d.choice,score,key,now());audit(a.id,'quiz-submit',item.id);return send(201,{attempt:{id,revision:item.revision,score,created_at:now()}});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/file$/))&&method==='POST'){
-    const item=itemFor(a,match[1],true);requireThat(item.kind==='material',400,'Choose a material item.');requireThat(req.headers['x-item-version']===undefined||String(item.edit_version)===req.headers['x-item-version'],409,'This item changed. Refresh before uploading.');requireThat(materials,503,'Material storage is not configured.');requireThat((req.headers['content-type']||'').split(';')[0]==='application/pdf',415,'Upload a PDF.');
+    const item=itemFor(a,match[1],true);requireThat(item.kind==='material',400,'Choose a material item.');requireThat(item.material_mode==='file',409,'This is text/link material. Edit its text instead of uploading a copy.');requireThat(req.headers['x-item-version']===undefined||String(item.edit_version)===req.headers['x-item-version'],409,'This item changed. Refresh before uploading.');requireThat(materials,503,'Material storage is not configured.');requireThat((req.headers['content-type']||'').split(';')[0]==='application/pdf',415,'Upload a PDF.');
     requireThat(Number(req.headers['content-length']||0)<=MAX_FILE_BYTES,413,'PDF exceeds 50 MB.');requireThat(activeUploads<2,503,'Uploads are busy. Please try again shortly.');activeUploads++;let staging=null,stored=null;
     try{
      staging=await mkdtemp(join(tmpdir(),'academy-upload-'));

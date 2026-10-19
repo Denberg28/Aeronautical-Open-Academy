@@ -50,7 +50,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          Path('out/build-evidence/verification.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_NUMBER'],'android_build_lint_unit_tests':'PASS','core_catalog_backend_checks':'PASS','device':'NOT TESTED','live_backend_and_drive':'BLOCKED','stable':'BLOCKED','tier':'development test APK'},indent=2))
+          Path('out/build-evidence/verification.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_NUMBER'],'android_build_lint_unit_tests':'PASS','core_catalog_backend_checks':'PASS','device':'NOT TESTED','live_backend':'BLOCKED','external_provider_access':'NOT TESTED','optional_drive_adapter':'NOT TESTED','stable':'BLOCKED','tier':'development test APK'},indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:

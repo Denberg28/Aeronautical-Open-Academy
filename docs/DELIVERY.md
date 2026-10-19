@@ -22,3 +22,10 @@ Deploy the 0.3 server alongside the 0.3 Android app. Take a consistent stopped-s
 Back up the stopped 0.3 (v2) or older backend database/materials before starting 0.4. Migration to v3 preserves identifiers, approved file references and results, labels prior enrollments legacy, carries prior open-subject setting to All students, and leaves existing student numbers unassigned. Register/assign verified numbers through admin UI. Never infer IDs from names, email addresses or QR text. Review legacy/admin overrides separately from new eligibility grants.
 
 Ship 0.4 Android and server together. Old servers lack eligibility APIs and cannot support new QR joins; older servers refuse schema v3. Restore the whole pre-upgrade backup with matching old code to roll back. Prefer a forward app fix with retained signing identity. The development APK remains .test, versionCode 40000 + CI run number; production package/signing configuration is preserved and stable promotion remains blocked until deployment/device/Drive/signing validation.
+
+
+## 0.5 paired upgrade / mode selection
+
+Deploy matching 0.5 Android and server. Stop/back up the existing database/materials before automatic v4 migration. Existing items remain file mode and retain references/progress/eligibility/results. Select MATERIAL_STORAGE=links for hosted references only; no Drive service credential is needed. If preserving access to prior private uploaded PDFs, retain the original adapter/configuration. Migration does not delete files or convert their permissions.
+
+Use a persistent private metadata/account database and HTTPS even in links-only mode. The APK alone is not a hosted learning service. Rollback restores the complete pre-upgrade backup with matching older server, because old code rejects v4. Prefer a forward app fix signed with the retained certificate; CI debug signing may require uninstall/data loss. Browser/provider permission/device/install/signing/hosting gates still prevent stable promotion; optional Drive upload validation is required only when that adapter is enabled and advertised.

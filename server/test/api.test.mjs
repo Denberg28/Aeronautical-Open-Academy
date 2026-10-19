@@ -11,7 +11,7 @@ import { canManage,hashPassword,verifyPassword } from '../src/security.mjs';
 const pass='A long private testing passphrase!';
 async function fixture(options={}){
  const directory=await mkdtemp(join(tmpdir(),'academy-api-test-'));let time=Date.now();
- const app=await createAcademy({dbPath:join(directory,'test.sqlite'),materials:options.materials||new LocalMaterials(join(directory,'files')),bootstrap:{email:'admin@example.test',name:'Administrator',password:pass},scryptN:16384,clock:()=>time});
+ const app=await createAcademy({dbPath:join(directory,'test.sqlite'),materials:'materials' in options?options.materials:new LocalMaterials(join(directory,'files')),bootstrap:{email:'admin@example.test',name:'Administrator',password:pass},scryptN:16384,clock:()=>time});
  await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+app.server.address().port;
  async function call(path,{method='GET',token,body,key,binary}={}){
   const headers={};if(token)headers.Authorization='Bearer '+token;if(key)headers['Idempotency-Key']=key;
@@ -383,5 +383,55 @@ test('material metadata and audit fail atomically, preserving the prior readable
   assert.deepEqual(f.app.db.prepare('SELECT file_ref,revision,edit_version FROM items WHERE id=?').get(item),before);
   assert.deepEqual((await f.call('/v1/items/'+item+'/content',{token:i.token})).body,original);
   f.app.db.exec('DROP TRIGGER fail_material_audit');
+ }finally{await f.close();}
+});
+
+test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
+ const f=await fixture({materials:undefined});try{
+  const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{external_links:true,material_upload:false});
+  const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:true,student_numbers:[],expected_revision:1}});
+  const discovery=(await f.call('/v1/subjects/discover',{token:o.token})).body.subjects;assert.equal(discovery.length,1);assert.ok(!JSON.stringify(discovery).includes('docs.google.com'));assert.equal(discovery[0].description,'Join to view subject text and resources.');
+  const text='Week 1\nSlides https://docs.google.com/presentation/d/demo/edit#slide=id.1\nPDF https://www.example.org/lesson.pdf\nExcel https://www.example.org/data.xlsx\nVideo https://www.youtube.com/watch?v=demo';
+  const item=(await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:i.token,body:{kind:'material',material_mode:'text',title:'Week 1',body:text,published:true}})).body.id;
+  const open=()=>f.call('/v1/items/'+item+'/open-link',{method:'POST',token:s.token,body:{url:'https://www.example.org/lesson.pdf',expected_revision:1}});
+  assert.equal((await open()).status,200);assert.equal((await open()).body.url,'https://www.example.org/lesson.pdf');
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).body.summary.read,0);
+  assert.equal(f.app.db.prepare('SELECT file_ref FROM items WHERE id=?').get(item).file_ref,null);
+  for(const denied of [o,j])assert.equal((await f.call('/v1/items/'+item+'/open-link',{method:'POST',token:denied.token,body:{url:'https://www.example.org/lesson.pdf',expected_revision:1}})).status,404);
+  assert.equal((await f.call('/v1/items/'+item+'/open-link',{method:'POST',token:s.token,body:{url:'https://www.example.org/injected',expected_revision:1}})).status,409);
+  assert.equal((await f.call('/v1/items/'+item+'/open-link',{method:'POST',token:s.token,body:{url:'javascript:alert(1)',expected_revision:1}})).status,400);
+  assert.equal((await f.call('/v1/items/'+item,{method:'POST',token:j.token,body:{body:'Stolen edit'}})).status,404);
+  assert.equal((await f.call('/v1/items/'+item+'/file',{method:'POST',token:i.token,binary:Buffer.from('%PDF-1.4\nfixture\n%%EOF')})).status,409);
+  assert.equal((await f.call('/v1/items/'+item+'/content',{token:s.token})).status,404);
+  assert.equal((await f.call('/v1/items/'+item+'/complete',{method:'POST',token:s.token,body:{completed:true}})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).body.summary.read,1);
+  const subjectLink=await f.call('/v1/subjects/'+id+'/open-link',{method:'POST',token:s.token,body:{url:'http://www.example.org/intro',expected_description:description}});assert.equal(subjectLink.status,200);
+  assert.equal((await f.call('/v1/subjects/'+id+'/open-link',{method:'POST',token:s.token,body:{url:'https://www.example.org/other',expected_description:description}})).status,409);
+ }finally{await f.close();}
+});
+
+test('drafts, changed links, removed enrollment and suspension cannot open a material through stale metadata',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('revlink-i@example.test','instructor'),s=await f.account('revlink-s@example.test','student');
+  const description='https://www.example.org/subject';
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject B',description}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  const item=(await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:i.token,body:{kind:'material',material_mode:'text',title:'Lesson',body:'https://www.example.org/original'}})).body.id;
+  const open=(url='https://www.example.org/original',expected_revision=1)=>f.call('/v1/items/'+item+'/open-link',{method:'POST',token:s.token,body:{url,expected_revision}});
+  assert.equal((await open()).status,404);
+  await f.call('/v1/items/'+item,{method:'POST',token:i.token,body:{published:true,expected_edit_version:1}});assert.equal((await open()).status,200);
+  await f.call('/v1/items/'+item+'/complete',{method:'POST',token:s.token,body:{completed:true}});
+  await f.call('/v1/items/'+item,{method:'POST',token:i.token,body:{body:'https://www.example.org/replacement',expected_edit_version:2}});
+  assert.equal((await open()).status,409);assert.equal((await open('https://www.example.org/original',2)).status,409);assert.equal((await open('https://www.example.org/replacement',2)).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).body.summary.read,0);
+  assert.equal((await f.call('/v1/subjects/'+id,{method:'POST',token:i.token,body:{description:'https://www.example.org/new-subject',expected_description:description}})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id+'/open-link',{method:'POST',token:s.token,body:{url:'https://www.example.org/subject',expected_description:description}})).status,409);
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id,enrolled:false}});
+  assert.equal((await open('https://www.example.org/replacement',2)).status,404);
+  await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{status:'suspended'}});assert.equal((await open('https://www.example.org/replacement',2)).status,401);
  }finally{await f.close();}
 });

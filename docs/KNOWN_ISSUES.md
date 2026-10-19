@@ -1,14 +1,17 @@
-# Known issues and verification limits — 0.4.0-alpha.1
+# Known issues and verification limits — 0.5.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
 | Severity | Issue | Consequence / next action |
 | --- | --- | --- |
 | BLOCKER | Account backend is not deployed to a public HTTPS origin | Account screens need a configured running service |
-| BLOCKER | Organization Drive credentials/folder are not configured | Actual private uploads/downloads/replacements and permissions are unverified |
+| OPTIONAL / UNVERIFIED | Private Drive upload credentials/folder are not configured | Not required for link-only mode; validate if enabling the optional stored-PDF adapter |
 | BLOCKER | Persistent release signing key is not configured | CI debug APK is for testing; unsigned release cannot be installed |
 | UNVERIFIED | Android CI for final published source | Check Actions results; earlier SDK setup/API-26 theme failures were diagnosed and corrected |
 | UNVERIFIED | Physical-device camera, TalkBack/200% fonts, lifecycle, protected cache, signed upgrade, performance | Complete docs/TESTING.md procedures before stable |
+| UNVERIFIED | External browser/app handoff, actual Google/YouTube/website sharing and availability | Test with intended student host accounts on real phones; host permissions are independent |
+| LIMITATION | External copies, provider redirects, downloads, offline behavior and same-URL content changes are outside Academy control | Curate approved URLs and host sharing; app can revoke its reference, not already copied/opened content |
+| LIMITATION | Links mode cannot serve previously uploaded private PDFs | Retain the original file adapter or replace those entries with hosted links |
 | LIMITATION | Pre-v3 enrollments are migrated as legacy authorization overrides | Admin must review/remove legacy access before enforcing a stricter ID policy |
 | LIMITATION | Student IDs require administrator verification; no SIS identity verification service is connected | Never allow self-declared IDs; assign/correct using official records |
 | LIMITATION | Student private offline downloads/sync are not implemented | Online authorization required for protected materials; public samples remain offline-capable |

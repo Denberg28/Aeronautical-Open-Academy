@@ -39,3 +39,10 @@ New QR/self enrollments are removed when no longer eligible; learning records re
 The white/navy/gold UI uses navy text and primary actions, gold progress/selected navigation highlights, generous padding and ≥56dp action targets. Color is accompanied by text/counts; it does not imply passing. Screen-reader, 200% fonts, narrow/landscape layouts and actual contrast/rendering remain device acceptance gates.
 
 No new dependency/service was introduced. Existing direct versions/toolchain remain pinned. No blanket CVE-free or production-security claim is made: transitive advisory audit, institution MFA/host hardening/load/backup restoration, real organization Drive and production signing remain open deployment gates. Current self-review has no unresolved confirmed critical/high defect; use the per-commit build result and KNOWN_ISSUES for promotion, not this prose alone.
+
+
+## 0.5 focused follow-up review
+
+Baseline for this increment: aa932b8b200e749c5e015bfcf84aa28ba68a20c9. Reviewed the new core/backend URL parsers, inline span callbacks, fresh access/reference endpoints, text authoring/editing, capability-driven file controls, production links-mode startup and additive v4 migration against the requested minimal UI. Existing auth/eligibility/submission/grade/report/PDF tests remain regression gates. No runtime dependency or external preview/API integration was added.
+
+New automated cases exercise public HTTP/HTTPS formats, unsafe schemes/credentials/local/IP/ports, exact URL injection/stale text denial, multi-link punctuation, private draft/enrollment/ownership/suspension, reading separation, v1/v2/v3 upgrades and production links-only startup without Drive credentials. Source review caught and corrected title suppression affecting nonmaterial items when introducing text mode; explicit kind checking preserves quiz/activity titles. Native browser/host handling, compact-link TalkBack focus, real provider sharing, offline errors and lifecycle are NOT TESTED on a phone. Link validation is not a malware scan and host access controls remain independent.

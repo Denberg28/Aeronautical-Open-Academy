@@ -10,6 +10,6 @@ test_signed_candidate_requires_exact_unique_prerelease_shape (test_release_gate.
 test_test_build_passes_normal_limits_but_rejects_known_critical_and_high (test_release_gate.ReleaseGateChecks.test_test_build_passes_normal_limits_but_rejects_known_critical_and_high) ... ok
 
 ----------------------------------------------------------------------
-Ran 10 tests in 0.231s
+Ran 10 tests in 0.204s
 
 OK

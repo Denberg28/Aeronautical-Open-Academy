@@ -1,4 +1,4 @@
-# Verification — 0.4.0-alpha.1
+# Verification — 0.5.0-alpha.1
 
 Evidence must distinguish host checks, Android compilation/lint, local HTTP backend integration, mocked Drive adapter behavior, physical devices, and real organization access.
 
@@ -7,15 +7,15 @@ Evidence must distinguish host checks, Android compilation/lint, local HTTP back
 | Check | Status | Evidence / limits |
 | --- | --- | --- |
 | Public source destination | PASS | User explicitly authorized public repository; no protected data included |
-| Pure Java QR/URL/transfer core | PASS | 40 checks; docs/evidence/core-checks.txt |
+| Pure Java QR/URL/transfer/link core | PASS | 72 checks; docs/evidence/core-checks.txt |
 | Catalog publishing validator | PASS | 10 tests including release gates; docs/evidence/python-tests.txt |
 | XML/assets/wrapper/focused secret scan | PASS | docs/evidence/project-checks.txt |
-| Backend HTTP/SQLite role/security flows | PASS | 19 real loopback API/security tests plus 2 migration tests; docs/evidence/backend-tests.txt |
+| Backend HTTP/SQLite role/security flows | PASS | 21 HTTP/API tests, 3 migration tests, 2 link tests and 1 startup test; docs/evidence/backend-tests.txt |
 | Drive adapter credential isolation / redirect tests | PASS | 2 mocked-upstream tests; not real Google access |
 | Android build/JVM tests/lint for final source | NOT TESTED | At documentation authoring; per-commit CI artifact verification.json and Actions results supply actual build evidence |
 | Physical device/runtime/camera/accessibility/lifecycle | NOT TESTED | No attached Android device/emulator |
 | Live account backend | BLOCKED | No hosting destination/HTTPS deployment configured |
-| Real organization Drive | BLOCKED | No organization service credential/folder/access evidence supplied |
+| Optional stored-PDF Drive adapter | NOT TESTED for real Drive | Credentials/real access absent; not needed in links-only mode; mocks are separate |
 | Retained release signing/install/upgrade | BLOCKED | No release keystore/secrets configured |
 | Actuator/flight-control/motor HIL | N/A | Education app controls no equipment |
 | Stable promotion | BLOCKED | Required deployment/device/signing/real Drive gates incomplete |
@@ -96,3 +96,31 @@ Run this real-device path before stable:
 9. Check white/navy/gold screens at 200% font, TalkBack, RTL/landscape and small width, keyboard/document/scanner dialogs, student-home enrolled-only view, progress numbers, scores including zero, and Excel institutional IDs with leading zeros. Save report with Android document provider and open actual Excel/LibreOffice without repair prompt.
 
 Camera/Android lifecycle/accessibility/document providers, native storage-failure behavior, actual Excel UI, live HTTPS/Drive, load/restore and retained production signing remain NOT TESTED or BLOCKED. Actuator HIL is N/A: no equipment is commanded. These limits permit a labeled development test release after automated packaging gates, not stable promotion.
+
+
+## 0.5 inline links / intermediary acceptance
+
+Final host suite: 29 Node tests (21 HTTP/API, 3 migration, 2 link policy/extraction, 2 mocked Drive, 1 real child-process production startup); 72 core Java checks and 10 Python checks. Automated acceptance uses generic fixture references, never contacts external hosts, and is not evidence of Google/YouTube availability or permission.
+
+| Check | Result / evidence |
+| --- | --- |
+| Public HTTP/HTTPS Docs/Slides/Sheets/Drive/PDF/Excel/video/site references and punctuation | PASS: core/backend parser checks, including balanced parentheses and query/fragments |
+| Unsafe schemes, credentials, literal IP/local names, custom ports and malformed URLs | PASS: core/backend rejection checks; invalid text noninteractive |
+| Text material create/publish/edit, private access and exact-current reference | PASS: discovery does not expose subject links before enrollment; HTTP tests; URL injection/stale revision/draft/other instructor/unenrolled/suspended denied |
+| Reading participation | PASS: open-link leaves reading unchanged; explicit /complete records reading; body/link edit resets current revision reading |
+| Links-only production startup without Drive secret/file folder | PASS: real child process bootstraps privately on loopback, health/auth/capabilities verified; no material folder |
+| v1/v2/v3 migration to v4 | PASS: accounts, IDs, enrollment sources, eligibility, original file refs, revisions/grades preserved; existing items default file |
+| Native automatic hyperlink display and external launch | Source reviewed; Android build/lint/JVM evidence per CI; actual phone NOT TESTED |
+| Real external service sharing/sign-in/availability/downloads | NOT TESTED: validate intended student provider accounts before institutional use |
+
+Real-device procedure (required before stable):
+
+1. Start matching 0.5 backend with MATERIAL_STORAGE=links behind approved HTTPS. No Drive credential is needed. Admin/instructor/student sign in; configure normal eligibility/QR enrollment.
+2. Instructor subject text: paste Docs URL and ordinary HTTP/HTTPS website addresses. Edit via left Menu → Edit subject text. Verify short underlined clickable labels and ↗, explicit HTTP marker, no raw long query clutter or per-link button. Invalid/local/script text must stay plain. Check small width, 200% fonts, TalkBack link activation, RTL and landscape.
+3. Add Material text / links using one text field. First line is the title; include Docs, Slides, Sheets, Drive-hosted PDF, direct PDF/Excel, YouTube and website links on separate lines. Save draft, review, publish, edit and archive. Text entry must retain fields on validation/network failure. Existing quiz/activity titles/actions must remain visible.
+4. Student taps each link: fresh app authorization/reference check → browser/host app. No extra Open-material button or type/URL form. Test browser absent, host app installed/uninstalled, wrong provider account, private file permission denied, host deletion, redirects, broken link, HTTP, offline request and back-to-Academy resume. Host sign-in and sharing are independent; do not expose Academy tokens/headers to external apps.
+5. Opening must not change read percentage. Return and mark material read manually. Edit its link/instructions; current revision reading resets. Provider content edited at the same URL is not detected; update the app entry deliberately when resetting a requirement.
+6. Leave a subject/item view open, then unpublish, replace the link, remove enrollment, suspend or expire the account in another session. Old link activation must fail/refresh rather than opening stale or unauthorized references. The host may still permit a URL already copied/opened; app revocation does not recall it.
+7. Keep a v3 backup containing uploaded PDFs/IDs/grades, migrate to v4, verify all retained. With original file adapter configured, prior PDF viewing still works. With links-only mode, legacy uploaded PDFs show a file-service guidance message, not misleading read/upload actions. Public sample downloads remain available independently. Test restore using the complete compatible backup/server pair.
+
+Optional Drive-adapter validation is N/A for a deployment that exclusively enables links mode, with its file feature explicitly disabled. Real host reference/access testing remains mandatory. Stable is still BLOCKED by unconfigured deployment, signing and real-device/provider gates. Actuator HIL is N/A because no equipment is commanded.
