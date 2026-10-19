@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.7.0-alpha.1
+# Known issues and verification limits — 0.8.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -35,3 +35,7 @@ Debug/test APK only; not an institutional deployment. Local accounts and files s
 ### 0.7 entry editor/ordering compatibility
 
 Organization sequencing requires the matching server with schema v5; the APK cannot upgrade a remotely hosted server. Back up before migration; old servers deliberately reject schema v5. Local workspace v2 preserves prior entries and migrates unchanged synthetic default passwords, retaining customized passwords. Old APKs cannot read local v2 without reverting/restoring/resetting test data. Deleted entries are archived: hidden from current views/denominators, with historical work retained. New failed PDF uploads remain unpublished drafts for retry; an upload and metadata publication are separate requests. Existing quiz choices/answers remain immutable; create a new quiz to change them. Physical-device drag/autoscroll, font scaling, file-picker rotation and editor recovery remain NOT TESTED.
+
+### 0.8 subject board and visual verification
+
+Subject order is a device-local view preference, isolated by account ID and organization origin; it does not change the server’s subject order, enrollment or content. No cross-device preference sync is implemented. Dragging, auto-scroll, wrapped rows, TalkBack move controls, 200% fonts and soft-keyboard/dropdown layouts need real-phone checks. RecyclerView 1.3.2 is the one added UI dependency; it supplies measured layout, stable-row drag support and auto-scrolling without a separate drag framework. Public sample subjects retain catalog order; the draggable board is the signed-in account subject list. Uninstall/data clearing removes personal order.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.1
+
+- Add HARU-style handle-only subject dragging with live swaps, measured row heights, stable IDs, edge scrolling and saved per-account/per-origin personal order.
+- Add accessible move commands and tappable subject cards; keep new subjects at the end and remove revoked IDs from the view.
+- Make subject/entry + backgrounds transparent; refine font hierarchy, text boxes/dropdowns, form/card padding, centered panes and navigation transitions.
+
 ## 0.7.0-alpha.1
 
 - Replace multiple material forms with bottom + → type/text → Done, a compact entry menu, drag sequencing and accessible move commands.

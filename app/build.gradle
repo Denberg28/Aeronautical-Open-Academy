@@ -7,8 +7,8 @@ android {
         applicationId 'org.aeronautical.openacademy'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 50000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 7)
-        versionName '0.7.0-alpha.1'
+        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 50000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 8)
+        versionName '0.8.0-alpha.1'
         buildConfigField 'String', 'SOURCE_COMMIT', '"' + (System.getenv('GITHUB_SHA') ?: 'local') + '"'
     }
     buildFeatures { buildConfig true }
@@ -35,6 +35,7 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.activity:activity:1.9.3'
     implementation 'androidx.work:work-runtime:2.10.0'

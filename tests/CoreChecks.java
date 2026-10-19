@@ -25,6 +25,13 @@ public final class CoreChecks {
         var linked=KnowledgeLinks.inText("Slides (https://docs.google.com/presentation/d/demo/edit). Video https://youtu.be/demo?t=4 and https://www.example.org/wiki/Topic_(detail).");
         expect(linked.size()==3,"inline web links extracted without punctuation");expect(linked.get(0).label.equals("Google Slides"),"presentation link label");expect(linked.get(1).label.equals("YouTube"),"video link label");expect(linked.get(2).url.endsWith("Topic_(detail)"),"balanced URL parentheses retained");
         expect(KnowledgeLinks.inText("unsafe https://127.0.0.1/private and javascript:alert(1)").isEmpty(),"unsafe text stays noninteractive");
+        var prior=java.util.List.of("b","a","deleted","b");var current=java.util.List.of("a","b","new");
+        expect(SubjectOrder.merge(prior,current).equals(java.util.List.of("b","a","new")),"personal subject order removes stale and duplicate IDs, appends newly available subjects");
+        expect(SubjectOrder.merge(java.util.List.of(),current).equals(current),"first account keeps received order");
+        expect(SubjectOrder.merge(prior,java.util.List.of()).isEmpty(),"revoked subjects do not survive personal order");
+        expect(SubjectOrder.move(current,"b",-1).equals(java.util.List.of("b","a","new")),"accessible move matches drag sequence");
+        expect(SubjectOrder.move(current,"a",-1).equals(current),"first subject cannot move out of bounds");
+        expect(SubjectOrder.move(current,"missing",1).equals(current)&&current.equals(java.util.List.of("a","b","new")),"missing ID and source list are preserved");
         Path temp=Files.createTempDirectory("academy-core-");
         try{
             Path pdf=temp.resolve("complete.pdf");Files.writeString(pdf,"%PDF-1.4\nexample\n%%EOF",StandardCharsets.US_ASCII);

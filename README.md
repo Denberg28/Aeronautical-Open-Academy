@@ -2,7 +2,7 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.7.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.8.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -21,6 +21,12 @@ These defaults are for the development test APK’s local workspace. No server i
 Open a subject as admin or instructor → tap **+** below the last entry → choose Material / links, Quiz, Written activity, Written examination or PDF → enter text → **Done**. Web addresses become clickable references. The first line supplies the title. Done saves and publishes; PDF entries require a selected file and publish after upload. The list scrolls to its final entry and the + button remains below it. Hold the drag handle to move entries; drop above/below another entry or on + to append. Entry **⋮** offers Edit, Move up, Move down and Delete. Deleting removes the entry from the current course while retaining historical learning records. Subject QR, eligibility, enrollment and student reports are in Menu.
 
 Sign out to switch roles. All local accounts share the saved test workspace on this installation; nothing synchronizes across phones. Use synthetic data. Organization sign-in still requires an HTTPS backend and its own accounts; short default credentials never authenticate to that service. Test mode is disabled in release builds.
+
+## Subject list and interface
+
+Hold a subject’s **≡** handle to lift and drag it. Rows move aside as you drag, including wrapped/multiline cards. Your order is saved on drag finish/cancel and when leaving the screen; it is personal to that account and organization on this device. Use **⋮ → Move up / Move down** as an accessible alternative. Tap a subject card to open it. Newly available subjects append; removed/revoked subjects disappear. Arrangement does not alter enrollment, materials or results and does not synchronize across phones.
+
+Both subject and entry **+** controls have transparent resting backgrounds. The interface uses a consistent type hierarchy, 48 dp minimum button/handle targets, 52 dp text boxes, 12 dp corner radii, even card/form padding and a centered 760 dp maximum content pane. Pages use a short content transition only when navigating; refresh does not crossfade. Android’s disabled-animation preference is respected for page transitions.
 
 ## Minimal workflow
 

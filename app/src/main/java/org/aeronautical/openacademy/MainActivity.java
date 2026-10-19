@@ -92,7 +92,7 @@ public final class MainActivity extends AppCompatActivity {
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));header.addView(account);root.addView(header);
         scroll=new ScrollView(this);scroll.setFillViewport(true);
-        body=column();body.setPadding(dp(24),dp(24),dp(24),dp(40));scroll.addView(body);
+        body=column();body.setPadding(dp(20),dp(16),dp(20),dp(24));scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         if(repo.catalog==null) { body.addView(text("Preparing your library",28,INK,true));body.addView(text(repo.notice,15,MUTED,false)); }
         else if(tab.equals("scan"))scanScreen();
@@ -247,11 +247,11 @@ public final class MainActivity extends AppCompatActivity {
     private void navButton(String label,String target){Button b=button(label,tab.equals(target),v->navigate(target));b.setSelected(tab.equals(target));if(tab.equals(target)){b.setBackground(shape(0xffe6b844));b.setTextColor(INK);}nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}
     private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
     private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
-    private LinearLayout card(int color){LinearLayout l=column();l.setPadding(dp(24),dp(24),dp(24),dp(22));l.setBackground(shape(color));return l;}
-    private GradientDrawable shape(int color){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(18));if(color==Color.WHITE)d.setStroke(dp(1),LINE);return d;}
-    private TextView text(String value,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(sp);t.setTextColor(color);t.setLineSpacing(dp(3),1);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
-    private Button button(String label,boolean primary,View.OnClickListener action){Button b=new Button(this);b.setText(label);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(56));b.setMinimumHeight(dp(56));b.setPadding(dp(14),dp(10),dp(14),dp(10));b.setTextColor(primary?Color.WHITE:INK);b.setBackground(shape(primary?INK:Color.TRANSPARENT));b.setOnClickListener(action);return b;}
-    private EditText input(String hint,String value){EditText e=new EditText(this);e.setText(value);e.setHint(hint);e.setTextSize(16);e.setSingleLine(true);e.setMinHeight(dp(54));e.setPadding(dp(16),dp(10),dp(16),dp(10));GradientDrawable outline=shape(Color.WHITE);outline.setStroke(dp(1),0xff7d8da1);e.setBackground(outline);e.setTextColor(INK);e.setHintTextColor(MUTED);return e;}
+    private LinearLayout card(int color){LinearLayout l=column();l.setPadding(dp(18),dp(18),dp(18),dp(18));l.setBackground(shape(color));return l;}
+    private GradientDrawable shape(int color){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(12));if(color==Color.WHITE)d.setStroke(dp(1),LINE);return d;}
+    private TextView text(String value,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(sp>=28?28:sp>=20?20:sp);t.setTextColor(color);t.setIncludeFontPadding(false);t.setLineSpacing(dp(2),1.08f);if(bold)t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));return t;}
+    private Button button(String label,boolean primary,View.OnClickListener action){Button b=new Button(this);b.setText(label);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));b.setIncludeFontPadding(false);b.setPadding(dp(14),dp(10),dp(14),dp(10));b.setTextColor(primary?Color.WHITE:INK);b.setBackground(shape(primary?INK:Color.TRANSPARENT));b.setOnClickListener(action);return b;}
+    private EditText input(String hint,String value){EditText e=new EditText(this);e.setText(value);e.setHint(hint);e.setTextSize(16);e.setSingleLine(true);e.setMinHeight(dp(52));e.setIncludeFontPadding(false);e.setPadding(dp(14),dp(14),dp(14),dp(14));GradientDrawable outline=shape(0xfffafbfd);outline.setStroke(dp(1),LINE);e.setBackground(outline);e.setOnFocusChangeListener((v,focused)->outline.setStroke(dp(focused?2:1),focused?INK:LINE));e.setTextColor(INK);e.setHintTextColor(MUTED);return e;}
     private void gap(LinearLayout parent,int height){View spacer=new View(this);parent.addView(spacer,new LinearLayout.LayoutParams(1,dp(height)));}
     private void hideKeyboard(){View focus=getCurrentFocus();if(focus!=null)((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);}
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
