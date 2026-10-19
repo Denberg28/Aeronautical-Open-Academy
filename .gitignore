@@ -12,3 +12,12 @@ dist/
 output/
 __pycache__/
 *.pyc
+server/data/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.pem
+node_modules/

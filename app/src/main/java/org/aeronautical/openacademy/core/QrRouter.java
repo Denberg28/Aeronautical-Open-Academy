@@ -7,6 +7,12 @@ import java.util.Set;
 /** QR values identify catalog entries; they never grant file or network access. */
 public final class QrRouter {
     private QrRouter() {}
+    public static String protectedSubject(String raw) {
+        if(raw==null||raw.length()>512)return "";
+        String value=raw.trim().toLowerCase(Locale.ROOT);
+        if(value.startsWith("aoa://subject/"))value=value.substring(14);
+        return value.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")?value:"";
+    }
     public static String subject(String raw, Set<String> known) {
         if (raw == null || raw.length() > 512) throw new IllegalArgumentException("Code is empty or too long.");
         String id = raw.trim().toLowerCase(Locale.ROOT);

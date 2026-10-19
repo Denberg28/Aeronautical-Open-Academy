@@ -19,6 +19,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -29,6 +32,7 @@ jobs:
           sh tools/core_checks.sh
           python3 tools/project_checks.py
           python3 -m unittest discover -s tests -p 'test_*.py' -v
+          npm test --prefix server
       - name: Android build and lint
         run: sh gradlew --no-daemon :app:coreChecks :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
       - name: Package build evidence

@@ -1,68 +1,54 @@
-# QA gates and current evidence
+# Verification — 0.2.0-alpha.1
 
-Version: 0.1.0-alpha.1. Evidence tier: **host checks and self-review**. Android compilation, simulator/device execution, Drive integration, and APK packaging are not yet verified. Source package is not an installable candidate.
+Evidence must distinguish host checks, Android compilation/lint, local HTTP backend integration, mocked Drive adapter behavior, physical devices, and real organization access.
 
-## Current result matrix
+## Current matrix
 
-| Gate/check | Status | Evidence / limit |
+| Check | Status | Evidence / limits |
 | --- | --- | --- |
-| Baseline/repository identity | PASS | GitHub metadata: exact named repo, empty, main; visibility public contradicts requested private destination |
-| Pure Java routing/destination/transfer checks | PASS | `docs/evidence/core-checks.txt`: 34 checks on OpenJDK 17.0.20 |
-| Catalog publishing validator tests | PASS | `docs/evidence/python-tests.txt`: 8 tests |
-| Bundled catalog/PDF hashes and XML | PASS | `docs/evidence/project-checks.txt` |
-| Focused source secret/configuration scan | PASS | Same source check; not a complete dependency security audit |
-| Java syntax | PASS | `docs/evidence/java-syntax.txt`; parsing only, not Android type-checking |
-| Sample handouts | PASS | Four single-page PDFs text-extracted and visually reviewed; text companions included |
-| Android build + lint + Android JVM unit tests | BLOCKED | Gradle distribution cannot be downloaded; no Android SDK installed. See build log |
-| Dependency resolution/security audit | BLOCKED | Maven/Google build artifacts unavailable in this environment |
-| Camera/UI/lifecycle/download integration | NOT TESTED | No emulator or physical Android device attached |
-| Organization Drive access and instructor update flow | BLOCKED | No approved real catalog/PDF or verified access policy supplied |
-| Signed APK / install / upgrade | BLOCKED | Android build unavailable and persistent release identity not configured |
-| GitHub push / private release | BLOCKED | Remote reports public; private delivery requested |
-| Actuator, flight-control, motor HIL | N/A | This app does not command physical equipment |
-| Stable promotion | BLOCKED | Required build/device/integration/delivery gates incomplete |
+| Public source destination | PASS | User explicitly authorized public repository; no protected data included |
+| Pure Java QR/URL/transfer core | PASS | 40 checks; docs/evidence/core-checks.txt |
+| Catalog publishing validator | PASS | 8 tests; docs/evidence/python-tests.txt |
+| XML/assets/wrapper/focused secret scan | PASS | docs/evidence/project-checks.txt |
+| Backend HTTP/SQLite role/security flows | PASS | 9 real loopback API tests; docs/evidence/backend-tests.txt |
+| Drive adapter credential isolation / redirect tests | PASS | 2 mocked-upstream tests; not real Google access |
+| Android build/JVM tests/lint for final source | PENDING | GitHub Actions; update evidence with exact commit/run before delivery |
+| Physical device/runtime/camera/accessibility/lifecycle | NOT TESTED | No attached Android device/emulator |
+| Live account backend | BLOCKED | No hosting destination/HTTPS deployment configured |
+| Real organization Drive | BLOCKED | No organization service credential/folder/access evidence supplied |
+| Retained release signing/install/upgrade | BLOCKED | No release keystore/secrets configured |
+| Actuator/flight-control/motor HIL | N/A | Education app controls no equipment |
+| Stable promotion | BLOCKED | Required deployment/device/signing/real Drive gates incomplete |
 
-## Automated commands
+## Automated checks
 
 ```sh
 sh tools/core_checks.sh
 python3 tools/project_checks.py
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+npm test --prefix server
 java tools/ParseJava.java $(find app/src -name '*.java')
 ./gradlew --no-daemon :app:coreChecks :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
 ```
 
-The first three commands do not require the Android SDK. Java syntax parsing requires a full JDK compiler module. Gradle's JVM catalog tests use the real Catalog class with test-only org.json; Android's platform JSON behavior still needs integration verification. Do not replace failed build checks with source parsing.
+Source parsing is not Android compilation. Backend tests start actual HTTP servers and SQLite databases; scrypt fixture cost is deliberately lower than production. Drive tests mock Google endpoints and generate a test-only RSA key, so no organization credential is used. Android JVM catalog tests exercise the real parser with test-only org.json; platform integration remains a device check.
 
-## Runnable Android device procedure
+## Runnable Android/role validation
 
-Prerequisites: build a debug APK on an SDK-equipped machine; enable USB debugging; install Android platform tools; keep an approved test catalog and known small PDF ready. Record commit, APK SHA-256, device model/OS/RAM, connectivity, catalog version, and resource revisions. Debug package is `org.aeronautical.openacademy.test`.
+1. Build debug APK, `adb install -r app/build/outputs/apk/debug/app-debug.apk`, then launch `org.aeronautical.openacademy.test/org.aeronautical.openacademy.MainActivity`. Record commit/APK SHA-256/certificate, phone model/OS/RAM, connection, backend version, and Drive setup.
+2. Public samples: only A/B/C; scan aoa://subject/a or enter A; deny camera permission and use manual entry; save a sample PDF, force-stop/relaunch, and read in airplane mode. Invalid/unrelated QR must not open arbitrary sites.
+3. Start the local backend from server/README.md; use debug emulator origin http://10.0.2.2:8787. For a physical device use the approved HTTPS origin; do not enable broad release cleartext access. Bootstrap admin privately.
+4. Admin registers two instructors and two students. Each changes temporary password. Admin creates/enrolls access, publishes an announcement, and tests role change/reset/suspend/reactivate/delete. Old tokens must fail. Confirm self/last-admin safeguards. Deletion removes personal learning data, not authored materials.
+5. Instructor A creates a subject, draft PDF/activity/quiz; uploads a PDF; verifies accessible text and publishes. Instructor B cannot read/manage A's subject or mutate material IDs through API calls. Unknown owner/role/score fields must never elevate authority.
+6. Student A is enrolled and Student B is not. A sees only published items and no correct answer/file reference; B gets denied even with a valid account/QR. Reading protected PDF requires online permission; student private offline download is not offered.
+7. Student A marks/unmarks activity done; Student B's data stays separate. Manual quiz completion is rejected. Submit an incorrect answer with a forged score field: server still scores it incorrect and marks submitted, not passed. Replay the same request key: no duplicate attempt; new/change-answer replay is rejected.
+8. Replace/upload a PDF during connection loss, suspension, or unenrollment. An interrupted or revoked upload must not publish a new file reference. Online viewing must fail after suspension/unenrollment on a new request. Current rendered/exported bytes are not promised instant remote revocation.
+9. Test Android document pickers, rotation while selecting/uploading/exporting, background/resume/process death, 200% font size, TalkBack, RTL/landscape, rapid taps, 20 repeated request/view cycles, and a 30-page/10-minute PDF session. No credential in logs/backups/screenshots/private file shares. Verify secure cache cleanup and access recheck behavior on actual OS versions.
+10. Test the organization Shared Drive adapter with intended membership/access levels: private create/upload/view/replace, denied permission, missing file, invalid PDF/size, rate/timeout faults. Confirm no sharing-permission mutation or direct private URL/key reaches the app. Mocks do not count for this gate.
+11. Build two increasing versions with the same retained release key. Verify signature fingerprints, same-package upgrade, preserved public downloads, account sign-out/revalidation, and rollback limitations. Debug keys are not release identity.
 
-```sh
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n org.aeronautical.openacademy.test/org.aeronautical.openacademy.MainActivity
-adb shell am start -W -n org.aeronautical.openacademy.test/org.aeronautical.openacademy.MainActivity
-adb logcat -d -s AndroidRuntime
-```
+## Evidence and promotion
 
-1. **Startup/layout:** launch five cold starts and time to interactive catalog. Browse all four sample subjects, search by code/title/resource title, rotate, change font size to 200%, enable TalkBack, and inspect portrait/landscape on Android 8–10 and a modern physical phone. Expected: controls readable, reachable, and labeled; timing meets SPEC budgets.
-2. **QR/permissions:** print/display a QR with `aoa://subject/ae-413`; scan it and enter `AE-413`. Deny camera permission, reopen scanning, and use manual entry. Scan unrelated HTTPS, unknown subject, traversal, and malformed text. Expected: correct local subject or clear error; no arbitrary link opens.
-3. **Offline baseline:** with internet disabled, open bundled catalog/text companions. Save one sample PDF; wait for completion. Force-stop/relaunch and read the PDF in airplane mode. Try page navigation, rotation, and an installed external PDF reader. Expected: completed content remains available; internal reader reports missing/corrupt files clearly.
-4. **Remote content:** connect an approved Drive JSON download URL and fetch its PDF with the intended student privileges. Test a normal Drive view page, sign-in-required file, missing file, download-disabled file, and HTML confirmation response. Expected: valid data works; failures explain the access/format problem and keep the old catalog/copy. Browser access remains explicit.
-5. **Catalog update:** preserve the subject ID, replace the PDF, increase resource revision and catalog version, update hash, publish and refresh. Scan the original QR. Expected: subject remains reachable; old PDF remains readable before replacement completion; new revision replaces it only after verification. Try malformed JSON, duplicate IDs, unsupported schema, catalog downgrade, and revision/hash changes without revision bump. Expected: old valid catalog retained.
-6. **Download faults:** on a larger approved test PDF, interrupt Wi-Fi, background the app, kill the process, relaunch, cancel, repeat Save rapidly, and reboot. Repeat with insufficient free storage and responses with missing/incorrect lengths and >50 MiB content. Expected: at most one active resource job; partials never appear completed; retry/restart/cancel is bounded and previous valid copies survive. Android force-stop suppresses background scheduling until the app is reopened.
-7. **Lifecycle/endurance:** rotate and background/resume during refresh, scanning, download, and PDF reading. Repeat 20 navigation/download/cancel cycles and read a 30-page PDF for 10 minutes while observing memory/ANRs. Expected: no crash, leaked camera, duplicate operation, missing saved copy, or unusable navigation; verify SPEC budgets.
-8. **Delete:** explicitly remove one completed PDF; cancel removal of another. Expected: only the confirmed local copy is removed; the instructor source remains unaffected.
-9. **Install/upgrade/signing:** build two increasing signed release versions with the same organization-owned key. Install the first, save a PDF, then `adb install -r` the second. Check certificate fingerprints, app version, retained downloads, and startup. Expected: same identity upgrades and saved files survive. Debug `.test` and release packages are separate.
+For each acceptance criterion record source SHA, environment, procedure, expected/actual result, PASS/FAIL/NOT TESTED/BLOCKED, and evidence location. Use N/A only with a reason. Required failures block promotion; do not disable lint/tests to publish.
 
-Use Android Settings for airplane mode, font/TalkBack changes, and storage simulation where shell automation is unavailable. Do not use `pm clear` for routine recovery: it deletes app data. Logs should not include private content or credentials.
-
-## Evidence record format
-
-For every device check record: criterion ID, source commit, APK/hash/certificate, environment, steps, expected result, observed result, PASS/FAIL/NOT TESTED/BLOCKED, and evidence location. User-run checks count when their configuration and actual observations are supplied. Screenshots and host checks do not establish a successful install or camera operation.
-
-## Release gates
-
-Candidate: Android build/lint/unit/source/content/signature/packaging checks pass; no known critical/high defects; missing device/Drive checks clearly stated. Debug CI artifacts are development smoke builds, not enduring signed distribution.
-
-Stable: every applicable required criterion passes on final source and signed artifact, including organization access, physical-device faults/accessibility, install/upgrade, and supported performance. Current source is ineligible for either APK tier until compilation/packaging pass.
+A test APK can be offered after candidate automated/build/packaging gates pass and no known critical/high defects remain, with unverified deployment/device scope explicit. Stable requires actual device, organization access, signing continuity, security/backup/hosting, and performance gates on final source/artifact. Never describe a debug APK as an institutional production release.

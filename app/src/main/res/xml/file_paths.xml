@@ -1,1 +1,1 @@
-<paths xmlns:android="http://schemas.android.com/apk/res/android"><files-path name="offline_pdfs" path="downloads/" /></paths>
+<paths xmlns:android="http://schemas.android.com/apk/res/android"><files-path name="offline_pdfs" path="downloads/" /><cache-path name="protected_pdf" path="protected-pdf/" /></paths>

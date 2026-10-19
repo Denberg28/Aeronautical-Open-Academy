@@ -1,0 +1,15 @@
+import { join } from 'node:path';
+import { chmod, mkdir } from 'node:fs/promises';
+import { createAcademy } from './server.mjs';
+import { LocalMaterials, DriveMaterials } from './materials.mjs';
+process.umask(0o077);
+const directory=process.env.ACADEMY_DATA_DIR||'./data';await mkdir(directory,{recursive:true,mode:0o700});
+const host=process.env.HOST||'127.0.0.1',port=Number(process.env.PORT||8787),production=process.env.NODE_ENV==='production';
+if(production&&process.env.MATERIAL_STORAGE!=='drive')throw new Error('Production requires organization Drive storage.');
+if(!production&&!['127.0.0.1','::1','localhost'].includes(host))throw new Error('Development backend must bind to loopback. Configure NODE_ENV=production and an HTTPS reverse proxy for deployment.');
+const materials=process.env.MATERIAL_STORAGE==='drive'?new DriveMaterials(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON||'{}'),process.env.DRIVE_FOLDER_ID):new LocalMaterials(join(directory,'materials'));
+const bootstrap=process.env.ADMIN_BOOTSTRAP_EMAIL&&process.env.ADMIN_BOOTSTRAP_PASSWORD?{email:process.env.ADMIN_BOOTSTRAP_EMAIL,password:process.env.ADMIN_BOOTSTRAP_PASSWORD,name:'Administrator'}:undefined;
+const academy=await createAcademy({dbPath:join(directory,'academy.sqlite'),materials,bootstrap});
+if(!academy.db.prepare("SELECT id FROM accounts WHERE role='admin' AND status='active'").get())throw new Error('Set ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD for the first startup.');
+academy.server.listen(port,host,()=>console.log(`Academy API listening on ${host}:${port}. Place behind HTTPS for device access.`));
+for(const event of ['SIGINT','SIGTERM'])process.once(event,async()=>{await academy.close();process.exit(0);});

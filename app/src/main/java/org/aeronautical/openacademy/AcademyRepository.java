@@ -131,7 +131,7 @@ public final class AcademyRepository {
     }
     static String readText(InputStream in,int maximum) throws IOException {
         ByteArrayOutputStream out=new ByteArrayOutputStream(); byte[] buffer=new byte[8192];int n;
-        while((n=in.read(buffer))!=-1) { if(out.size()+n>maximum)throw new IOException("Catalog exceeds 1 MB limit."); out.write(buffer,0,n); }
+        while((n=in.read(buffer))!=-1) { if(out.size()+n>maximum)throw new IOException("Response exceeds the allowed size."); out.write(buffer,0,n); }
         return out.toString(StandardCharsets.UTF_8.name());
     }
     public synchronized void changed() { changes.postValue(++revision); }

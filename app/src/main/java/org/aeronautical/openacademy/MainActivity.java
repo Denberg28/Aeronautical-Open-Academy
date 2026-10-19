@@ -89,7 +89,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout brand=column();brand.setPadding(dp(12),0,dp(4),0);
         brand.addView(text("AERONAUTICAL",11,INK,true));brand.addView(text("Open Academy",19,INK,true));
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        Button help=button("Help",false,v->showHelp());header.addView(help);root.addView(header);
+        Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));header.addView(account);root.addView(header);
         scroll=new ScrollView(this);scroll.setFillViewport(true);
         body=column();body.setPadding(dp(22),dp(14),dp(22),dp(28));scroll.addView(body);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
@@ -105,12 +105,13 @@ public final class MainActivity extends AppCompatActivity {
         scroll.post(()->scroll.scrollTo(0,restore));
     }
     private void subjectsScreen() {
-        body.addView(text("YOUR LEARNING SPACE",11,MUTED,true));gap(body,10);
+        body.addView(text("PUBLIC SAMPLE LIBRARY",11,MUTED,true));gap(body,10);
         body.addView(text("Knowledge.\nReady for takeoff.",32,INK,true));gap(body,8);
         body.addView(text("Subjects and materials, wherever you learn.",16,MUTED,false));gap(body,20);
+        body.addView(button("My learning workspace",true,v->startActivity(new Intent(this,WorkspaceActivity.class))));gap(body,12);
         LinearLayout banner=card(0xffe5efdf);
         banner.addView(text(repo.catalog.demo?"Start with a sample subject":"Your subjects, one scan away",19,INK,true));
-        banner.addView(text(repo.catalog.demo?"Explore four sample subjects. Connect your approved catalog when it is ready.":"Scan your instructor’s QR code or choose a subject below.",14,MUTED,false));
+        banner.addView(text(repo.catalog.demo?"Explore Subjects A, B, and C. Sign in for your enrolled learning workspace.":"Scan your instructor’s QR code or choose a subject below.",14,MUTED,false));
         banner.addView(button("Scan a subject QR",true,v->navigate("scan")));body.addView(banner);gap(body,20);
         EditText search=input("Search subjects or materials",query);search.setContentDescription("Search subjects and materials");body.addView(search);gap(body,12);
         results=column();body.addView(results);listSubjects();
@@ -118,6 +119,7 @@ public final class MainActivity extends AppCompatActivity {
         gap(body,16);body.addView(text(repo.notice,13,MUTED,false));
         if(repo.lastSync()>0)body.addView(text("Last synced "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date(repo.lastSync())),12,MUTED,false));
         body.addView(button(repo.busy?"Refreshing…":"Refresh catalog",false,v->refresh()));
+        body.addView(button("Help & public catalog",false,v->showHelp()));
     }
     private void listSubjects() {
         results.removeAllViews();String q=query.trim().toLowerCase(Locale.ROOT);int count=0;
@@ -203,6 +205,10 @@ public final class MainActivity extends AppCompatActivity {
         WorkManager.getInstance(this).enqueueUniqueWork("download-"+r.id,ExistingWorkPolicy.KEEP,builder.build());
     }
     private void openCode(String raw) {
+        String protectedId=QrRouter.protectedSubject(raw);
+        if(!protectedId.isEmpty()){
+            startActivity(new Intent(this,WorkspaceActivity.class).putExtra("subject_id",protectedId));return;
+        }
         if(repo.catalog==null){pendingCode=raw;return;}
         try { subjectId=QrRouter.subject(raw,repo.catalog.subjectIds());tab="subjects";query="";scrollPosition=0;hideKeyboard();render();scroll.scrollTo(0,0); }
         catch(IllegalArgumentException e){message("Check your subject code",e.getMessage());}
@@ -234,7 +240,7 @@ public final class MainActivity extends AppCompatActivity {
         }));dialog.show();
     }
     private void showHelp() {
-        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage("1. Choose a subject or scan its Academy QR.\n2. Save eligible PDFs while connected.\n3. Read completed copies in Downloads, even offline.\n\nCatalog codes: A, AE-417, C, AMT-412. Samples are demonstrations, not approved course or aircraft maintenance instructions.\n\nCamera is used only to scan. No analytics, advertising, or app accounts. Android uninstall or Clear storage removes saved copies. Previously downloaded copies cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Catalog setup",(d,w)->configureCatalog()).show();
+        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage("1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nSample subject codes: A, B, C. Samples are demonstrations.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
     }
     private void message(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK",null).show();}
     private void navButton(String label,String target){Button b=button(label,tab.equals(target),v->navigate(target));b.setSelected(tab.equals(target));nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}

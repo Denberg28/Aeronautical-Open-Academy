@@ -1,1 +1,1 @@
-PASS: 34 routing, destination, and transfer integrity checks
+PASS: 40 routing, destination, and transfer integrity checks

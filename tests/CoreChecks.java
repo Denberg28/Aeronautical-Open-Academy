@@ -11,6 +11,10 @@ public final class CoreChecks {
     static void rejects(Checked action,String label)throws Exception{boolean rejected=false;try{action.run();}catch(IllegalArgumentException|java.io.IOException e){rejected=true;}expect(rejected,label);}
     public static void main(String[] args)throws Exception{
         Set<String> ids=Set.of("a","c");
+        String protectedId="12345678-abcd-abcd-abcd-123456789abc";
+        expect(QrRouter.protectedSubject("aoa://subject/"+protectedId).equals(protectedId),"protected subject routes to authorization workspace");
+        expect(QrRouter.protectedSubject(protectedId).equals(protectedId),"protected manual subject identifier");
+        for(String raw:new String[]{"https://evil.example/"+protectedId,"aoa://subject/"+protectedId+"?enroll=true","aoa://subject/"+protectedId+"#fragment","aoa://evil@subject/"+protectedId})expect(QrRouter.protectedSubject(raw).isEmpty(),"malformed protected route rejected");
         expect(QrRouter.subject(" A ",ids).equals("a"),"manual code normalized");
         expect(QrRouter.subject("aoa://subject/c",ids).equals("c"),"stable QR routes locally");
         for(String s:new String[]{"", "https://evil.example/a", "aoa://subject/a?url=https://evil.example", "aoa://subject/a#fragment", "aoa://subject/../../a", "aoa://user@subject/a", "aoa://subject:8/a", "aoa://other/a", "aoa://subject/%61", "aoa://subject/ae-999", "file:///a", "a\nother", "a".repeat(513)})rejects(()->QrRouter.subject(s,ids),"reject QR "+s);

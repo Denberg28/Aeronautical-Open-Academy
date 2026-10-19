@@ -1,49 +1,38 @@
-# Scope, assumptions, and baseline
+# 0.2.0-alpha.1 scope and roles
 
-Baseline: existing repository `Denberg28/Aeronautical-Open-Academy`; GitHub reports empty, default branch `main`, public visibility. No starting commit, working release, application ID, or signing key exists in repository evidence. Development is local until visibility matches authorization. Local branch: `feat/android-mvp`.
+The user authorized public repository delivery on 19 October 2026 and replaced the earlier anonymous-library-only MVP with account-based learning. Preserve public samples A/B/C and add a separate protected learning workspace. The earlier local source commit is 6a0813a; the public repository was initialized separately and its commit chain is authoritative for published builds.
 
-Assumptions: students use Android phones with intermittent connectivity; instructors maintain approved content in organization Google Drive; initial in-app access needs no account; some materials may require browser sign-in. No organization files or sharing policy have been supplied. No external hardware is controlled.
+| Capability | Admin | Instructor | Student |
+| --- | --- | --- | --- |
+| Register, reset password, change role, suspend/reactivate/delete accounts | All, with last-admin/self-lockout safeguards | No | No |
+| Manage enrollment | All subjects | No in this first version | No self-enrollment |
+| Create/edit subjects | All; API supports assigning active instructor owner | Own | Read enrolled subjects |
+| Upload/edit/archive/download materials | All | Creator-owned only | View published enrolled content |
+| Create activities/quizzes | All | Own subjects/items | No |
+| Global announcements | Publish/archive | Read | Read |
+| Activity completion | View/manage content | View/manage content | Self-mark/unmark own progress |
+| Quiz answers/grades | Content oversight | Own quiz keys | Submit own answer; server scores |
 
-## MVP and non-goals
+UI keeps Subjects and News primary; account administration appears only to admins. Draft → upload/review → publish is the instructor default. Destructive actions require explicit confirmation. Account deletion anonymizes the account, removes student enrollment/progress/attempts, revokes sessions, and retains authored content for administrator review.
 
-Student: launch → browse/search or scan/manual code → subject → module/resource → text, online view, or offline PDF → Downloads → read/remove.
+Quiz MVP: one multiple-choice question per quiz item (2–6 API options, two in the first authoring form), one submission per item revision, request-id deduplication, immutable server scoring. Submitted/completed is distinct from passed. Formal gradebooks, retakes/deadlines, essay grading, multi-question exams, messaging, payments, and cross-device offline synchronization are future work.
 
-Instructor: prepare approved content and accessible text → publish a validated versioned catalog → student refreshes → stable subject ID still resolves. Preserve IDs, increase changed resource revisions, and keep previous catalogs for recovery.
+## Acceptance gates
 
-MVP: three primary destinations, QR scan/manual fallback, grouped resources, background downloads, offline reader/text notes, catalog update/recovery, storage management, help, automated source checks, reproducible Android build configuration, and gated candidate workflow.
+1. Student cannot invoke admin routes, choose a role, read another course, edit ownership, or obtain answer keys.
+2. Instructor A cannot view/manage instructor B's subject, nor edit/download a different creator's protected item.
+3. An unenrolled/suspended/deleted user is denied even with an old token; role changes/reset/logout revoke sessions.
+4. Last active admin cannot be removed/demoted; current admin cannot lock themselves out.
+5. Private file download/view rechecks active account and enrollment; upload rechecks authority after async transfer.
+6. Student activity completion affects only their own current revision. Manual quiz completion is rejected.
+7. Quiz scoring ignores client-supplied score/key; same-key retries do not create attempts; changed-answer replay is rejected.
+8. Draft items and private file references are omitted from student responses.
+9. Subject QR opens the subject after login if enrolled; QR never enrolls or grants file access.
+10. Sample codes A/B/C and their completed public PDFs remain available offline. Failed updates preserve the prior catalog/copy.
+11. Android build/JVM tests/lint and backend tests pass on the published source; secret/configuration checks pass.
+12. Physical-device camera/permissions/200% fonts/TalkBack/rotation/process recreation and signed install/upgrade pass before stable.
+13. Real organization Drive upload/view/replace/access revocation passes before claiming production integration.
 
-Non-goals: grading, attendance, quizzes, messaging, AI tutors, payments, full LMS, in-app content editing, authenticated Drive API/OAuth, bulk folder crawling, streamed offline video, cross-device student progress, and public distribution. No budgeted services are needed for the implementation; organization quotas and policies still need verification.
+Performance budgets: interactive public startup ≤2 s (4/5 physical-device cold runs), QR resolution ≤100 ms after decode, account API response ≤2 s excluding password hashing/file transfer on reference deployment, ≤50 MiB/PDF, ≤1 MiB public catalog, ≤64 KiB API request JSON, protected viewer bitmap ≤1600×2400. These are targets; physical/deployed measurements are pending.
 
-## Measurable acceptance criteria
-
-These targets were set before device measurements. They are acceptance budgets, not observed results. Reference device for sign-off: one Android 8–10 device/emulator and one physical Android 14+ phone, including the user's Android 16 phone if available. Record model, RAM, OS, connection, and file/catalog size.
-
-| ID | Criterion | Required evidence |
-| --- | --- | --- |
-| A1 | Cold launch to interactive bundled catalog ≤2 seconds in 4 of 5 runs on reference physical device | Device timing/video or trace |
-| A2 | Valid local QR/code resolves correct subject within 100 ms after decoded value is supplied | Instrumented timing; camera decode measured separately |
-| A3 | Unknown, malformed, unrelated, or overly long QR never auto-launches a URL or crashes | Core checks plus actual scan/manual tests |
-| A4 | Denied camera permission leaves browsing and manual code usable | Physical device |
-| A5 | Failed/invalid refresh keeps the previous catalog and completed PDFs | Fault integration test |
-| A6 | Completed sample and approved remote PDF reopen after process restart in airplane mode | Physical device and approved Drive source |
-| A7 | Interrupted/cancelled/oversize/HTML responses do not appear as completed PDFs | Device/network fault tests |
-| A8 | Duplicate taps cause one active download per resource; retries remain bounded | Device + WorkManager inspection |
-| A9 | TalkBack reaches all main controls; 200% font size and portrait/landscape do not clip required controls | Physical device/screenshots |
-| A10 | Catalog/resource update preserves stable subject QR; old offline copy remains readable until replacement succeeds | Update fault test |
-| A11 | Download maximum 50 MiB, catalog maximum 1 MiB; enforce limits even without Content-Length | Core/integration tests |
-| A12 | PDF page bitmap ≤1600 × 2400; page turns do not crash during a 30-page/10-minute session | Device memory observation |
-| A13 | Signed install and same-key upgrade succeed; downloaded copies persist across upgrade | Two consecutive signed candidate builds |
-| A14 | APK SHA-256, certificate fingerprint, version, source commit, and gate results are recorded | Packaging checks |
-
-HIL actuator/control authority checks are N/A because this app does not command equipment. Camera, storage, permissions, PDF viewing, lifecycle, install/upgrade, and OS behavior remain required device checks.
-
-## Interfaces and state
-
-- Catalog: schema 1 JSON, ≤100 subjects, ≤200 resources per subject, globally unique safe IDs, integer version/revisions, bounded text and URLs.
-- QR: `aoa://subject/{stable-id}` or manual ID, matched against cached catalog; no arbitrary URL execution.
-- Content: approved HTTPS Google Drive/Docs/Googleusercontent destinations; revalidate each redirect; assets only from the bundled catalog.
-- Download: QUEUED → RUNNING → VERIFIED → AVAILABLE; cancellation/failure leaves the prior available copy. Worker restart begins a new transfer rather than resuming partial bytes.
-- Catalog: BUNDLED/CACHED → REFRESHING → VALIDATED/COMMITTED, or error with previous state retained.
-- Offline index: atomic private JSON metadata, complete PDF files only, hash verification at startup; partial files excluded.
-
-Missing Drive policy, external build dependencies, signing identity, and real-device evidence are explicit blockers to production readiness. They do not prevent source implementation or documented host checks.
+No control equipment is commanded. Actuator HIL is N/A; Android hardware/OS behavior remains a mandatory device gate.

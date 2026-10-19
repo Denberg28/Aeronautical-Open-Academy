@@ -1,0 +1,19 @@
+✔ passwords are salted and verified; ownership never follows a client role claim (173.90872ms)
+✔ registration is admin-only; temporary passwords and user-selected roles do not grant access (701.904306ms)
+✔ subject enrolment, creator ownership, draft visibility, and answer-key isolation (843.744012ms)
+✔ quiz grading is server-side, idempotent, bounded, and separate from completion flags (587.940622ms)
+✔ suspension, deletion, logout and expiry revoke access rather than relying on UI (773.543593ms)
+✔ protected files require enrolment and creator authority; view does not grant offline permission (801.249655ms)
+✔ global announcements are admin-only and visible to active accounts (340.934843ms)
+✔ role changes and password resets revoke old sessions; unauthorized ownership writes fail (478.403549ms)
+✔ suspension during an upstream upload wins before publishing metadata (369.067815ms)
+✔ Drive token/upload stay server-side, stream bytes, and preserve private references (19.815584ms)
+✔ Drive upload cannot redirect a server credential to an unapproved host (2.697725ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5201.464064

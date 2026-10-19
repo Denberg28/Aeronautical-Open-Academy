@@ -21,7 +21,7 @@ assert app.get(android+'allowBackup')=='false'
 for p in ROOT.rglob('*'):
     if not p.is_file() or any(x in p.parts for x in ['.git','out','build','.gradle','output','__pycache__']):continue
     assert p.suffix.lower() not in ['.jks','.keystore','.p12'],f'Signing material must not be packaged: {p}'
-    if p.suffix in ['.java','.json','.xml','.gradle','.yml','.properties']:
+    if p.suffix in ['.java','.json','.xml','.gradle','.yml','.properties','.mjs','.sql']:
         text=p.read_text()
         assert not re.search(r'-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',text),f'Private key found: {p}'
         assert not re.search(r'(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})',text),f'GitHub token found: {p}'

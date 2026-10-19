@@ -1,64 +1,64 @@
 # Aeronautical Open Academy
 
-Android education library: scan an instructor QR, choose a subject, and keep eligible PDFs for offline study.
+Android learning workspace with **admin, instructor, and student accounts**, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-**Status: v0.1.0-alpha.1 source implementation. No Android APK has been built or published.** Host checks pass; Android build, real-device behavior, organization Drive access, and signing remain unverified. See [testing](docs/TESTING.md) and [known issues](docs/KNOWN_ISSUES.md).
+Version: **0.2.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
-## First version
+## Minimal workflow
 
-- Subjects, Scan QR, and Downloads navigation with search and manual subject codes.
-- Four clearly marked demonstration subjects: AE 413, AE 417, AMT 212, AMT 412.
-- Original sample handouts, matching text versions, and a bundled catalog usable at first launch.
-- Instructor catalog refresh with validation and preservation of the last valid copy.
-- WorkManager downloads, cancellation, bounded transfers, integrity checks, and safe file promotion.
-- Offline PDF reader; external-reader access for zoom/accessibility tools.
-- HTTPS destination restrictions and explicit confirmation before opening online materials.
-- No ads, analytics, app accounts, or privileged Drive credentials.
+- Student: sign in → My subjects → lesson/activity/quiz → read, submit, or mark activity done.
+- Instructor: create subject → add PDF/activity/quiz as draft → upload/review → publish. Edit/download only creator-owned materials.
+- Admin: register accounts → assign role → enroll students → manage suspension/reactivation/deletion and password reset → publish global announcements. Administrators can oversee all content.
 
-Content, scanner, catalog, storage, and UI are separate components. Initial remote content support is for organization-approved resources readable without app authentication. Restricted files may be opened in a browser with the student's existing account; authenticated in-app downloads are not implemented.
+Students cannot self-register, select their own role, enroll themselves, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. A subject QR identifies a subject; sign-in and enrollment are still enforced by the backend.
 
-## Build
+## Android build
 
-Requirements: JDK 17, Python 3.10+, Android SDK platform 35 and build tools 35.0.0, internet access for Gradle/Maven/Google artifacts. Android Studio is optional.
+JDK 17, Android SDK 35/build tools 35.0.0, and Gradle 8.11.1 (wrapper included).
 
 ```sh
-sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 sh tools/core_checks.sh
 python3 tools/project_checks.py
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+npm test --prefix server
 ./gradlew --no-daemon :app:coreChecks :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
 ```
 
-On Windows, use `gradlew.bat` for Gradle commands and set `ANDROID_HOME`/`JAVA_HOME`, or open this directory in Android Studio. The standalone shell check can be replaced with `gradlew.bat :app:coreChecks` after dependencies resolve.
+Android 8.0/API 26+ is configured. Debug package: `org.aeronautical.openacademy.test`; release package: `org.aeronautical.openacademy`. Debug output: `app/build/outputs/apk/debug/app-debug.apk`. Unsigned release output is not installable until organization-controlled signing is configured. Windows: use `gradlew.bat` or Android Studio.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. Its application ID ends in `.test` and it is a development artifact. The release application ID is `org.aeronautical.openacademy`, minimum Android 8.0/API 26. Compilation against API 35 is configured, not yet verified.
+GitHub Actions verifies source, backend boundaries, JVM catalog tests, Android lint, and debug/unsigned release builds. The candidate workflow requires a persistent signing key and refuses stable tags. See the actual Actions results before calling a build verified.
 
-Without signing environment variables, the release build is unsigned and cannot be installed. Never distribute that file as an installable APK. Configure organization-controlled signing before the first signed release; see [delivery](docs/DELIVERY.md).
+## Run the account backend locally
 
-## Content and QR codes
+The backend uses Node **24.19.0**, built-in SQLite/crypto/HTTP, and no third-party runtime packages. It is a single-instance starting point; Node's SQLite API stability and deployment limits are documented in server/README.md.
 
-See [content maintenance](docs/CONTENT_GUIDE.md). The QR payload `aoa://subject/ae-413` resolves locally through the catalog. `AE-413` works as manual input. Custom scheme links are navigation conveniences, not authenticated or verified web links. QR scanning occurs inside the installed app. This version does not provide an install landing page or verified HTTPS App Links.
+```sh
+cd server
+npm test
+# Set ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD privately for first startup.
+node --env-file=.env src/main.mjs
+```
 
-Students can start with the bundled samples without a connection, save a sample PDF, turn on airplane mode, and use Downloads. Sample material is for workflow demonstration and is not an approved syllabus or aircraft maintenance reference.
+Copy `server/.env.example` to a private `.env` file and fill it locally. There is no built-in administrator password and no production demo accounts. Keep data/secret files outside Git. The server binds to loopback in development. For Android emulator testing use `http://10.0.2.2:8787` in the debug app's sign-in form. Release builds require your organization's HTTPS origin.
 
-To use real content, validate the catalog, host it as an approved readable JSON file in organization Drive, and enter its content/download URL in Help → Catalog setup. A normal Drive viewing webpage is not a JSON/PDF download endpoint. No sharing setting is changed by the app.
+A live hosting destination and organization Drive credentials have **not** been configured. The account screens require a running backend. Public sample PDFs/text can be explored without one. No existing unrelated cloud database was modified.
 
-## Verification and distribution
+## Materials and offline access
 
-GitHub reported the named repository as empty and **public** on 19 October 2026, despite private delivery being requested. No source or release was uploaded. Both workflows refuse to run their build/publication jobs in a public repository. Resolve visibility before pushing.
-
-`Android verification` builds debug and unsigned release artifacts after checks. `Signed private candidate` requires persistent signing secrets and publishes a prerelease only after its gates pass. Neither workflow promotes stable automatically. Private GitHub releases are developer distribution; student distribution remains a separate choice.
-
-The local environment could not resolve/download Gradle and lacked an Android SDK. Accordingly, host validation is not presented as an Android build. See `docs/evidence/` for the actual outputs.
+- Public sample catalog: offline after installation; subject QR/manual codes `A`, `B`, `C`; PDFs can be saved and read offline.
+- Protected course data: retrieved after active-session/enrollment checks. Protected PDFs use a temporary app-private viewer, no-store responses, and online reauthorization. Student offline copies of protected PDFs are not implemented in this version.
+- Instructor/admin downloads: explicit export to the user's chosen location after authorization. Exported files cannot be remotely revoked.
+- Production material store: organization Shared Drive adapter. Service-account credentials remain on the server; no direct private Drive URL or key is sent to students. Local private disk is for development tests.
 
 ## Documentation
 
-- [Specification and acceptance criteria](docs/SPEC.md)
-- [Architecture and failure behavior](docs/ARCHITECTURE.md)
-- [Content maintenance](docs/CONTENT_GUIDE.md)
-- [Testing and device procedures](docs/TESTING.md)
-- [Delivery, signing, and rollback](docs/DELIVERY.md)
+- [Specification and role matrix](docs/SPEC.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Security and access review](docs/SECURITY.md)
+- [Backend setup](server/README.md)
+- [Material/content workflow](docs/CONTENT_GUIDE.md)
+- [Testing and evidence](docs/TESTING.md)
+- [Delivery and rollback](docs/DELIVERY.md)
 - [Known issues](docs/KNOWN_ISSUES.md)
-- [Changelog](CHANGELOG.md)
 
-Source is not licensed for redistribution by default; see LICENSE. Original bundled sample educational content is offered under CC BY 4.0. Third-party components retain their own licenses.
+This is a focused learning workflow inspired by common open-university LMS patterns, not an official UPOU system or a full Moodle implementation.

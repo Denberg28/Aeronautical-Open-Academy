@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0-alpha.1 — 2026-10-19
+
+- Authorized public source delivery; replaced sample subjects with generic A/B/C.
+- Added admin/instructor/student workspace, account registration/access/reset/enrollment, and global announcements.
+- Added draft/publish/creator-owned materials, activities, server-scored quiz submission, and per-student completion.
+- Added a portable account backend, organization Shared Drive adapter, Keystore session storage, and protected viewer handling.
+- Added actual HTTP/SQLite authorization/integration tests and corrected CI SDK/theme compatibility failures.
+- Live backend/Drive credentials, persistent signing, and physical-device validation remain outstanding.
+
+
 ## 0.1.0-alpha.1 — 2026-10-19 — source implementation
 
 - Added subject catalog, resource search, QR/manual subject entry, and three-destination native Android UI.
