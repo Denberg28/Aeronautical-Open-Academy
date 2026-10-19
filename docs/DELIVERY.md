@@ -2,7 +2,7 @@
 
 The user explicitly authorized public source delivery to Denberg28/Aeronautical-Open-Academy on 19 October 2026. Never put protected material, credentials, learner databases, actual quiz keys, or signing material in the public repository/artifacts. Generic test fixtures/sample answers are not institutional content.
 
-Android verification runs host/core/backend tests, Android JVM catalog tests, debug/release lint, and debug plus unsigned release assembly. Artifacts are uploaded only after checks pass. The debug APK is installable for controlled testing but its .test package/key is separate from the release identity. CI debug keys may vary between runs; this is not release upgrade continuity.
+Android verification runs host/core/backend tests, Android JVM catalog tests, debug/release lint, and debug plus unsigned release assembly. Artifacts are uploaded only after checks pass. After green checks, main-branch CI publishes a uniquely tagged development test prerelease with the verified debug APK, checksum, certificate, package metadata, and source SHA. The debug APK is installable for controlled testing but its .test package/key is separate from the release identity. CI test version names/codes increase by run number. CI debug keys may vary between runs; this is not release upgrade continuity.
 
 Signed candidate workflow accepts only unique version-matching prerelease tags and requires repository secrets AOA_KEYSTORE_BASE64, AOA_STORE_PASSWORD, AOA_KEY_ALIAS, AOA_KEY_PASSWORD. Retain the organization-owned key outside Git and back it up securely. No replacement key is generated silently. The workflow verifies the APK signature and packages commit/version/checksum/fingerprint/limitations. It does not automatically promote stable.
 

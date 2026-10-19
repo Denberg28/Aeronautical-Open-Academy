@@ -12,7 +12,7 @@ Evidence must distinguish host checks, Android compilation/lint, local HTTP back
 | XML/assets/wrapper/focused secret scan | PASS | docs/evidence/project-checks.txt |
 | Backend HTTP/SQLite role/security flows | PASS | 9 real loopback API tests; docs/evidence/backend-tests.txt |
 | Drive adapter credential isolation / redirect tests | PASS | 2 mocked-upstream tests; not real Google access |
-| Android build/JVM tests/lint for final source | PENDING | GitHub Actions; update evidence with exact commit/run before delivery |
+| Android build/JVM tests/lint for final source | NOT TESTED | At documentation authoring; per-commit CI artifact verification.json and Actions results supply actual build evidence |
 | Physical device/runtime/camera/accessibility/lifecycle | NOT TESTED | No attached Android device/emulator |
 | Live account backend | BLOCKED | No hosting destination/HTTPS deployment configured |
 | Real organization Drive | BLOCKED | No organization service credential/folder/access evidence supplied |
