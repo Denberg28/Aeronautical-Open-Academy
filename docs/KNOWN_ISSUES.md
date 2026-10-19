@@ -12,7 +12,6 @@ No confirmed critical/high defect remains in the current self-review/host tests.
 | LIMITATION | Student private offline downloads/sync are not implemented | Online authorization required for protected materials; public samples remain offline-capable |
 | LIMITATION | One question per quiz item; two choices in Android authoring (API supports 2–6) | Multi-question exams/retakes/gradebook are future work |
 | LIMITATION | Enrollment picker currently lists the first 100 registered accounts | Backend account list is paginated; larger deployments need searchable enrollment UI |
-| LIMITATION | Admin subject owner reassignment is not yet in the Android form | API supports instructor owner when creating a subject |
 | LIMITATION | PDF signature/end checks are not antivirus or full structural validation | Organization must curate approved PDFs and validate scanning policy |
 | LIMITATION | Admin MFA and distributed rate limiting are not implemented | Require deployment security review before real institutional use |
 | LIMITATION | Node/SQLite backend is single-instance, with operator-managed backup/retention | Deployment/load/restore validation required; do not run replicas against the same file |

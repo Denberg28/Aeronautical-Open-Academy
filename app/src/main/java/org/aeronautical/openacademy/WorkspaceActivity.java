@@ -101,7 +101,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         LinearLayout menu=row();menu.addView(button("My subjects",false,v->{selected="";screen="subjects";load();}));menu.addView(button("News",false,v->{selected="";screen="news";render();}));if(admin())menu.addView(button("Accounts",false,v->{selected="";screen="accounts";load();}));body.addView(menu);
         if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
         gap();body.addView(button("Refresh",false,v->load()));body.addView(button("Change password",false,v->passwordForm(false)));
-        body.addView(button("Sign out",false,v->perform(()->{try{return api.request("POST","/v1/auth/logout",new JSONObject());}finally{api.vault.clear();api.clearProtectedCache();}},r->{account=null;selected="";course=null;render();})));
+        body.addView(button("Sign out",false,v->perform(()->{JSONObject result=new JSONObject();try{api.request("POST","/v1/auth/logout",new JSONObject());}catch(Exception e){result.put("warning",true);}finally{api.vault.clear();api.clearProtectedCache();}return result;},r->{account=null;selected="";course=null;subjects=new JSONArray();render();if(r.optBoolean("warning"))new AlertDialog.Builder(this).setTitle("Signed out on this device").setMessage("Server sign-out could not be confirmed. The server session remains subject to its inactivity and expiry limits.").setPositiveButton("OK",null).show();})));
     }
     private void signIn(){
         label("Your subjects. Your next step.",22,true);label("Use the account supplied by your administrator. Public sample materials remain available without an account.",16,false);
@@ -134,9 +134,16 @@ public final class WorkspaceActivity extends AppCompatActivity {
         if(announcements.length()>0){label("Latest announcement",18,true);JSONObject a=announcements.optJSONObject(0);label(a.optString("title"),17,true);label(a.optString("body"),15,false);}
     }
     private void subjectForm(){
+        if(admin())perform(()->api.request("GET","/v1/admin/accounts",null),r->showSubjectForm(r.getJSONArray("accounts")));
+        else showSubjectForm(new JSONArray());
+    }
+    private void showSubjectForm(JSONArray available){
         LinearLayout form=column();EditText title=field(form,"Subject title","",false),description=field(form,"Description","",false);description.setSingleLine(false);
+        java.util.List<String> ownerIds=new java.util.ArrayList<>(),ownerNames=new java.util.ArrayList<>();ownerIds.add(account.optString("id"));ownerNames.add("Owned by me");
+        for(int i=0;i<available.length();i++){JSONObject a=available.optJSONObject(i);if(a.optString("role").equals("instructor")&&a.optString("status").equals("active")){ownerIds.add(a.optString("id"));ownerNames.add(a.optString("name")+" · "+a.optString("email"));}}
+        Spinner owner=new Spinner(this);owner.setContentDescription("Subject owner");owner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,ownerNames));if(admin())form.addView(owner);
         new AlertDialog.Builder(this).setTitle("Create subject").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{
-            try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("description",description.getText().toString());perform(()->api.request("POST","/v1/subjects",data),r->{selected=r.getString("id");load();});}catch(Exception e){error(e);}
+            try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("description",description.getText().toString());if(admin())data.put("owner_id",ownerIds.get(owner.getSelectedItemPosition()));perform(()->api.request("POST","/v1/subjects",data),r->{selected=r.getString("id");load();});}catch(Exception e){error(e);}
         }).show();
     }
     private void courseScreen(){
