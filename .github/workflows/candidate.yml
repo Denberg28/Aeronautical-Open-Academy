@@ -19,7 +19,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ inputs.tag }}
-      AOA_KEYSTORE_PATH: ${{ runner.temp }}/academy-release.jks
       AOA_KEYSTORE_BASE64: ${{ secrets.AOA_KEYSTORE_BASE64 }}
       AOA_STORE_PASSWORD: ${{ secrets.AOA_STORE_PASSWORD }}
       AOA_KEY_ALIAS: ${{ secrets.AOA_KEY_ALIAS }}
@@ -28,6 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate destination, version, and signing inputs
         run: |
+          export AOA_KEYSTORE_PATH="$RUNNER_TEMP/academy-release.jks"
+          printf 'AOA_KEYSTORE_PATH=%s\n' "$AOA_KEYSTORE_PATH" >> "$GITHUB_ENV"
           test "$GITHUB_REPOSITORY" = Denberg28/Aeronautical-Open-Academy
           python3 tools/release_gate.py
           test -n "$AOA_KEYSTORE_BASE64"
@@ -43,6 +44,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Required candidate checks
