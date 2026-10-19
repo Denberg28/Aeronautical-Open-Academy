@@ -1,18 +1,18 @@
 # Aeronautical Open Academy
 
-Android learning workspace with **admin, instructor, and student accounts**, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
+Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.3.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.4.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 ## Minimal workflow
 
-- Student: sign in → enrolled subjects with progress bars → read / submit written work or quiz → My results. Use the left Menu to enroll in open subjects.
-- Instructor: create subject → draft PDF/activity/quiz/written examination → review/publish → optionally open self-enrollment → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
+- Student: sign in → enrolled subjects with progress bars → read / submit written work or quiz → My results. Use the left Menu to scan the instructor’s subject QR; eligible accounts enroll automatically.
+- Instructor: create subject → draft PDF/activity/quiz/written examination → review/publish → set eligible student IDs or All students → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
 - Admin: register accounts → assign role → enroll students → manage suspension/reactivation/deletion and password reset → publish global announcements. Administrators can oversee all content.
 
-Students cannot self-register, select their own role, join closed/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Self-enrollment is instructor-controlled and defaults closed. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. Written activities/exams accept text output; quizzes have one question per item.
+Students cannot self-register, select their own role, join ineligible/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Automatic enrollment is instructor-controlled and defaults closed. Admins assign verified unique student ID numbers; instructors allow those IDs or select All students. Administrative removal blocks rejoining; admin/pre-update enrollments remain overrides. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. Written activities/exams accept text output; quizzes have one question per item.
 
-A subject QR identifies a subject; sign-in and enrollment are still enforced by the backend.
+A subject QR identifies a subject; the backend checks the signed-in account’s eligibility and enrolls it once. QR codes contain no credentials. Existing students can receive their verified ID through Admin → Accounts.
 
 ## Android build
 
@@ -57,6 +57,7 @@ A live hosting destination and organization Drive credentials have **not** been 
 - [Specification and role matrix](docs/SPEC.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Security and access review](docs/SECURITY.md)
+- [Full source review and reliability findings](docs/CODE_REVIEW.md)
 - [Backend setup](server/README.md)
 - [Material/content workflow](docs/CONTENT_GUIDE.md)
 - [Testing and evidence](docs/TESTING.md)

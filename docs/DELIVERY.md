@@ -15,3 +15,10 @@ For content corrections, retain stable subject IDs and publish a new item revisi
 ## 0.3 database/client compatibility
 
 Deploy the 0.3 server alongside the 0.3 Android app. Take a consistent stopped-service backup before the automatic v1 → v2 migration. Accounts, material references, enrollments and attempts are retained; prior self-completed activities now require actual written outputs. The old server refuses v2. Rollback requires the matching whole pre-upgrade backup and older server; never discard current submissions by downgrading in place. See SPEC.md for current-revision and 100-student Excel export scope. Reports contain confidential learner data and must not enter public deliverables.
+
+
+## 0.4 upgrade and rollback
+
+Back up the stopped 0.3 (v2) or older backend database/materials before starting 0.4. Migration to v3 preserves identifiers, approved file references and results, labels prior enrollments legacy, carries prior open-subject setting to All students, and leaves existing student numbers unassigned. Register/assign verified numbers through admin UI. Never infer IDs from names, email addresses or QR text. Review legacy/admin overrides separately from new eligibility grants.
+
+Ship 0.4 Android and server together. Old servers lack eligibility APIs and cannot support new QR joins; older servers refuse schema v3. Restore the whole pre-upgrade backup with matching old code to roll back. Prefer a forward app fix with retained signing identity. The development APK remains .test, versionCode 40000 + CI run number; production package/signing configuration is preserved and stable promotion remains blocked until deployment/device/Drive/signing validation.

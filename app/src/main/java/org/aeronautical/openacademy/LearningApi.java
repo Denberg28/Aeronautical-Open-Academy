@@ -47,14 +47,14 @@ final class LearningApi {
         }finally{c.disconnect();}
     }
     JSONObject request(String method,String path,JSONObject body)throws Exception{return request(method,path,body,null);}
-    void upload(String id,InputStream source)throws Exception{
+    void upload(String id,int version,InputStream source)throws Exception{
         // Stage locally to bound the upload and provide a fixed byte length to the server.
         File staged=File.createTempFile("upload-",".pdf",context.getCacheDir());HttpURLConnection c=null;
         try{
             try(InputStream in=source;OutputStream out=new FileOutputStream(staged)){copyBounded(in,out,TransferPolicy.MAX_PDF_BYTES);}
-            TransferPolicy.validatePdf(staged.toPath(),"");c=connection("/v1/items/"+id+"/file","POST",true);c.setReadTimeout(150000);c.setRequestProperty("Content-Type","application/pdf");c.setDoOutput(true);c.setFixedLengthStreamingMode(staged.length());
+            TransferPolicy.validatePdf(staged.toPath(),"");c=connection("/v1/items/"+id+"/file","POST",true);c.setReadTimeout(150000);c.setRequestProperty("X-Item-Version",String.valueOf(version));c.setRequestProperty("Content-Type","application/pdf");c.setDoOutput(true);c.setFixedLengthStreamingMode(staged.length());
             try(InputStream in=new FileInputStream(staged);OutputStream out=c.getOutputStream()){copyBounded(in,out,TransferPolicy.MAX_PDF_BYTES);}
-            int status=c.getResponseCode();if(status<200||status>=300){String message="Upload failed. Check the PDF and connection.";InputStream error=c.getErrorStream();if(error!=null)try(InputStream in=error){message=new JSONObject(AcademyRepository.readText(in,65536)).optString("error",message);}throw new Failure(status,message);}
+            int status=c.getResponseCode();if(status<200||status>=300){if(status==401)vault.clear();String message="Upload failed. Check the PDF and connection.";InputStream error=c.getErrorStream();if(error!=null)try(InputStream in=error){message=new JSONObject(AcademyRepository.readText(in,65536)).optString("error",message);}throw new Failure(status,message);}
         }finally{if(c!=null)c.disconnect();staged.delete();}
     }
     File material(String id,boolean download)throws Exception{

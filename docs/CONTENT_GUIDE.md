@@ -5,7 +5,7 @@
 1. Admin registers an instructor account; the instructor changes its temporary password and signs in.
 2. Instructor creates a subject, then a draft material, written activity, quiz, or written examination. Material instructions can also contain an accessible text companion.
 3. For a PDF material, upload the PDF from Android's document picker. Review the result, then choose Edit/publish and enable Published. Drafts stay hidden from students.
-4. Admin registers students. Either admin enrolls them, or the instructor explicitly opens self-enrollment and students join through Menu → Enroll subjects. Give students the subject QR from Show subject QR. The QR identifies the subject and does not grant enrollment.
+4. Admin registers students. Either admin enrolls them, or the instructor saves eligible student ID numbers or All students in Enrollment eligibility; eligible students scan the subject QR and join automatically. Give students the subject QR from Show subject QR. The QR identifies the subject; server eligibility and active-account checks decide enrollment.
 5. Students sign in, open My subjects or scan the QR, read the published material, mark materials read (self-reported), submit written activity/exam outputs, or answer quiz items.
 6. Instructor edits only creator-owned items. Upload replacement PDFs or edit content to increment the item revision; prior quiz attempts stay tied to the earlier revision. Quiz choice/key changes require a new quiz item in this version.
 7. Archive removes an item from student views while retaining authorized records. Account deletion is separate from material archival. Admins oversee retained materials after an instructor is deleted.
@@ -25,3 +25,8 @@ The optional public Google Drive catalog feature remains separate from account-p
 Instructor assessment: subject → Students & compliance → student → Read submitted output → Assess output. Save a 0–100 score and feedback; a zero is a valid grade. Quiz results show selected answer and server score. Awaiting assessment remains visible separately from compliance. Export this roster page to Excel creates an actual workbook for up to 100 enrolled students; advance pages and export each as needed. Keep files private.
 
 Editing instructions creates a new revision and resets current participation requirements. Current views/reports exclude historical versions; retained earlier records require operator retention review. Written examinations are untimed text responses, not proctored exams. Activity attachments, deadlines/late status, weighted totals and multi-question quiz authoring are not included.
+
+
+0.4 setup: Admin → Accounts → Assign verified student ID for migrated students (or include it when registering a new student). Instructor → subject → Enrollment eligibility → enter one ID per line or check All students → Save eligibility. All includes active registered students; blank list with All unchecked closes automatic joins. Students use the left menu Scan subject QR or Enter subject code; camera denial offers manual entry. They must sign in/change temporary password before enrollment succeeds.
+
+A narrower rule removes new automatic enrollments but retains progress/results. Administrator and pre-v3 legacy enrollments remain overrides; admin removal revokes access and blocks rejoin. Correcting an ID clears its old allowlist grants and automatic enrollment, so instructors must authorize the corrected ID and the student re-scans. Do not distribute eligibility lists or student reports publicly.

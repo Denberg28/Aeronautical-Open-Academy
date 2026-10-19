@@ -8,19 +8,22 @@ import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { workbook } from './xlsx.mjs';
 import { openDatabase } from './store.mjs';
-import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES } from './security.mjs';
+import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber } from './security.mjs';
 
 export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock=Date.now,scryptN=131072,sessionMs=8*60*60*1000}={}){
  const db=openDatabase(dbPath),now=()=>clock();
  const get=(sql,...args)=>db.prepare(sql).get(...args),all=(sql,...args)=>db.prepare(sql).all(...args),run=(sql,...args)=>db.prepare(sql).run(...args);
+ const transaction=action=>{db.exec('BEGIN IMMEDIATE');try{const value=action();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}};
  const audit=(actor,action,target)=>run('INSERT INTO audit(actor_id,action,target_id,created_at) VALUES(?,?,?,?)',actor,action,target,now());
  async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{}){
   requireThat(['admin','instructor','student'].includes(role),400,'Choose admin, instructor, or student.');
-  const address=email(data.email),name=text(data.name,'name',100);
+  const address=email(data.email),name=text(data.name,'name',100),number=data.student_number==null?null:studentNumber(data.student_number);
+  requireThat(number===null||role==='student',400,'Student ID applies to student accounts only.');
+  requireThat(number===null||!get('SELECT id FROM accounts WHERE student_number=?',number),409,'Student ID is already assigned.');
   requireThat(!get('SELECT id FROM accounts WHERE email=?',address),409,'An account already uses that email.');
   const hashed=await hashPassword(data.password,scryptN),id=randomUUID();beforeCommit();
-  try{run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at) VALUES(?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now());}
-  catch(e){if(get('SELECT id FROM accounts WHERE email=?',address))throw new ApiError(409,'An account already uses that email.');throw e;}
+  try{run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now(),number);}
+  catch(e){if(number&&get('SELECT id FROM accounts WHERE student_number=?',number))throw new ApiError(409,'Student ID is already assigned.');if(get('SELECT id FROM accounts WHERE email=?',address))throw new ApiError(409,'An account already uses that email.');throw e;}
   return publicAccount(get('SELECT * FROM accounts WHERE id=?',id));
  }
  if(!get('SELECT id FROM accounts LIMIT 1')&&bootstrap)await createAccount({...bootstrap,role:'admin'},'admin',false);
@@ -41,7 +44,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  }
  function authenticate(req){
   const raw=String(req.headers.authorization||'');requireThat(/^Bearer [A-Za-z0-9_-]{43}$/.test(raw),401,'Sign in to continue.');
-  const hash=digest(raw.slice(7));const session=get('SELECT s.*,a.status,a.role,a.email,a.name,a.must_change_password,a.id FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?',hash);
+  const hash=digest(raw.slice(7));const session=get('SELECT s.*,a.status,a.role,a.email,a.name,a.must_change_password,a.student_number,a.id FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?',hash);
   requireThat(session&&session.status==='active'&&session.expires_at>now()&&session.last_seen>now()-30*60*1000,401,'Your session has ended. Sign in again.');
   run('UPDATE sessions SET last_seen=? WHERE token_hash=?',now(),hash);return session;
  }
@@ -53,13 +56,28 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   else requireThat(a.role==='admin'||a.role==='instructor'&&subject.owner_id===a.id||a.role==='student'&&get('SELECT 1 FROM enrolments WHERE student_id=? AND subject_id=?',a.id,id),404,'Subject unavailable.');
   return subject;
  }
+ function eligible(a,subject){return !!subject.self_enrol&&(!!subject.eligibility_all||!!(a.student_number&&get('SELECT 1 FROM eligible_students WHERE subject_id=? AND student_number=?',subject.id,a.student_number)));}
+ function forgetNumber(number,accountId){
+  if(number){run('UPDATE subjects SET eligibility_revision=eligibility_revision+1 WHERE id IN (SELECT subject_id FROM eligible_students WHERE student_number=?)',number);run('DELETE FROM eligible_students WHERE student_number=?',number);}
+  run("DELETE FROM enrolments WHERE student_id=? AND source IN ('qr','self')",accountId);
+ }
+ function enrollmentPolicy(subject){return {all_students:!!subject.eligibility_all,student_numbers:all('SELECT student_number FROM eligible_students WHERE subject_id=? ORDER BY student_number',subject.id).map(s=>s.student_number),revision:subject.eligibility_revision};}
+ function savePolicy(a,subject,allStudents,numbers){
+  transaction(()=>{
+   run('UPDATE subjects SET eligibility_all=?,self_enrol=?,eligibility_revision=eligibility_revision+1 WHERE id=?',allStudents?1:0,allStudents||numbers.length?1:0,subject.id);
+   run('DELETE FROM eligible_students WHERE subject_id=?',subject.id);
+   for(const number of numbers)run('INSERT INTO eligible_students VALUES(?,?)',subject.id,number);
+   run("DELETE FROM enrolments WHERE subject_id=? AND source IN ('qr','self') AND NOT EXISTS(SELECT 1 FROM accounts a JOIN subjects s ON s.id=? WHERE a.id=enrolments.student_id AND s.self_enrol=1 AND (s.eligibility_all=1 OR EXISTS(SELECT 1 FROM eligible_students e WHERE e.subject_id=s.id AND e.student_number=a.student_number)))",subject.id,subject.id);
+   audit(a.id,'eligibility-edit',subject.id);
+  });
+ }
  function itemFor(a,id,write=false){
   const item=get('SELECT * FROM items WHERE id=? AND archived=0',id);requireThat(item,404,'Material or activity unavailable.');subjectFor(a,item.subject_id);
   if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
   else if(a.role==='student')requireThat(item.published,404,'Material or activity unavailable.');return item;
  }
  function presentItem(a,item){
-  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,has_file:!!item.file_ref};
+  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
    copy.options=JSON.parse(item.options_json);
    if(canManage(a,item.owner_id))copy.correct_index=item.correct_index;
@@ -88,12 +106,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   });
   const pct=(n,d)=>d?Math.round(n*100/d):0;
   const summary={read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
-  return {student:{id:student.id,name:student.name,email:student.email,status:student.status},summary,...(detail?{items:states}:{})};
+  return {student:{id:student.id,name:student.name,email:student.email,status:student.status,student_number:student.student_number??null},summary,...(detail?{items:states}:{})};
  }
  const publishedItems=id=>all('SELECT * FROM items WHERE subject_id=? AND published=1 AND archived=0 ORDER BY created_at,id',id);
  function reportPage(subjectId,offset){
   const items=publishedItems(subjectId),total=get("SELECT count(*) n FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted'",subjectId).n;
-  const students=all("SELECT a.id,a.name,a.email,a.status FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 100 OFFSET ?",subjectId,offset);
+  const students=all("SELECT a.id,a.name,a.email,a.status,a.student_number FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 100 OFFSET ?",subjectId,offset);
   return {items,students,total,offset,next_offset:offset+students.length<total?offset+students.length:null};
  }
  const server=createServer(async(req,res)=>{
@@ -102,7 +120,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.3.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.4.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -138,12 +156,18 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(['active','suspended','deleted'].includes(d.status),400,'Invalid account status.');
     requireThat(!(a.id===target.id&&(d.status!=='active'||nextRole!=='admin')),409,'Use another administrator account to change access for this account.');
     if(target.role==='admin'&&target.status==='active'&&(d.status!=='active'||nextRole!=='admin'))requireThat(get("SELECT count(*) n FROM accounts WHERE role='admin' AND status='active'").n>1,409,'At least one active administrator must remain.');
+    const nextNumber=nextRole!=='student'||d.status==='deleted'?null:d.student_number===undefined?target.student_number:d.student_number===null?null:studentNumber(d.student_number);
+    requireThat(d.student_number===undefined||nextRole==='student',400,'Student ID applies to student accounts only.');
+    requireThat(nextNumber===null||!get('SELECT id FROM accounts WHERE student_number=? AND id<>?',nextNumber,target.id),409,'Student ID is already assigned.');
+    transaction(()=>{
+    if(nextNumber!==target.student_number)forgetNumber(target.student_number,target.id);
+    run('UPDATE accounts SET student_number=? WHERE id=?',nextNumber,target.id);
     if(d.status==='deleted'){
      requireThat(d.confirm_email===target.email,400,'Confirm the exact email before account deletion.');
      run('UPDATE accounts SET status=?,email=?,name=?,password_hash=?,must_change_password=1 WHERE id=?','deleted',target.id+'@deleted.invalid','Deleted account','',target.id);
      run('DELETE FROM enrolments WHERE student_id=?',target.id);run('DELETE FROM enrolment_blocks WHERE student_id=?',target.id);run('DELETE FROM progress WHERE student_id=?',target.id);run('DELETE FROM attempts WHERE student_id=?',target.id);run('DELETE FROM submissions WHERE student_id=?',target.id);
     }else run('UPDATE accounts SET status=?,role=? WHERE id=?',d.status,nextRole,target.id);
-    run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'account-'+d.status,target.id);return send(200,{status:d.status});
+    run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'account-'+d.status,target.id);});return send(200,{status:d.status});
    }
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})\/password$/))&&method==='POST'){
     admin(a);recent(a);const d=payload,target=get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",match[1]);requireThat(target,404,'Account unavailable.');
@@ -152,29 +176,41 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if(path==='/v1/admin/enrolments'&&method==='POST'){
     admin(a);const d=payload;requireThat(get("SELECT 1 FROM accounts WHERE id=? AND role='student' AND status='active'",d.student_id),400,'Choose an active student.');subjectFor(a,d.subject_id);
-    if(d.enrolled===false){run('DELETE FROM enrolments WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run('INSERT OR IGNORE INTO enrolment_blocks VALUES(?,?)',d.subject_id,d.student_id);}
-    else{run('DELETE FROM enrolment_blocks WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run('INSERT OR IGNORE INTO enrolments VALUES(?,?)',d.subject_id,d.student_id);}
-    audit(a.id,d.enrolled===false?'unenrol':'enrol',d.student_id);return send(200,{saved:true});
+    transaction(()=>{if(d.enrolled===false){run('DELETE FROM enrolments WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run('INSERT OR IGNORE INTO enrolment_blocks VALUES(?,?)',d.subject_id,d.student_id);}
+    else{run('DELETE FROM enrolment_blocks WHERE subject_id=? AND student_id=?',d.subject_id,d.student_id);run("INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin') ON CONFLICT(subject_id,student_id) DO UPDATE SET source='admin'",d.subject_id,d.student_id);}
+    audit(a.id,d.enrolled===false?'unenrol':'enrol',d.student_id);});return send(200,{saved:true});
    }
    if(path==='/v1/announcements'&&method==='GET')return send(200,{announcements:all('SELECT id,title,body,created_at FROM announcements WHERE archived=0 ORDER BY created_at DESC LIMIT 30')});
    if(path==='/v1/announcements'&&method==='POST'){admin(a);const d=payload,id=randomUUID();run('INSERT INTO announcements(id,title,body,author_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.body,'announcement',5000),a.id,now());audit(a.id,'announcement-create',id);return send(201,{id});}
    if((match=path.match(/^\/v1\/announcements\/([a-f0-9-]{36})$/))&&method==='DELETE'){admin(a);run('UPDATE announcements SET archived=1 WHERE id=?',match[1]);audit(a.id,'announcement-archive',match[1]);return send(200,{archived:true});}
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/eligibility$/))&&['GET','POST'].includes(method)){
+    const subject=subjectFor(a,match[1],true);
+    if(method==='GET')return send(200,enrollmentPolicy(subject));
+    const d=payload;requireThat(typeof d.all_students==='boolean'&&Array.isArray(d.student_numbers)&&d.student_numbers.length<=1000,400,'Choose all students or provide at most 1000 student IDs.');
+    requireThat(d.expected_revision===subject.eligibility_revision,409,'Eligibility changed. Refresh before saving.');
+    const numbers=[...new Set(d.student_numbers.map(studentNumber))];
+    requireThat(!d.all_students||numbers.length===0,400,'Choose all students or a student ID list, not both.');
+    savePolicy(a,subject,d.all_students,numbers);return send(200,enrollmentPolicy(subjectFor(a,subject.id,true)));
+   }
    if(path==='/v1/subjects/discover'&&method==='GET'){
     requireThat(a.role==='student',403,'Student access required.');
     const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0)));
-    const subjects=all('SELECT s.id,s.title,s.description FROM subjects s WHERE s.archived=0 AND s.self_enrol=1 AND NOT EXISTS(SELECT 1 FROM enrolment_blocks b WHERE b.subject_id=s.id AND b.student_id=?) AND NOT EXISTS(SELECT 1 FROM enrolments e WHERE e.subject_id=s.id AND e.student_id=?) ORDER BY s.title,s.id LIMIT 100 OFFSET ?',a.id,a.id,offset);
+    const subjects=all('SELECT s.id,s.title,s.description FROM subjects s WHERE s.archived=0 AND s.self_enrol=1 AND (s.eligibility_all=1 OR EXISTS(SELECT 1 FROM eligible_students e WHERE e.subject_id=s.id AND e.student_number=?)) AND NOT EXISTS(SELECT 1 FROM enrolment_blocks b WHERE b.subject_id=s.id AND b.student_id=?) AND NOT EXISTS(SELECT 1 FROM enrolments e WHERE e.subject_id=s.id AND e.student_id=?) ORDER BY s.title,s.id LIMIT 100 OFFSET ?',a.student_number,a.id,a.id,offset);
     return send(200,{subjects});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/enrol$/))&&method==='POST'){
     requireThat(a.role==='student',403,'Student access required.');
-    requireThat(get('SELECT 1 FROM subjects WHERE id=? AND archived=0 AND self_enrol=1',match[1]),404,'Self-enrollment is closed. Contact your administrator.');
-    requireThat(!get('SELECT 1 FROM enrolment_blocks WHERE subject_id=? AND student_id=?',match[1],a.id),404,'Enrollment requires administrator approval.');
-    run('INSERT OR IGNORE INTO enrolments VALUES(?,?)',match[1],a.id);audit(a.id,'self-enrol',match[1]);return send(200,{enrolled:true});
+    const subject=get('SELECT * FROM subjects WHERE id=? AND archived=0',match[1]);
+    requireThat(subject&&!get('SELECT 1 FROM enrolment_blocks WHERE subject_id=? AND student_id=?',match[1],a.id),404,'Enrollment unavailable. Ask your instructor to check eligibility.');
+    const existing=get('SELECT 1 FROM enrolments WHERE subject_id=? AND student_id=?',match[1],a.id);
+    if(existing)return send(200,{enrolled:true,already_enrolled:true});
+    requireThat(eligible(a,subject),404,'Enrollment unavailable. Ask your instructor to check your registered student ID or allow all students.');
+    const source=payload.source==='qr'?'qr':'self';transaction(()=>{run('INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,?)',match[1],a.id,source);audit(a.id,source+'-enrol',match[1]);});return send(200,{enrolled:true});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/learners(?:\/([a-f0-9-]{36}))?$/))&&method==='GET'){
     subjectFor(a,match[1],true);
     if(match[2]){
-     const student=get("SELECT a.id,a.name,a.email,a.status FROM accounts a JOIN enrolments e ON e.student_id=a.id WHERE a.id=? AND e.subject_id=? AND a.role='student' AND a.status<>'deleted'",match[2],match[1]);requireThat(student,404,'Enrolled student unavailable.');
+     const student=get("SELECT a.id,a.name,a.email,a.status,a.student_number FROM accounts a JOIN enrolments e ON e.student_id=a.id WHERE a.id=? AND e.subject_id=? AND a.role='student' AND a.status<>'deleted'",match[2],match[1]);requireThat(student,404,'Enrolled student unavailable.');
      return send(200,learnerView(student,match[1],publishedItems(match[1]),true));
     }
     const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(match[1],offset);
@@ -182,11 +218,11 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/export$/))&&method==='GET'){
     const subject=subjectFor(a,match[1],true),offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(subject.id,offset);
-    const summary=[['Student ID','Name','Email','Account status','Read','Reading items','Read percent (self-reported)','Submitted','Required assessments','Compliance percent','Graded','Awaiting assessment','Completed items','Total items','Completion percent']];
-    const details=[['Student ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC']];
+    const summary=[['Account ID','Name','Email','Account status','Read','Reading items','Read percent (self-reported)','Submitted','Required assessments','Compliance percent','Graded','Awaiting assessment','Completed items','Total items','Completion percent','Student ID number']];
+    const details=[['Account ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC','Student ID number']];
     for(const student of page.students){const view=learnerView(student,subject.id,page.items,true),m=view.summary;
-     summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent]);
-     for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'']);
+     summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent,student.student_number||'']);
+     for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'']);
     }
     const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz 0–1; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
     audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
@@ -201,8 +237,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/submissions\/([a-f0-9-]{36})\/grade$/))&&method==='POST'){
     const submission=get('SELECT * FROM submissions WHERE id=?',match[1]);requireThat(submission,404,'Submission unavailable.');
-    const item=itemFor(a,submission.item_id,true);requireThat(submission.revision===item.revision,409,'This work belongs to an older item revision.');
-    requireThat(get('SELECT 1 FROM enrolments WHERE subject_id=? AND student_id=?',item.subject_id,submission.student_id),404,'Student is no longer enrolled.');
+    const item=itemFor(a,submission.item_id);subjectFor(a,item.subject_id,true);requireThat(submission.revision===item.revision,409,'This work belongs to an older item revision.');
+    requireThat(get("SELECT 1 FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND e.student_id=? AND a.status='active' AND a.role='student'",item.subject_id,submission.student_id),404,'Student is no longer enrolled.');
     const d=payload;requireThat(typeof d.score==='number'&&Number.isFinite(d.score)&&d.score>=0&&d.score<=100,400,'Score must be 0–100.');
     const feedback=d.feedback===''?'':text(d.feedback,'feedback',1000);
     requireThat((d.expected_graded_at??null)===submission.graded_at,409,'The assessment changed. Refresh before saving.');
@@ -225,7 +261,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
     requireThat(d.self_enrol===undefined||typeof d.self_enrol==='boolean',400,'Set self_enrol true or false.');
-    run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);audit(a.id,'subject-edit',match[1]);return send(200,{saved:true});
+    transaction(()=>{run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);if(d.self_enrol!==undefined){run('UPDATE subjects SET eligibility_all=?,eligibility_revision=eligibility_revision+1 WHERE id=?',d.self_enrol?1:0,old.id);run('DELETE FROM eligible_students WHERE subject_id=?',old.id);if(!d.self_enrol)run("DELETE FROM enrolments WHERE subject_id=? AND source IN ('qr','self')",old.id);}audit(a.id,'subject-edit',match[1]);});return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
     subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
@@ -239,10 +275,11 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const item=itemFor(a,match[1],true),d=payload;
+    requireThat(d.expected_edit_version===undefined||d.expected_edit_version===item.edit_version,409,'This item changed. Refresh before editing.');
     // Ownership/kind/subject cannot be reassigned. Quiz answer changes require a new item.
     requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
-    run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+? WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,(title!==item.title||body!==item.body)?1:0,item.id);audit(a.id,'item-edit',item.id);return send(200,{saved:true});
+    run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,(title!==item.title||body!==item.body)?1:0,item.id);audit(a.id,'item-edit',item.id);return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/complete$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind==='material',409,'Submit an answer or written output to record completion.');const d=payload;
@@ -257,7 +294,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const id=randomUUID(),score=d.choice===item.correct_index?1:0;run('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?)',id,a.id,item.id,item.revision,d.choice,score,key,now());audit(a.id,'quiz-submit',item.id);return send(201,{attempt:{id,revision:item.revision,score,created_at:now()}});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/file$/))&&method==='POST'){
-    const item=itemFor(a,match[1],true);requireThat(item.kind==='material',400,'Choose a material item.');requireThat(materials,503,'Material storage is not configured.');requireThat((req.headers['content-type']||'').split(';')[0]==='application/pdf',415,'Upload a PDF.');
+    const item=itemFor(a,match[1],true);requireThat(item.kind==='material',400,'Choose a material item.');requireThat(req.headers['x-item-version']===undefined||String(item.edit_version)===req.headers['x-item-version'],409,'This item changed. Refresh before uploading.');requireThat(materials,503,'Material storage is not configured.');requireThat((req.headers['content-type']||'').split(';')[0]==='application/pdf',415,'Upload a PDF.');
     requireThat(Number(req.headers['content-length']||0)<=MAX_FILE_BYTES,413,'PDF exceeds 50 MB.');requireThat(activeUploads<2,503,'Uploads are busy. Please try again shortly.');activeUploads++;let staging=null,stored=null;
     try{
      staging=await mkdtemp(join(tmpdir(),'academy-upload-'));
@@ -266,8 +303,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      const data=await readFile(path);requireThat(data.subarray(0,5).toString()==='%PDF-'&&data.subarray(-1024).includes(Buffer.from('%%EOF')),400,'Upload a complete PDF, not a webpage.');
      // Revalidate authority after transfer, including account suspension and ownership changes.
      const fresh=authenticate(req);itemFor(fresh,item.id,true);stored=await materials.put(path,randomUUID(),bytes);
-     const finalActor=authenticate(req);itemFor(finalActor,item.id,true);
-     run('UPDATE items SET file_ref=?,file_sha256=?,file_bytes=?,revision=revision+1 WHERE id=?',stored,digest(data),bytes,item.id);audit(a.id,'material-upload',item.id);const result={saved:true,bytes};stored=null;return send(200,result);
+     const finalActor=authenticate(req),current=itemFor(finalActor,item.id,true);requireThat(current.edit_version===item.edit_version,409,'This item changed during upload. Refresh before uploading again.');
+     transaction(()=>{run('UPDATE items SET file_ref=?,file_sha256=?,file_bytes=?,revision=revision+1,edit_version=edit_version+1 WHERE id=?',stored,digest(data),bytes,item.id);audit(a.id,'material-upload',item.id);});const result={saved:true,bytes};stored=null;return send(200,result);
     }finally{activeUploads--;if(stored)await materials.remove(stored);if(staging)await rm(staging,{recursive:true,force:true});}
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/content$/))&&method==='GET'){

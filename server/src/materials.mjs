@@ -1,5 +1,5 @@
 import { createSign } from 'node:crypto';
-import { mkdir, readFile, copyFile, unlink } from 'node:fs/promises';
+import { mkdir, readFile, copyFile, unlink, chmod } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -8,7 +8,7 @@ import { requireThat, ApiError, MAX_FILE_BYTES } from './security.mjs';
 /** Private development storage. No public file-serving route exists. */
 export class LocalMaterials {
   constructor(directory){this.directory=directory;}
-  async put(path,id){requireThat(/^[a-f0-9-]{36}$/.test(id),400,'Invalid file ID.');await mkdir(this.directory,{recursive:true,mode:0o700});await copyFile(path,join(this.directory,id+'.pdf'));return id;}
+  async put(path,id){requireThat(/^[a-f0-9-]{36}$/.test(id),400,'Invalid file ID.');await mkdir(this.directory,{recursive:true,mode:0o700});await copyFile(path,join(this.directory,id+'.pdf'));await chmod(join(this.directory,id+'.pdf'),0o600);return id;}
   async get(ref){requireThat(/^[a-f0-9-]{36}$/.test(ref),404,'Material unavailable.');return createReadStream(join(this.directory,ref+'.pdf'));}
   async remove(ref){if(/^[a-f0-9-]{36}$/.test(ref))await unlink(join(this.directory,ref+'.pdf')).catch(()=>{});}
 }

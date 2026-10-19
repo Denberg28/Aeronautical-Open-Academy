@@ -2,7 +2,7 @@
 
 ## Enforced in code
 
-- Default-deny authenticated account API. No public registration, client-selected roles/grades, direct file paths or unauthenticated protected-material routes. Student self-enrollment is allowed only for instructor-opened subjects; administrative removal blocks rejoining until restored.
+- Default-deny authenticated account API. No public registration, client-selected roles/grades, direct file paths or unauthenticated protected-material routes. Student automatic enrollment is allowed only for an instructor-approved account student ID or All students; administrative removal blocks rejoining until restored.
 - Current account status/role, session expiry/idle timeout, creator ownership, enrollment, and published state are checked on the server. Old opaque tokens do not retain authority after suspension, deletion, reset, role change, or successful logout.
 - Passwords use salted asynchronous scrypt (production N=131072, r=8, p=1) with bounded concurrent derivations. Tests explicitly use a lower-cost fixture to keep the suite quick. Client stores only a Keystore-encrypted session token.
 - Admin-only account operations require a sign-in within 15 minutes. First-use temporary password change is required. Last-admin/self-lockout protection prevents accidental administrator removal.
@@ -26,6 +26,13 @@ The local development store is not a public download directory. Production start
 
 ## Learner privacy and exports
 
-Roster/detail/Excel routes require the subject owner or administrator; item grading additionally requires creator ownership/admin. Students receive only their own outputs/results. Discover exposes only opt-in subject title/description/ID. Export uses explicit fields and literal inline string cells, so formula-like names/feedback are not formulas. It includes account identity and results; it never includes keys, direct file references or full written answers. Exports are audited, authenticated and no-store, saved only after explicit user destination selection. Exported data cannot be revoked. Do not attach real learner spreadsheets to public issues/releases.
+Roster/detail/Excel routes require the subject owner or administrator; grading requires subject owner/admin while creator-only material edits remain protected. Students receive only their own outputs/results. Discover exposes only eligible subject title/description/ID. Export uses explicit fields and literal inline string cells, so formula-like names/feedback are not formulas. It includes account identity and results; it never includes keys, direct file references or full written answers. Exports are audited, authenticated and no-store, saved only after explicit user destination selection. Exported data cannot be revoked. Do not attach real learner spreadsheets to public issues/releases.
 
 Android written drafts are AES-GCM encrypted with the device Keystore, scoped by account/item/revision, and removed on sign-out or session invalidation. Completed final submissions clear the local draft. Server submissions remain authoritative. Offline final submit and private course/result caching are not offered. Device lifecycle/storage-failure validation is still required.
+
+
+## Student ID and rule integrity (0.4)
+
+Only administrators bind/correct a unique student ID to an account. Enrollment takes identity from the current database, ignoring client number/account claims. Eligibility endpoints are subject-owner/admin only, accept bounded lists, and compare a policy revision before replacing it. Students cannot enumerate allowlists. All students still requires an active registered student account and mandatory password change; admin blocks override it. ID correction/deletion removes old allowlist grants, increments affected rule revisions and revokes automatic enrollment/sessions, preventing stale ID grants being inherited by a replacement account.
+
+Pre-v3 enrollment provenance cannot be reconstructed: those records migrate as legacy overrides and must be reviewed by administrators under a stricter policy. New qr/self sources are revoked when no longer eligible; explicit admin enrollment overrides eligibility. This is intentional control hierarchy, not a QR bypass. Eligibility, account/access edits and material metadata/audit updates are transactional. Stale item/upload/eligibility edits are rejected. Test publication now enforces the critical/high known-defect gate. See CODE_REVIEW.md for self-review scope and device/deployment limits.

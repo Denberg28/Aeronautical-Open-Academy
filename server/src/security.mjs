@@ -23,5 +23,11 @@ export async function verifyPassword(raw,encoded){
   if(algorithm!=='scrypt'||![16384,131072].includes(N)||!salt||!/^[0-9a-f]{128}$/.test(hash||''))return false;
   const actual=await derive(raw,salt,N);return timingSafeEqual(actual,Buffer.from(hash,'hex'));
 }
-export function publicAccount(a){return {id:a.id,email:a.email,name:a.name,role:a.role,status:a.status,must_change_password:!!a.must_change_password};}
+export function publicAccount(a){return {id:a.id,student_number:a.student_number??null,email:a.email,name:a.name,role:a.role,status:a.status,must_change_password:!!a.must_change_password};}
 export function canManage(account,ownerId){return account.status==='active'&&(account.role==='admin'||account.role==='instructor'&&account.id===ownerId);}
+
+/** Institutional ID, supplied/verified by an administrator, never by student enrollment. */
+export function studentNumber(raw){
+ const value=text(raw,'student ID number',32).toUpperCase();
+ requireThat(/^[A-Z0-9][A-Z0-9-]{2,31}$/.test(value),400,'Student ID must contain 3–32 letters, digits or hyphens.');return value;
+}

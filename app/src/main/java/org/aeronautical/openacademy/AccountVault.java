@@ -29,7 +29,7 @@ final class AccountVault {
     void setBase(String base){if(!base.equals(base()))clear();prefs.edit().putString("base",base).apply();}
     void save(String token)throws Exception{
         Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key());
-        prefs.edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("token",Base64.encodeToString(cipher.doFinal(token.getBytes(StandardCharsets.UTF_8)),Base64.NO_WRAP)).commit();
+        if(!prefs.edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("token",Base64.encodeToString(cipher.doFinal(token.getBytes(StandardCharsets.UTF_8)),Base64.NO_WRAP)).commit())throw new java.io.IOException("Session could not be saved. Check device storage.");
     }
     String token(){
         if(!prefs.contains("token"))return "";
@@ -44,5 +44,5 @@ final class AccountVault {
         try{Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.ENCRYPT_MODE,key());return prefs.edit().putString("draft:"+id,Base64.encodeToString(c.getIV(),Base64.NO_WRAP)+":"+Base64.encodeToString(c.doFinal(value.getBytes(StandardCharsets.UTF_8)),Base64.NO_WRAP)).commit();}catch(Exception e){return false;}
     }
     void removeDraft(String id){prefs.edit().remove("draft:"+id).commit();}
-    void clear(){SharedPreferences.Editor edit=prefs.edit();for(String name:prefs.getAll().keySet())if(name.startsWith("draft:"))edit.remove(name);edit.commit();prefs.edit().remove("token").remove("iv").commit();}
+    void clear(){SharedPreferences.Editor edit=prefs.edit();for(String name:prefs.getAll().keySet())if(name.startsWith("draft:"))edit.remove(name);edit.remove("token").remove("iv").commit();}
 }

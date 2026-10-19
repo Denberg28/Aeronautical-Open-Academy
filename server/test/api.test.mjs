@@ -21,7 +21,7 @@ async function fixture(options={}){
  }
  async function login(emailAddress,password=pass){const r=await call('/v1/auth/login',{method:'POST',body:{email:emailAddress,password}});assert.equal(r.status,200,JSON.stringify(r.body));return r.body.token;}
  const admin=await login('admin@example.test');
- async function account(emailAddress,role){const r=await call('/v1/admin/accounts',{method:'POST',token:admin,body:{email:emailAddress,name:role,password:pass,role}});assert.equal(r.status,201,JSON.stringify(r.body));let token=await login(emailAddress);const changed=await call('/v1/auth/password',{method:'POST',token,body:{current_password:pass,new_password:pass+'changed'}});assert.equal(changed.status,200);token=await login(emailAddress,pass+'changed');return {...r.body.account,token};}
+ async function account(emailAddress,role,student_number){const r=await call('/v1/admin/accounts',{method:'POST',token:admin,body:{email:emailAddress,name:role,password:pass,role,...(student_number?{student_number}:{})}});assert.equal(r.status,201,JSON.stringify(r.body));let token=await login(emailAddress);const changed=await call('/v1/auth/password',{method:'POST',token,body:{current_password:pass,new_password:pass+'changed'}});assert.equal(changed.status,200);token=await login(emailAddress,pass+'changed');return {...r.body.account,token};}
  return {app,call,login,admin,account,advance:n=>time+=n,close:async()=>{await app.close();await rm(directory,{recursive:true,force:true});}};
 }
 
@@ -206,7 +206,7 @@ test('reading, written output, exams, quiz results and grading have separate rev
   assert.equal(detail.items.find(x=>x.id===work).output,output);assert.equal(detail.items.find(x=>x.id===quiz).answer,'A');
   const submission=detail.items.find(x=>x.id===work).submission_id;
   assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:j.token,body:{score:100,feedback:'Bad'}})).status,404);
-  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:s.token,body:{score:100,feedback:'Bad'}})).status,403);
+  assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:s.token,body:{score:100,feedback:'Bad'}})).status,404);
   assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:101,feedback:'Bad'}})).status,400);
   assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:0,feedback:'Please revisit section 1.'}})).status,200);
   assert.equal((await f.call('/v1/submissions/'+submission+'/grade',{method:'POST',token:i.token,body:{score:99,feedback:'Stale overwrite'}})).status,409);
@@ -248,7 +248,7 @@ test('roster pagination is bounded and deletion removes written records and rejo
  const f=await fixture();try{
   const i=await f.account('page-i@example.test','instructor'),s=await f.account('page-s@example.test','student');
   const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Paged roster'}})).body.id;
-  const insert=f.app.db.prepare("INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at) VALUES(?,?,?,'student','test-only',0,1)"),enrol=f.app.db.prepare('INSERT INTO enrolments VALUES(?,?)');
+  const insert=f.app.db.prepare("INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at) VALUES(?,?,?,'student','test-only',0,1)"),enrol=f.app.db.prepare('INSERT INTO enrolments(subject_id,student_id) VALUES(?,?)');
   for(let n=0;n<101;n++){const id=randomUUID();insert.run(id,'fixture'+n+'@example.test','Student '+String(n).padStart(3,'0'));enrol.run(subject,id);}
   let page=(await f.call('/v1/subjects/'+subject+'/learners',{token:i.token})).body;assert.equal(page.learners.length,100);assert.equal(page.total,101);assert.equal(page.next_offset,100);
   const second=(await f.call('/v1/subjects/'+subject+'/learners?offset=100',{token:i.token})).body;assert.equal(second.learners.length,1);assert.equal(second.next_offset,null);assert.ok(!page.learners.some(x=>x.student.id===second.learners[0].student.id));
@@ -259,5 +259,129 @@ test('roster pagination is bounded and deletion removes written records and rejo
   assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,1);
   await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{status:'deleted',confirm_email:s.email}});
   assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,0);assert.equal(f.app.db.prepare('SELECT count(*) n FROM enrolment_blocks WHERE student_id=?').get(s.id).n,0);
+ }finally{await f.close();}
+});
+
+test('student IDs are admin-managed, normalized, unique, and not trusted from enrollment payloads',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('id-i@example.test','instructor'),s=await f.account('id-s@example.test','student','0001-ab'),other=await f.account('id-o@example.test','student','0002-ab');
+  assert.equal((await f.call('/v1/me',{token:s.token})).body.account.student_number,'0001-AB');
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:s.token,body:{student_number:'0002-AB'}})).status,403);
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:i.token,body:{student_number:'0002-AB'}})).status,403);
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{student_number:'0002-ab'}})).status,409);
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{student_number:'../bad'}})).status,400);
+  assert.equal((await f.call('/v1/admin/accounts',{method:'POST',token:f.admin,body:{name:'Duplicate',email:'duplicate@example.test',role:'student',student_number:'0001-AB',password:pass}})).status,409);
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Eligibility'}})).body.id;
+  let policy=(await f.call('/v1/subjects/'+id+'/eligibility',{token:i.token})).body;
+  assert.deepEqual(policy,{all_students:false,student_numbers:[],revision:1});
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:false,student_numbers:['0001-ab','0001-AB'],expected_revision:policy.revision}})).status,200);
+  const discovery=(await f.call('/v1/subjects/discover',{token:s.token})).body;assert.equal(discovery.subjects.length,1);assert.deepEqual(Object.keys(discovery.subjects[0]).sort(),['description','id','title']);
+  assert.equal((await f.call('/v1/subjects/discover',{token:other.token})).body.subjects.length,0);
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:other.token,body:{source:'qr',student_number:'0001-AB',student_id:s.id}})).status,404);
+  for(let n=0;n<3;n++)assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{source:'qr'}})).status,200);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM enrolments WHERE subject_id=?').get(id).n,1);
+  assert.equal(f.app.db.prepare('SELECT source FROM enrolments WHERE subject_id=?').get(id).source,'qr');
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{token:s.token})).status,404);
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:true,student_numbers:[],expected_revision:1}})).status,409);
+  policy=(await f.call('/v1/subjects/'+id+'/eligibility',{token:i.token})).body;assert.deepEqual(policy.student_numbers,['0001-AB']);
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:true,student_numbers:['0001-AB'],expected_revision:policy.revision}})).status,400);
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:false,student_numbers:['bad ID'],expected_revision:policy.revision}})).status,400);
+ }finally{await f.close();}
+});
+
+test('all-students, narrowing eligibility, administrative overrides, blocks and suspension obey authority',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('rule-i@example.test','instructor'),j=await f.account('rule-j@example.test','instructor'),s=await f.account('rule-s@example.test','student','2026-001'),o=await f.account('rule-o@example.test','student','2026-002');
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject B',description:'Eligibility'}})).body.id;
+  const save=async(all_students,student_numbers)=>{const p=(await f.call('/v1/subjects/'+id+'/eligibility',{token:i.token})).body;const r=await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students,student_numbers,expected_revision:p.revision}});assert.equal(r.status,200);return r.body;};
+  assert.equal((await f.call('/v1/subjects/'+id+'/eligibility',{token:j.token})).status,404);
+  await save(true,[]);
+  for(const student of [s,o])assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:student.token,body:{source:'qr'}})).status,200);
+  await save(false,['2026-001']);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:o.token})).status,404);
+  assert.equal((await f.call('/v1/subjects',{token:o.token})).body.subjects.length,0);
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  await save(false,[]); // administrator promotion to explicit enrollment survives closure
+  assert.equal((await f.call('/v1/subjects/'+id,{token:s.token})).status,200);
+  assert.equal(f.app.db.prepare('SELECT source FROM enrolments WHERE subject_id=? AND student_id=?').get(id,s.id).source,'admin');
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id,enrolled:false}});
+  await save(true,[]);
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{source:'qr'}})).status,404);
+  await f.call('/v1/admin/accounts/'+o.id,{method:'POST',token:f.admin,body:{status:'suspended'}});
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:o.token,body:{source:'qr'}})).status,401);
+  assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:i.token,body:{source:'qr'}})).status,403);
+ }finally{await f.close();}
+});
+
+test('correcting or deleting an ID removes old eligibility, automatic enrollments and sessions without losing work',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('correct-i@example.test','instructor'),s=await f.account('correct-s@example.test','student','0100-X');
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject C',description:'Correction'}})).body.id;
+  await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:false,student_numbers:['0100-X'],expected_revision:1}});
+  await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:s.token,body:{source:'qr'}});
+  const item=(await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:i.token,body:{kind:'activity',title:'Work',body:'Write',published:true}})).body.id;
+  await f.call('/v1/items/'+item+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output:'Retained on correction'}});
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{student_number:'0101-X'}})).status,200);
+  assert.equal((await f.call('/v1/me',{token:s.token})).status,401);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM eligible_students WHERE student_number=?').get('0100-X').n,0);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM enrolments WHERE student_id=?').get(s.id).n,0);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,1);
+  let policy=(await f.call('/v1/subjects/'+id+'/eligibility',{token:i.token})).body;assert.ok(policy.revision>2);
+  await f.call('/v1/subjects/'+id+'/eligibility',{method:'POST',token:i.token,body:{all_students:false,student_numbers:['0101-X'],expected_revision:policy.revision}});
+  const fresh=await f.login(s.email,pass+'changed');assert.equal((await f.call('/v1/subjects/'+id+'/enrol',{method:'POST',token:fresh,body:{source:'qr'}})).status,200);
+  assert.equal((await f.call('/v1/subjects/'+id,{token:fresh})).body.items[0].submission.output,'Retained on correction');
+  await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{status:'deleted',confirm_email:s.email}});
+  assert.equal(f.app.db.prepare('SELECT student_number FROM accounts WHERE id=?').get(s.id).student_number,null);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM eligible_students WHERE student_number=?').get('0101-X').n,0);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM submissions WHERE student_id=?').get(s.id).n,0);
+ }finally{await f.close();}
+});
+
+test('account edits roll back on failure, and the subject owner can assess administrator-authored work',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('review-i@example.test','instructor'),s=await f.account('review-s@example.test','student','0200-X');
+  const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Review'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
+  const item=(await f.call('/v1/subjects/'+id+'/items',{method:'POST',token:f.admin,body:{kind:'examination',title:'Exam',body:'Write',published:true}})).body.id;
+  await f.call('/v1/items/'+item+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output:'Assessed by assigned instructor'}});
+  let detail=(await f.call('/v1/subjects/'+id+'/learners/'+s.id,{token:i.token})).body;
+  assert.equal((await f.call('/v1/submissions/'+detail.items[0].submission_id+'/grade',{method:'POST',token:i.token,body:{score:85,feedback:'Reviewed',expected_graded_at:null}})).status,200);
+  assert.equal((await f.call('/v1/items/'+item,{method:'POST',token:i.token,body:{body:'Unauthorized content edit'}})).status,403);
+  // A late failure after identity cleanup must restore all account state and sessions.
+  f.app.db.exec("CREATE TRIGGER fail_account_edit BEFORE UPDATE OF status ON accounts BEGIN SELECT RAISE(ABORT,'test failure'); END;");
+  assert.equal((await f.call('/v1/admin/accounts/'+s.id,{method:'POST',token:f.admin,body:{student_number:'0201-X'}})).status,500);
+  assert.equal((await f.call('/v1/me',{token:s.token})).body.account.student_number,'0200-X');
+  f.app.db.exec('DROP TRIGGER fail_account_edit');
+ }finally{await f.close();}
+});
+
+test('stale content edits and upload completion cannot overwrite a newer item version',async()=>{
+ const started=Promise.withResolvers(),proceed=Promise.withResolvers();let removed=false;
+ const store={async put(){started.resolve();await proceed.promise;return randomUUID();},async remove(){removed=true;}};
+ const f=await fixture({materials:store});try{
+  const i=await f.account('conflict-i@example.test','instructor');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description:'Concurrent editing'}})).body.id;
+  const item=(await f.call('/v1/subjects/'+subject+'/items',{method:'POST',token:i.token,body:{kind:'material',title:'PDF',body:'Original instructions'}})).body.id;
+  const upload=f.call('/v1/items/'+item+'/file',{method:'POST',token:i.token,binary:Buffer.from('%PDF-1.4\nfixture\n%%EOF')});await started.promise;
+  assert.equal((await f.call('/v1/items/'+item,{method:'POST',token:i.token,body:{body:'Newer instructions',expected_edit_version:1}})).status,200);
+  assert.equal((await f.call('/v1/items/'+item,{method:'POST',token:i.token,body:{body:'Stale content',expected_edit_version:1}})).status,409);
+  proceed.resolve();assert.equal((await upload).status,409);assert.equal(removed,true);
+  const saved=f.app.db.prepare('SELECT * FROM items WHERE id=?').get(item);assert.equal(saved.body,'Newer instructions');assert.equal(saved.file_ref,null);assert.equal(saved.edit_version,2);
+ }finally{proceed.resolve();await f.close();}
+});
+
+test('material metadata and audit fail atomically, preserving the prior readable PDF',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('atomic-i@example.test','instructor');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject C',description:'Atomic material update'}})).body.id;
+  const item=(await f.call('/v1/subjects/'+subject+'/items',{method:'POST',token:i.token,body:{kind:'material',title:'PDF',body:'Original'}})).body.id;
+  const original=Buffer.from('%PDF-1.4\noriginal\n%%EOF');assert.equal((await f.call('/v1/items/'+item+'/file',{method:'POST',token:i.token,binary:original})).status,200);
+  const before=f.app.db.prepare('SELECT file_ref,revision,edit_version FROM items WHERE id=?').get(item);
+  f.app.db.exec("CREATE TRIGGER fail_material_audit BEFORE INSERT ON audit WHEN NEW.action='material-upload' BEGIN SELECT RAISE(ABORT,'test failure'); END;");
+  assert.equal((await f.call('/v1/items/'+item+'/file',{method:'POST',token:i.token,binary:Buffer.from('%PDF-1.4\nnewer\n%%EOF')})).status,500);
+  assert.deepEqual(f.app.db.prepare('SELECT file_ref,revision,edit_version FROM items WHERE id=?').get(item),before);
+  assert.deepEqual((await f.call('/v1/items/'+item+'/content',{token:i.token})).body,original);
+  f.app.db.exec('DROP TRIGGER fail_material_audit');
  }finally{await f.close();}
 });

@@ -6,8 +6,10 @@ test_negative_revision_rejected (test_catalog.CatalogChecks.test_negative_revisi
 test_private_file_uri_rejected (test_catalog.CatalogChecks.test_private_file_uri_rejected) ... ok
 test_unknown_schema_rejected (test_catalog.CatalogChecks.test_unknown_schema_rejected) ... ok
 test_valid_remote_structure (test_catalog.CatalogChecks.test_valid_remote_structure) ... ok
+test_signed_candidate_requires_exact_unique_prerelease_shape (test_release_gate.ReleaseGateChecks.test_signed_candidate_requires_exact_unique_prerelease_shape) ... ok
+test_test_build_passes_normal_limits_but_rejects_known_critical_and_high (test_release_gate.ReleaseGateChecks.test_test_build_passes_normal_limits_but_rejects_known_critical_and_high) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 0.004s
+Ran 10 tests in 0.231s
 
 OK

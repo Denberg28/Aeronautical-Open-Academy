@@ -32,6 +32,7 @@ jobs:
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Source and content checks
         run: |
+          python3 tools/release_gate.py --test-build
           sh tools/core_checks.sh
           python3 tools/project_checks.py
           python3 -m unittest discover -s tests -p 'test_*.py' -v

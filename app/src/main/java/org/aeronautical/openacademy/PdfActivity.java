@@ -36,10 +36,10 @@ public final class PdfActivity extends AppCompatActivity {
         protectedPath=getIntent().getStringExtra("secure_path");allowExport=protectedPath==null||getIntent().getBooleanExtra("allow_export",false);
         if(protectedPath!=null)getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
         protectedItem=getIntent().getStringExtra("item_id");
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xfff6f7f4);setContentView(root);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xffffffff);setContentView(root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,i)->{androidx.core.graphics.Insets b=i.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});
         ViewCompat.requestApplyInsets(root);
-        TextView title=new TextView(this);title.setText(getIntent().getStringExtra("title"));title.setTextSize(20);title.setTextColor(0xff173c33);title.setPadding(24,18,24,18);root.addView(title);
+        TextView title=new TextView(this);title.setText(getIntent().getStringExtra("title"));title.setTextSize(20);title.setTextColor(0xff102640);title.setPadding(24,18,24,18);root.addView(title);
         TextView hint=new TextView(this);hint.setText("Saved PDF · use page controls below. Rotate your phone for a wider view.");hint.setTextSize(14);hint.setPadding(24,0,24,12);root.addView(hint);
         Button external=new Button(this);external.setText("Open in another PDF reader");root.addView(external);
         external.setVisibility(allowExport?View.VISIBLE:View.GONE);
@@ -67,7 +67,7 @@ public final class PdfActivity extends AppCompatActivity {
     }
     private void renderPage() {
         if(closed||rendering)return;rendering=true;previous.setEnabled(false);next.setEnabled(false);
-        final int requested=page;status.setText("Rendering page "+(page+1)+"…");
+        final int requested=page;if(protectedPath!=null)image.setImageDrawable(null);status.setText("Rendering page "+(page+1)+"…");
         renderer.execute(()->{
             try{if(protectedPath!=null)new LearningApi(this).request("GET","/v1/items/"+protectedItem,null);}catch(Exception e){showError();return;}
             try(PdfRenderer.Page p=document.openPage(requested)) {
@@ -82,12 +82,13 @@ public final class PdfActivity extends AppCompatActivity {
             }catch(Exception e){showError();}
         });
     }
-    private void showError(){runOnUiThread(()->{if(!closed){rendering=false;status.setText("Cannot open this PDF. Return to the subject and download it again, or ask your instructor for an accessible copy.");}});}
+    private void showError(){runOnUiThread(()->{if(!closed){rendering=false;image.setImageDrawable(null);previous.setEnabled(false);next.setEnabled(false);status.setText("Cannot open this PDF. Return to the subject and download it again, or ask your instructor for an accessible copy.");}});}
     private File resolveFile()throws java.io.IOException{
         if(protectedPath==null)return ((AcademyApp)getApplication()).repository().file(key);
         File file=new File(protectedPath);String allowed=new File(getCacheDir(),"protected-pdf").getCanonicalPath()+File.separator;
         if(!file.getCanonicalPath().startsWith(allowed))throw new java.io.IOException("Material unavailable.");return file;
     }
+    @Override protected void onResume(){super.onResume();if(protectedPath!=null&&document!=null&&!rendering&&!closed)renderPage();}
     @Override protected void onSaveInstanceState(Bundle out){out.putInt("page",page);super.onSaveInstanceState(out);}
     @Override protected void onDestroy(){closed=true;final boolean remove=protectedPath!=null&&!isChangingConfigurations();renderer.execute(()->{if(document!=null)document.close();if(descriptor!=null)try{descriptor.close();}catch(java.io.IOException ignored){}if(remove)try{resolveFile().delete();}catch(java.io.IOException ignored){}});renderer.shutdown();super.onDestroy();}
 }

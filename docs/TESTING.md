@@ -1,4 +1,4 @@
-# Verification — 0.3.0-alpha.1
+# Verification — 0.4.0-alpha.1
 
 Evidence must distinguish host checks, Android compilation/lint, local HTTP backend integration, mocked Drive adapter behavior, physical devices, and real organization access.
 
@@ -8,9 +8,9 @@ Evidence must distinguish host checks, Android compilation/lint, local HTTP back
 | --- | --- | --- |
 | Public source destination | PASS | User explicitly authorized public repository; no protected data included |
 | Pure Java QR/URL/transfer core | PASS | 40 checks; docs/evidence/core-checks.txt |
-| Catalog publishing validator | PASS | 8 tests; docs/evidence/python-tests.txt |
+| Catalog publishing validator | PASS | 10 tests including release gates; docs/evidence/python-tests.txt |
 | XML/assets/wrapper/focused secret scan | PASS | docs/evidence/project-checks.txt |
-| Backend HTTP/SQLite role/security flows | PASS | 13 real loopback API tests plus v1/v2 migration test; docs/evidence/backend-tests.txt |
+| Backend HTTP/SQLite role/security flows | PASS | 19 real loopback API/security tests plus 2 migration tests; docs/evidence/backend-tests.txt |
 | Drive adapter credential isolation / redirect tests | PASS | 2 mocked-upstream tests; not real Google access |
 | Android build/JVM tests/lint for final source | NOT TESTED | At documentation authoring; per-commit CI artifact verification.json and Actions results supply actual build evidence |
 | Physical device/runtime/camera/accessibility/lifecycle | NOT TESTED | No attached Android device/emulator |
@@ -23,6 +23,7 @@ Evidence must distinguish host checks, Android compilation/lint, local HTTP back
 ## Automated checks
 
 ```sh
+python3 tools/release_gate.py --test-build
 sh tools/core_checks.sh
 python3 tools/project_checks.py
 python3 -m unittest discover -s tests -p 'test_*.py' -v
@@ -64,3 +65,34 @@ A test APK can be offered after candidate automated/build/packaging gates pass a
 7. Back up a v1 database/material folder, start v0.3, verify schema v2 and preserved identities/files/attempts, restart again, and verify data unchanged. Older server must refuse v2. Practice restoring the complete backup with its matching server; do not downgrade in place. Measure API latency under intended enrollment/item volume before stable.
 
 Host automated evidence: 16 Node tests (13 HTTP role/workflow tests, 2 mocked Drive tests, 1 migration test), including independent Python ZIP/OOXML parsing and formula-like string safety. Android compilation/lint/JVM results are supplied per source commit by Actions. Actual Excel UI, Android runtime/document providers, physical accessibility/rotation and deployment performance are NOT TESTED here; real backend/Drive/signing gates remain BLOCKED.
+
+
+## 0.4 QR eligibility / UI / review verification
+
+Additional host evidence: 23 Node tests (19 HTTP/security/workflow/fault-injection tests, 2 mocked Drive tests, 2 schema migration tests); 10 Python catalog/publication-gate tests; 40 pure Java routing/transfer checks. All production source reviewed as documented in CODE_REVIEW.md. Required build/lint/JVM packaging evidence is tied to the actual source commit in CI, not inferred from syntax checks.
+
+| Acceptance | Procedure and expected result | Evidence status |
+| --- | --- | --- |
+| Verified ID identity | Admin assigns 0001-ab → stored 0001-AB; leading zeros kept; duplicate/invalid ID and non-admin identity write denied; enrollment body cannot claim someone else's ID | PASS, HTTP tests |
+| ID-list / All rule | Owner saves list or All, other instructor/student denied policy; invalid/mixed/stale policy rejected; discover reveals only eligible subject ID/title/description | PASS, HTTP tests |
+| QR join / retry authority | Repeated source=qr calls create one enrollment; noneligible/blocked/suspended/nonstudent denied; legacy/admin authority overrides preserved | PASS, HTTP tests; camera-to-login UI NOT TESTED |
+| Policy revocation | Narrow All to ID list; nonmatching qr/self enrollments removed, subsequent access denied; retained work can reappear after authorized restoration | PASS, HTTP tests |
+| Identity change / failure | Correct ID clears old grants/auto access and sessions but keeps work; delete removes ID/grants/work; injected database error rolls account edit back | PASS, HTTP tests |
+| Storage/update conflict | Edit during upload and stale item write return 409; injected material-audit failure preserves original PDF/reference | PASS, HTTP tests |
+| Upgrade persistence | Bootstrap published v1/v2 schemas; upgrade/reopen v3 preserves IDs, enrollment, files, zero score and feedback; unknown newer schema refused | PASS, migration tests |
+| Publication gate | Normal test prerelease passes; HIGH/CRITICAL fixtures and stable/mismatched signed-candidate tags fail | PASS, Python tests |
+| Requested colors/spacing | Inspect white surface, navy text/actions, gold progress/selection; verify text/counters accompany colors, 56dp targets, 200% fonts/TalkBack/narrow/landscape | Source reviewed; Android build/lint per CI; physical UI NOT TESTED |
+
+Run this real-device path before stable:
+
+1. Deploy matching 0.4 server privately over verified HTTPS; back up/migrate v2 to v3. Admin assigns two distinct verified student IDs. Create two instructor accounts. Record server/app source version, device/OS, APK hash/certificate and clock.
+2. Instructor A → Subject A → Enrollment eligibility → enter only student 1's ID → Save. Instructor B cannot fetch/edit policy. Keep All unchecked. List is private.
+3. Student 1 signed out → scan subject QR → sign in with temporary password → change it → sign in again. Pending QR must remain and enroll once, then open subject with progress. Repeat scan/relaunch/rotate/process recreation. Student 2 must be denied until added or All is checked. Account server origin must never change based on QR data.
+4. Test camera denied/no camera/manual UUID/aoa code, malformed/foreign QR, offline sign-in/enrollment, server timeout, scan cancellation, rapid repeated scans, and scanner return during resume. No duplicate enrollment or misleading success. Network retry must use the same subject and current identity.
+5. Open All, let student 2 join, then remove them by narrowing rule. Student 2 disappears from automatic roster/access while their work remains stored. Add/scan again to restore retained work. Admin promotion to explicit enrollment survives closure; admin removal blocks rejoin under All. Review migrated legacy overrides explicitly.
+6. Correct a student ID through admin, confirm session termination and old allowlist/auto enrollment removal, then authorize/re-scan corrected ID. Delete account and confirm its ID/learning data is removed. Do not use real learner IDs in public screenshots/issues.
+7. Open private PDF, suspend/remove access in another session, background/resume and turn page: old image must clear during failed check and controls disable. Already exported/currently visible bytes are not guaranteed instant remote recall. Reopen encrypted draft, rotate, test disk/key failure, and verify sign-out clears draft/token together.
+8. On two instructor clients open the same item/eligibility. Save one, then save the stale other: 409 and refresh instruction. Start upload, edit item on other client: old upload must not replace newer content. Account registration validation/network failure must retain fields until successful save or user cancellation.
+9. Check white/navy/gold screens at 200% font, TalkBack, RTL/landscape and small width, keyboard/document/scanner dialogs, student-home enrolled-only view, progress numbers, scores including zero, and Excel institutional IDs with leading zeros. Save report with Android document provider and open actual Excel/LibreOffice without repair prompt.
+
+Camera/Android lifecycle/accessibility/document providers, native storage-failure behavior, actual Excel UI, live HTTPS/Drive, load/restore and retained production signing remain NOT TESTED or BLOCKED. Actuator HIL is N/A: no equipment is commanded. These limits permit a labeled development test release after automated packaging gates, not stable promotion.
