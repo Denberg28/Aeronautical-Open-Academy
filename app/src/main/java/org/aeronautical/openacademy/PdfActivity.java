@@ -34,7 +34,7 @@ public final class PdfActivity extends AppCompatActivity {
         super.onCreate(saved);
         key=getIntent().getStringExtra("key");page=saved==null?0:saved.getInt("page",0);
         protectedPath=getIntent().getStringExtra("secure_path");allowExport=protectedPath==null||getIntent().getBooleanExtra("allow_export",false);
-        if(protectedPath!=null)getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        if(protectedPath!=null&&!BuildConfig.SCREEN_CAPTURE_ALLOWED)getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
         protectedItem=getIntent().getStringExtra("item_id");
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xffffffff);setContentView(root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,i)->{androidx.core.graphics.Insets b=i.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});

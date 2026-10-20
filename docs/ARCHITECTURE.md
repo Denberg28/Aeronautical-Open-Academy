@@ -4,7 +4,7 @@
 
 Native Java/framework views, AppCompat, WorkManager, and ZXing Embedded. MainActivity offers the public sample catalog, QR/manual entry, and public Downloads. WorkspaceActivity provides the signed-in role workflow. AccountVault encrypts an opaque session token with Android Keystore AES-GCM; passwords are never retained. The same device key encrypts written drafts, cleared with the session. A left PopupMenu groups navigation; signed-in relaunch enters enrolled subjects with revision-aware progress bars. LearningApi uses an explicitly configured HTTPS origin, fixed API routes, bounded transfers, and no redirects. Debug-only cleartext exceptions are limited to emulator/loopback hosts.
 
-QrRouter resolves A/B/C locally. UUID subject QR values route to the workspace and remain subject to backend enrollment. PdfActivity reauthorizes protected PDF access on open/page change, uses a temporary app-private file, blocks ordinary screenshots, and removes that temporary file on close. Public sample downloads retain the existing atomic completion/index behavior. Protected student offline downloads are intentionally not offered yet; source samples are not real course records.
+QrRouter resolves A/B/C locally. UUID subject QR values route to the workspace and remain subject to backend enrollment. PdfActivity reauthorizes protected PDF access on open/page change, uses a temporary app-private file, uses the build capture policy (temporarily allows screenshots for development feedback), and removes that temporary file on close. Public sample downloads retain the existing atomic completion/index behavior. Protected student offline downloads are intentionally not offered yet; source samples are not real course records.
 
 ## Backend
 

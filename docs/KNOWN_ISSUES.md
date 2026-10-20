@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.8.0-alpha.1
+# Known issues and verification limits — 0.8.1-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -39,3 +39,7 @@ Organization sequencing requires the matching server with schema v5; the APK can
 ### 0.8 subject board and visual verification
 
 Subject order is a device-local view preference, isolated by account ID and organization origin; it does not change the server’s subject order, enrollment or content. No cross-device preference sync is implemented. Dragging, auto-scroll, wrapped rows, TalkBack move controls, 200% fonts and soft-keyboard/dropdown layouts need real-phone checks. RecyclerView 1.3.2 is the one added UI dependency; it supplies measured layout, stable-row drag support and auto-scrolling without a separate drag framework. Public sample subjects retain catalog order; the draggable board is the signed-in account subject list. Uninstall/data clearing removes personal order.
+
+### Temporary capture policy (0.8.1)
+
+User-authorized screenshots and screen recording are enabled on account screens and the in-app protected PDF viewer during feature refinement. `SCREEN_CAPTURE_ALLOWED=true` applies to current builds; setting it false restores the existing FLAG_SECURE guards. Device screenshot/recording behavior remains NOT TESTED. Access checks, enrollment and private file handling are unchanged.

@@ -7,8 +7,10 @@ android {
         applicationId 'org.aeronautical.openacademy'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 50000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 8)
-        versionName '0.8.0-alpha.1'
+        versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 50000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 9)
+        versionName '0.8.1-alpha.1'
+        // Temporarily enabled for development feedback; set false when restoring capture protection.
+        buildConfigField 'boolean', 'SCREEN_CAPTURE_ALLOWED', 'true'
         buildConfigField 'String', 'SOURCE_COMMIT', '"' + (System.getenv('GITHUB_SHA') ?: 'local') + '"'
     }
     buildFeatures { buildConfig true }

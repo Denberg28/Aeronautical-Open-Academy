@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1-alpha.1
+
+- Temporarily allow screenshots/screen recording of account screens and the in-app PDF viewer for development feedback, as requested.
+- Centralize the temporary policy in SCREEN_CAPTURE_ALLOWED so capture protection can be restored after feature refinement.
+
 ## 0.8.0-alpha.1
 
 - Add HARU-style handle-only subject dragging with live swaps, measured row heights, stable IDs, edge scrolling and saved per-account/per-origin personal order.

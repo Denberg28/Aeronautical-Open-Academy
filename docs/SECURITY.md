@@ -10,7 +10,7 @@
 - Upload/JSON size limits, bounded retries/timeouts/connections, no content redirects, token hashes at rest, no credential request logs, and no-store protected responses.
 - Quiz idempotency and one attempt/revision; students cannot self-award scores or bypass submission by setting completion.
 - Drive service-account secrets stay on the private server. Android uses an authenticated proxy; no file is made publicly readable by the app.
-- Android private screens use screenshot protection and temporary cache. Protected viewer rechecks API permission on open/page change. Public samples are intentionally separate and downloadable.
+- Android private screens use temporary cache. Screenshot/recording protection is temporarily disabled in 0.8.1 for user-requested development feedback (`SCREEN_CAPTURE_ALLOWED=true`); restore the flag to false after feature refinement. Protected viewer rechecks API permission on open/page change. Public samples are intentionally separate and downloadable.
 
 ## Practical boundaries
 
