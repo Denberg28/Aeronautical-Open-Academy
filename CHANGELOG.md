@@ -1,5 +1,13 @@
 # Changelog
 
+## PC desktop 0.1.0-alpha.1 — 24 October 2026
+
+- Add a Windows desktop application with a spacious three-pane, single-page LMS workspace.
+- Add inline text-plus-link materials, edit/publish/delete/reorder, quizzes and written work.
+- Reuse the current backend for roles, eligibility, enrollment, results, grading, announcements and Excel reports.
+- Include isolated local demonstration accounts and optional organization HTTPS sign-in, a reproducible Windows package and native desktop automation.
+- Android app/version and backend behavior remain unchanged. See desktop/README.md for scope and verification limits.
+
 ## 0.8.1-alpha.1
 
 - Temporarily allow screenshots/screen recording of account screens and the in-app PDF viewer for development feedback, as requested.

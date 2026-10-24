@@ -1,0 +1,22 @@
+{
+  "name": "aeronautical-open-academy-desktop",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "test:ui": "node test/ui.mjs",
+    "package:win": "node tools/package-win.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "@electron/get": "3.1.0",
+    "extract-zip": "2.0.1",
+    "playwright": "1.60.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'"
+    />
+    <title>Aeronautical Open Academy</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div id="app" hidden></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <dialog id="signin" aria-labelledby="signin-title">
+      <div class="login-brand">
+        <span class="brand-mark">A</span
+        ><span>AERONAUTICAL<br />OPEN ACADEMY</span>
+      </div>
+      <div class="eyebrow">YOUR LEARNING WORKSPACE</div>
+      <h1 id="signin-title">A little space.<br />A world of knowledge.</h1>
+      <p class="muted">Sign in to teach, learn and stay on track.</p>
+      <form id="login-form">
+        <label
+          >Workspace<select name="mode" id="workspace">
+            <option value="local">Local test workspace</option>
+            <option value="organization">Organization server</option>
+          </select></label
+        >
+        <label id="origin-label" hidden
+          >Server address<input
+            name="origin"
+            placeholder="https://academy.your-organization.edu"
+            type="url"
+        /></label>
+        <label
+          >Username or email<input
+            name="username"
+            autocomplete="username"
+            value="instructor"
+            required
+            maxlength="254"
+        /></label>
+        <label
+          >Password<input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            value="instructor"
+            required
+            maxlength="128"
+        /></label>
+        <p id="login-error" class="error" role="alert"></p>
+        <button class="primary wide" type="submit">
+          Open workspace <span aria-hidden="true">→</span>
+        </button>
+      </form>
+      <div id="demo-hint">
+        <p class="small muted">
+          Test accounts · username and password are the same
+        </p>
+        <div class="demo-roles">
+          <button data-demo="admin">Admin</button
+          ><button data-demo="instructor">Instructor</button
+          ><button data-demo="student">Student</button>
+        </div>
+        <p class="small muted">
+          Saved on this PC. Use sample data. Organization sharing requires a
+          configured server.
+        </p>
+      </div>
+    </dialog>
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text" class="muted"></p>
+      <div class="form-actions">
+        <button id="confirm-no">Cancel</button
+        ><button id="confirm-yes" class="primary">Continue</button>
+      </div>
+    </dialog>
+  </body>
+</html>

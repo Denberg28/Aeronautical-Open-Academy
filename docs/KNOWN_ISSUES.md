@@ -43,3 +43,7 @@ Subject order is a device-local view preference, isolated by account ID and orga
 ### Temporary capture policy (0.8.1)
 
 User-authorized screenshots and screen recording are enabled on account screens and the in-app protected PDF viewer during feature refinement. `SCREEN_CAPTURE_ALLOWED=true` applies to current builds; setting it false restores the existing FLAG_SECURE guards. Device screenshot/recording behavior remains NOT TESTED. Access checks, enrollment and private file handling are unchanged.
+
+## PC desktop preview — 0.1.0-alpha.1
+
+The desktop is a separate preview with a local test workspace and optional existing organization HTTPS service. Local PC/Android test workspaces do not synchronize. It supports the focused text/link material path and core LMS flows; see [desktop/README.md](../desktop/README.md) for the explicit UI scope. Windows installation/accessibility, browser/provider sign-in, native save dialogs, upgrade and a live organization backend need acceptance validation; no stable Windows readiness is claimed. Desktop automated evidence is recorded in [DESKTOP_TESTING.md](DESKTOP_TESTING.md).

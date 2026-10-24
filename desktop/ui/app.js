@@ -1,0 +1,1002 @@
+"use strict";
+const $ = (selector) => document.querySelector(selector);
+const escape = (value) =>
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+const icons = {
+  book: "M4 3h13a2 2 0 0 1 2 2v16H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3 M3 17h16 M7 7h8",
+  grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+  check: "M5 12l4 4L19 6",
+  tasks: "M9 6h12 M9 12h12 M9 18h12 M3 6h1 M3 12h1 M3 18h1",
+  chart: "M4 20V4 M4 20h17 M9 16v-5 M14 16V6 M19 16v-8",
+  users:
+    "M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3 M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M19 8v6 M16 11h6",
+  link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
+  plus: "M12 5v14 M5 12h14",
+  edit: "M15 5l4 4 M3 21l5-1L21 7a2 2 0 0 0-4-4L4 16z",
+  more: "M5 12h.01 M12 12h.01 M19 12h.01",
+  search: "M21 21l-5-5 M18 10a8 8 0 1 0-16 0 8 8 0 0 0 16 0",
+  arrow: "M5 12h14 M14 7l5 5-5 5",
+  external: "M14 3h7v7 M21 3L10 14 M10 3H3v18h18v-7",
+  bell: "M18 8a6 6 0 0 0-12 0v8l-2 2h16l-2-2z M10 21h4",
+  help: "M9 8a3 3 0 0 1 6 0c0 2-3 2-3 5 M12 17h.01 M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0",
+  logout: "M9 4H3v16h6 M9 12h12 M17 8l4 4-4 4",
+  settings:
+    "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
+};
+const icon = (key) =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[key] || icons.book}"/></svg>`;
+const button = (text, action, extra = "", cls = "") =>
+  `<button type="button" class="${cls}" data-action="${action}" ${extra}>${text}</button>`;
+const state = {
+  account: null,
+  mode: "local",
+  subjects: [],
+  announcements: [],
+  active: null,
+  items: [],
+  summary: null,
+  view: "subject",
+  search: "",
+  compose: null,
+  dirty: false,
+  busy: false,
+  allItems: [],
+  rosterOffset: 0,
+  accountOffset: 0,
+};
+let toastTimer,
+  loadSequence = 0;
+function toast(message, kind = "") {
+  clearTimeout(toastTimer);
+  $("#toast").textContent = message;
+  $("#toast").className = "show " + kind;
+  if (kind !== "busy")
+    toastTimer = setTimeout(() => ($("#toast").className = ""), 6000);
+}
+function showLogin() {
+  $("#app").hidden = true;
+  if (!$("#signin").open) $("#signin").showModal();
+}
+async function act(fn) {
+  if (state.busy) return;
+  state.busy = true;
+  document.body.classList.add("working");
+  $("#app").inert = true;
+  toast("Working…", "busy");
+  try {
+    await fn();
+    if ($("#toast").classList.contains("busy")) $("#toast").className = "";
+  } catch (error) {
+    toast(error.message, "error");
+    if (error.status === 401) {
+      state.account = null;
+      showLogin();
+    }
+  } finally {
+    state.busy = false;
+    document.body.classList.remove("working");
+    $("#app").inert = false;
+  }
+}
+function confirmAction(title, text, yes = "Continue") {
+  $("#confirm-title").textContent = title;
+  $("#confirm-text").textContent = text;
+  $("#confirm-yes").textContent = yes;
+  return new Promise((resolve) => {
+    const dialog = $("#confirm");
+    const end = (value) => {
+      dialog.close();
+      $("#confirm-yes").onclick = null;
+      $("#confirm-no").onclick = null;
+      dialog.oncancel = null;
+      resolve(value);
+    };
+    $("#confirm-yes").onclick = () => end(true);
+    $("#confirm-no").onclick = () => end(false);
+    dialog.oncancel = (e) => {
+      e.preventDefault();
+      end(false);
+    };
+    dialog.showModal();
+  });
+}
+async function leaveDraft() {
+  if (!state.dirty) return true;
+  const leave = await confirmAction(
+    "Leave this draft?",
+    "Your unsaved text will be discarded.",
+    "Discard draft",
+  );
+  if (leave) {
+    state.dirty = false;
+    state.compose = null;
+  }
+  return leave;
+}
+const api = (path, options) => window.academy.request(path, options);
+const post = (path, body, key) =>
+  api(path, { method: "POST", body, ...(key ? { key } : {}) });
+const manage = () => state.account?.role !== "student";
+const owned = (item) =>
+  state.account.role === "admin" || item.owner_id === state.account.id;
+const navLabel = () =>
+  ({
+    subject: "My subjects",
+    subjects: "My subjects",
+    tasks: "Tasks",
+    results: "My results",
+    learners: "Students & progress",
+    eligibility: "Enrollment",
+    accounts: "Accounts",
+    announcements: "Announcements",
+    settings: "Settings",
+    help: "Help",
+    discover: "Find a subject",
+    learner: "Student work",
+  })[state.view] || "My subjects";
+function nav(label, action, glyph, active = false, extra = "") {
+  return `<button class="nav-btn ${active ? "active" : ""}" data-action="${action}" ${extra}>${icon(glyph)}${label}</button>`;
+}
+function shell() {
+  const a = state.account;
+  $("#app").innerHTML =
+    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.1.0 α</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+      a.name
+        .split(" ")
+        .map((s) => s[0])
+        .slice(0, 2)
+        .join(""),
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><main class="center" id="center" aria-label="Learning workspace"></main><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+  $("#app").hidden = false;
+  renderRight();
+}
+async function refreshData() {
+  const [subjects, announcements] = await Promise.all([
+    api("/v1/subjects"),
+    api("/v1/announcements"),
+  ]);
+  state.subjects = subjects.subjects;
+  state.announcements = announcements.announcements;
+}
+async function loadSubject(id) {
+  const sequence = ++loadSequence;
+  const data = await api(`/v1/subjects/${id}`);
+  if (sequence !== loadSequence) return;
+  state.active = data.subject;
+  state.items = data.items;
+  state.summary = data.summary || null;
+  state.compose = null;
+  state.dirty = false;
+}
+async function start() {
+  await refreshData();
+  state.view = "subject";
+  state.search = "";
+  state.compose = null;
+  if (state.subjects.length) await loadSubject(state.subjects[0].id);
+  else state.active = null;
+  shell();
+  renderSubject();
+}
+function utility() {
+  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div></div>`;
+}
+function header(title, subtitle, actions = "") {
+  return `<div class="row between"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions}</div>`;
+}
+function empty(title, description) {
+  return `<div class="empty">${icon("book")}<h3>${escape(title)}</h3><p>${escape(description)}</p></div>`;
+}
+function bodyParts(item) {
+  let lines = item.body.split("\n");
+  if (lines[0].trim() === item.title.trim()) lines.shift();
+  const urls = [];
+  const text = lines
+    .join("\n")
+    .replace(/https?:\/\/[^\s<>"`]+/gi, (raw) => {
+      try {
+        const u = new URL(raw.replace(/[.,;!]+$/, ""));
+        if (!["http:", "https:"].includes(u.protocol)) return raw;
+        urls.push(u.href);
+        return "";
+      } catch {
+        return raw;
+      }
+    })
+    .trim();
+  return `${text ? `<p class="preserve">${escape(text)}</p>` : ""}${[...new Set(urls)].map((url) => button(`${icon("link")}${escape(new URL(url).hostname)} ${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="${escape(url)}"`, "link")).join("<br>")}`;
+}
+function itemCard(item, index) {
+  const editable = manage() && owned(item);
+  const kind =
+    item.assessment_type === "examination"
+      ? "Written examination"
+      : item.kind === "quiz"
+        ? "Quiz"
+        : item.kind === "activity"
+          ? "Written activity"
+          : "Material";
+  let student = "";
+  if (!manage()) {
+    if (item.kind === "material")
+      student = `<div class="material-tools">${button(`${icon(item.completed ? "check" : "book")}${item.completed ? "Read · mark unread" : "Mark as read"}`, "complete", `data-id="${escape(item.id)}"`, item.completed ? "quiet" : "")}<span class="compose-hint">Self-reported reading</span></div>`;
+    if (item.kind === "quiz")
+      student = item.attempt
+        ? `<div class="result">Submitted · score ${item.attempt.score} / 1</div>`
+        : `<form data-form="quiz" data-id="${escape(item.id)}">${item.options.map((option, i) => `<label class="choice"><input type="radio" name="choice" value="${i}" required>${escape(option)}</label>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit answer</button></div></form>`;
+    if (item.kind === "activity")
+      student = item.submission
+        ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<p class="preserve">${escape(item.submission.feedback)}</p>` : ""}<details><summary>Your response</summary><p class="preserve">${escape(item.submission.output)}</p></details></div>`
+        : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
+  }
+  return `<article class="material" data-item="${escape(item.id)}"><div class="number">${String(index + 1).padStart(2, "0")}</div><div class="material-content"><div class="material-type">${escape(kind)} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div><h3>${escape(item.title)}</h3>${bodyParts(item)}${student}${editable ? `<div class="material-tools"><span draggable="true" data-drag="${escape(item.id)}" class="drag-handle" title="Drag to reorder">⠿</span>${button("↑", "move", `data-id="${escape(item.id)}" data-direction="-1" aria-label="Move up" ${index === 0 ? "disabled" : ""}`, "quiet")}${button("↓", "move", `data-id="${escape(item.id)}" data-direction="1" aria-label="Move down" ${index === state.items.length - 1 ? "disabled" : ""}`, "quiet")}<span class="push"></span>${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div></article>`;
+}
+function renderSubject() {
+  const center = $("#center");
+  if (!state.active) {
+    center.innerHTML =
+      header(
+        "My subjects",
+        "Your teaching and learning start here.",
+        manage() ? button("+ New subject", "new-subject", "", "primary") : "",
+      ) +
+      empty(
+        "No subjects yet",
+        manage()
+          ? "Create your first subject to start adding materials."
+          : "Choose Find a subject to enroll.",
+      );
+    renderRight();
+    return;
+  }
+  const s = state.active;
+  const visible = state.items.filter((i) =>
+    (i.title + " " + i.body).toLowerCase().includes(state.search.toLowerCase()),
+  );
+  center.innerHTML =
+    utility() +
+    `<section class="subject-hero"><div class="row between"><span class="tag">${manage() ? "INSTRUCTOR WORKSPACE" : "MY SUBJECT"}</span>${manage() ? button(icon("more"), "edit-subject", 'aria-label="Edit subject details" title="Edit subject details"', "quiet") : ""}</div><div class="eyebrow">AERONAUTICAL OPEN ACADEMY</div><h1>${escape(s.title)}</h1><p class="preserve">${escape(s.description)}</p><div class="hero-toolbar"><span>${state.items.filter((i) => i.kind === "material").length} materials</span><span>·</span><span>${state.items.filter((i) => i.kind !== "material").length} activities & quizzes</span>${!manage() ? `<span>· ${state.summary?.completion_percent || 0}% complete</span>` : ""}</div></section><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${visible.length ? visible.map((item) => itemCard(item, state.items.indexOf(item))).join("") : empty(state.search ? "No matching entries" : "A fresh start", state.search ? "Try another search." : manage() ? "Add a line of text and attach your first material link." : "Your instructor has not published any content yet.")}</div>${manage() ? '<div id="composer-slot"></div>' : ""}`;
+  if (manage()) renderComposer();
+  renderRight();
+}
+function renderComposer() {
+  const slot = $("#composer-slot");
+  if (!slot) return;
+  if (!state.compose) {
+    slot.innerHTML = button(
+      icon("plus") + " Add material or activity",
+      "add",
+      "",
+      "add-line",
+    );
+    return;
+  }
+  const item = state.compose.item;
+  const kind = item?.kind || state.compose.kind || "material";
+  let text = item?.body || "";
+  let link = "";
+  if (item && kind === "material") {
+    const lines = text.split("\n");
+    if (/^https?:\/\/\S+$/.test(lines.at(-1))) {
+      link = lines.pop();
+      text = lines.join("\n");
+    }
+  }
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : "Add to your subject"}</h3><span class="compose-hint">A text line and a link. That’s all you need.</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type"><option value="material" ${kind === "material" ? "selected" : ""}>Material / link</option><option value="activity" ${kind === "activity" ? "selected" : ""}>Written activity</option><option value="examination" ${kind === "examination" ? "selected" : ""}>Written examination</option><option value="quiz" ${kind === "quiz" ? "selected" : ""}>Quiz</option></select>`}</div><label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Google Drive, PDF, YouTube or any public web link</span></div><label id="link-label" ${link ? "" : "hidden"}>Material link<input name="link" type="url" value="${escape(link)}" maxlength="2048" placeholder="https://…"></label>` : ""}${kind === "quiz" && !item ? '<label>Answer choices · one per line<textarea name="options" rows="3" maxlength="1800" placeholder="First choice\nSecond choice" required></textarea></label><label>Correct choice number<input name="correct" type="number" min="1" max="6" value="1" required></label>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+}
+function renderRight() {
+  const notices = state.announcements.slice(0, 3);
+  const tasks = state.items.filter((i) =>
+    manage() ? !i.published : !i.completed && i.kind !== "material",
+  );
+  $("#rightbar").innerHTML =
+    `<section><div class="section-heading"><h2>Announcements</h2>${state.account.role === "admin" ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><p class="preserve">${escape(n.body)}</p></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>${manage() ? "Teaching tasks" : "Your tasks"}</h2><span class="tag">${tasks.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
+      tasks
+        .slice(0, 5)
+        .map(
+          (t) =>
+            `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon(manage() ? "edit" : "tasks")}</span><span><strong>${escape(t.title)}</strong><small>${manage() ? "Draft · finish and publish" : t.kind === "quiz" ? "Quiz · not submitted" : "Written work · not submitted"}</small></span></button>`,
+        )
+        .join("") ||
+      '<p class="small-info">No pending tasks in this subject.</p>'
+    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>Read, submitted and graded work</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter((i) => i.published).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
+}
+async function navigate(view, id) {
+  if (!(await leaveDraft())) return;
+  state.compose = null;
+  state.search = "";
+  state.view = view;
+  if (view === "subject")
+    await loadSubject(id || state.active?.id || state.subjects[0]?.id);
+  shell();
+  if (view === "subject") return renderSubject();
+  const center = $("#center");
+  if (view === "subjects")
+    center.innerHTML =
+      header(
+        "My subjects",
+        manage()
+          ? "A clear home for everything you teach."
+          : "Make room for something new.",
+        manage() ? button("+ New subject", "new-subject", "", "primary") : "",
+      ) +
+      `<div class="course-grid">${state.subjects.map((s) => `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><span class="tag">${manage() ? "SUBJECT" : "ENROLLED"}</span><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`).join("")}</div>` +
+      (state.subjects.length
+        ? ""
+        : empty("No subjects yet", "Create or enroll in a subject to begin."));
+  if (view === "tasks" || view === "results") await renderAllWork(view);
+  if (view === "learners") await renderLearners();
+  if (view === "eligibility") await renderEligibility();
+  if (view === "accounts") await renderAccounts();
+  if (view === "announcements") renderAnnouncements();
+  if (view === "discover") await renderDiscover();
+  if (view === "settings") renderSettings();
+  if (view === "help") renderHelp();
+}
+function chooseSubject() {
+  return `<label>Subject<select id="context-subject">${state.subjects.map((s) => `<option value="${escape(s.id)}" ${state.active?.id === s.id ? "selected" : ""}>${escape(s.title)}</option>`).join("")}</select></label>`;
+}
+async function renderAllWork(view) {
+  state.allItems = [];
+  // Sequential bounded reads avoid overwhelming a school backend.
+  for (const subject of state.subjects) {
+    const d = await api(`/v1/subjects/${subject.id}`);
+    state.allItems.push(...d.items.map((item) => ({ ...item, subject })));
+  }
+  const items =
+    view === "tasks"
+      ? state.allItems.filter((i) => (manage() ? !i.published : !i.completed))
+      : state.allItems.filter((i) => i.completed);
+  $("#center").innerHTML =
+    header(
+      view === "tasks" ? "Tasks" : "My results",
+      view === "tasks"
+        ? "Everything waiting for your attention, across your subjects."
+        : "Reading, submissions and scores, kept separate.",
+    ) +
+    items
+      .map(
+        (item) =>
+          `<article class="material"><div class="material-content"><span class="small muted">${escape(item.subject.title)}</span><h3>${escape(item.title)}</h3><p>${item.kind === "material" ? "Reading · self-reported" : item.attempt ? `Quiz score: ${item.attempt.score} / 1` : item.submission?.score != null ? `Written score: ${item.submission.score} / 100` : item.submission ? "Submitted · awaiting assessment" : manage() ? "Draft · unpublished" : "Not submitted"}</p>${button("Open subject " + icon("arrow"), "subject", `data-id="${escape(item.subject.id)}"`, "quiet")}</div></article>`,
+      )
+      .join("") +
+    (items.length
+      ? ""
+      : empty(
+          "All clear",
+          view === "tasks"
+            ? "There are no pending tasks."
+            : "Completed items will appear here.",
+        ));
+}
+async function renderLearners() {
+  if (!state.active) {
+    $("#center").innerHTML = empty(
+      "Choose a subject first",
+      "Create a subject to see student progress.",
+    );
+    return;
+  }
+  const d = await api(
+    `/v1/subjects/${state.active.id}/learners?offset=${state.rosterOffset}`,
+  );
+  $("#center").innerHTML =
+    header(
+      "Students & progress",
+      "A clear view of participation and assessment.",
+    ) +
+    chooseSubject() +
+    `<div class="section-heading"><span>${d.total} enrolled students · showing ${d.learners.length}</span>${button("Export Excel", "export", "", "quiet")}</div><div class="table-scroll"><table class="data-table"><thead><tr><th>Student</th><th>Read</th><th>Submitted</th><th>Graded</th><th></th></tr></thead><tbody>${d.learners.map((l) => `<tr><td>${escape(l.student.name)}<div class="small muted">${escape(l.student.student_number || l.student.email)}</div></td><td>${l.summary.read}/${l.summary.materials}</td><td>${l.summary.submitted}/${l.summary.required}</td><td>${l.summary.graded}</td><td>${button("View work", "learner", `data-id="${escape(l.student.id)}"`, "quiet")}</td></tr>`).join("")}</tbody></table></div>${!d.learners.length ? empty("No students enrolled yet", "Open Enrollment to set who can join.") : ""}<div class="form-actions">${button("Previous", "roster-page", `data-offset="${Math.max(0, state.rosterOffset - 100)}" ${state.rosterOffset ? "" : "disabled"}`)}${button("Next students", "roster-page", `data-offset="${d.next_offset || 0}" ${d.next_offset == null ? "disabled" : ""}`)}</div>`;
+}
+async function renderLearner(id) {
+  const data = await api(`/v1/subjects/${state.active.id}/learners/${id}`);
+  state.view = "learner";
+  shell();
+  $("#center").innerHTML =
+    header(
+      data.student.name,
+      "Student work · " + state.active.title,
+      button("Back to students", "learners", "", "quiet"),
+    ) +
+    data.items
+      .map(
+        (item) =>
+          `<article class="material"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag">${escape(item.status)}</span>${item.output ? `<p class="preserve">${escape(item.output)}</p>` : ""}${item.answer ? `<p>Answer: ${escape(item.answer)}</p>` : ""}${item.submission_id ? `<form data-form="grade" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save assessment</button></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}</p>` : ""}</div></article>`,
+      )
+      .join("");
+}
+async function renderEligibility() {
+  if (!state.active) {
+    $("#center").innerHTML = empty(
+      "Choose a subject first",
+      "Create a subject to manage enrollment.",
+    );
+    return;
+  }
+  const d = await api(`/v1/subjects/${state.active.id}/eligibility`);
+  $("#center").innerHTML =
+    header("Enrollment", "Choose who can join this subject.") +
+    chooseSubject() +
+    `<form id="eligibility" class="inline-form" data-revision="${d.revision}"><h3>Eligible students</h3><p class="small muted">Students find the subject and join using their administrator-assigned ID. Existing administrator enrollments remain overrides.</p><label class="choice"><input name="all" type="checkbox" ${d.all_students ? "checked" : ""}>All students</label><label>Or allow these student IDs · one per line<textarea name="numbers" rows="5" placeholder="2026-001\n2026-002">${escape(d.student_numbers.join("\n"))}</textarea></label><p class="small muted">No IDs and All students unchecked closes self-enrollment. Changing eligibility can remove self-enrolled students’ access.</p><div class="form-actions"><button class="primary">Save eligibility</button></div></form><div class="inline-form"><h3>Subject code</h3><p class="small muted">Eligible students can paste this code in Find a subject.</p><input readonly aria-label="Subject code" value="${escape(state.active.id)}"></div>`;
+}
+async function renderDiscover() {
+  const data = await api(
+    `/v1/subjects/discover?offset=${state.discoverOffset || 0}`,
+  );
+  $("#center").innerHTML =
+    header(
+      "Find a subject",
+      "Only subjects eligible for your account appear here.",
+    ) +
+    `<form id="join-code" class="inline-form"><label>Subject code<input name="code" required placeholder="Paste the subject code from your instructor"></label><div class="form-actions"><button class="primary">Enroll</button></div></form>` +
+    data.subjects
+      .map(
+        (s) =>
+          `<article class="material"><div class="material-content"><h3>${escape(s.title)}</h3>${button("Enroll in subject", "enrol", `data-id="${escape(s.id)}"`, "primary")}</div></article>`,
+      )
+      .join("") +
+    (data.subjects.length
+      ? ""
+      : empty(
+          "No new subjects available",
+          "Ask your instructor to check your student ID and eligibility.",
+        )) +
+    `<div class="form-actions">${button("Previous", "discover-page", `data-offset="${Math.max(0, (state.discoverOffset || 0) - 100)}" ${state.discoverOffset ? "" : "disabled"}`)}${button("Next", "discover-page", `data-offset="${(state.discoverOffset || 0) + 100}" ${data.subjects.length < 100 ? "disabled" : ""}`)}</div>`;
+}
+async function renderAccounts() {
+  const d = await api(`/v1/admin/accounts?offset=${state.accountOffset}`);
+  $("#center").innerHTML =
+    header(
+      "Accounts",
+      "Manage access to your learning workspace.",
+      button("+ Create account", "new-account", "", "primary"),
+    ) +
+    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td>${escape(a.status)}</td><td>${a.id !== state.account.id ? button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet") : ""}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
+}
+function renderAnnouncements() {
+  $("#center").innerHTML =
+    header("Announcements", "Updates for everyone in the workspace.") +
+    (state.account.role === "admin"
+      ? `<form id="announcement" class="inline-form"><h3>Share an update</h3><label>Title<input name="title" required maxlength="160"></label><label>Message<textarea name="body" required maxlength="5000" rows="3"></textarea></label><div class="form-actions"><button class="primary">Publish announcement</button></div></form>`
+      : "") +
+    state.announcements
+      .map(
+        (n) =>
+          `<article class="material"><div class="material-content"><span class="small muted">${new Date(n.created_at).toLocaleDateString()}</span><h3>${escape(n.title)}</h3><p class="preserve">${escape(n.body)}</p>${state.account.role === "admin" ? button("Delete", "delete-announcement", `data-id="${escape(n.id)}"`, "quiet danger") : ""}</div></article>`,
+      )
+      .join("");
+}
+function renderSettings() {
+  $("#center").innerHTML =
+    header("Settings", "Your account and workspace.") +
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the Android test app." : "Your account and subjects are managed by your organization’s Academy server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · " + escape(state.account.student_number) : ""}</p></div><form id="password" class="inline-form"><h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
+}
+function renderHelp() {
+  $("#center").innerHTML =
+    header("A calmer way to learn", "Everything stays in one workspace.") +
+    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or activity, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Arrange your subject</h3><p>Drag the handle below an entry or use its up/down arrows. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Docs, Slides, Drive, YouTube and other material links open externally. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>Desktop preview limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
+}
+function renderSubjectForm(edit = false) {
+  const s = edit ? state.active : null;
+  state.compose = null;
+  $("#center").innerHTML =
+    header(
+      edit ? "Subject details" : "Create a subject",
+      "A simple home for lessons and learning activities.",
+    ) +
+    `<form id="subject-form" class="inline-form" data-edit="${s ? "true" : "false"}"><label>Subject title<input name="title" maxlength="160" required value="${escape(s?.title || "")}" placeholder="e.g. Aircraft Structures"></label><label>Description<textarea name="description" maxlength="1000" required placeholder="What will students learn?">${escape(s?.description || "")}</textarea></label><div class="form-actions">${button("Cancel", "subject", s ? `data-id="${escape(s.id)}"` : "", "quiet")}<button class="primary">${s ? "Save details" : "Create subject"}</button></div></form>`;
+}
+async function reloadActive() {
+  const id = state.active.id;
+  await refreshData();
+  await loadSubject(id);
+  state.view = "subject";
+  shell();
+  renderSubject();
+}
+async function reorder(ids) {
+  await post(`/v1/subjects/${state.active.id}/order`, {
+    item_ids: ids,
+    expected_revision: state.active.order_revision,
+  });
+  await reloadActive();
+  toast("Order saved.");
+}
+
+$("#login-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  act(async () => {
+    const form = e.target;
+    $("#login-error").textContent = "";
+    const submit = form.querySelector("button[type=submit]");
+    submit.disabled = true;
+    try {
+      const session = await window.academy.login(
+        Object.fromEntries(new FormData(form)),
+      );
+      state.account = session.account;
+      state.mode = session.mode;
+      $("#signin").close();
+      form.elements.password.value = "";
+      if (state.account.must_change_password) {
+        shell();
+        state.view = "settings";
+        renderSettings();
+        toast("Change your temporary password to continue.");
+      } else await start();
+    } catch (error) {
+      $("#login-error").textContent = error.message;
+      throw error;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+});
+$("#signin").addEventListener("cancel", (e) => e.preventDefault());
+$("#workspace").addEventListener("change", () => {
+  const remote = $("#workspace").value === "organization";
+  $("#origin-label").hidden = !remote;
+  $("#demo-hint").hidden = remote;
+  $("#login-form").elements.username.value = "";
+  $("#login-form").elements.password.value = "";
+});
+document.addEventListener("click", (event) => {
+  const demo = event.target.closest("[data-demo]");
+  if (demo) {
+    $("#login-form").elements.username.value = demo.dataset.demo;
+    $("#login-form").elements.password.value = demo.dataset.demo;
+    return;
+  }
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+  const { action, id } = target.dataset;
+  act(async () => {
+    if (
+      [
+        "subjects",
+        "subject",
+        "tasks",
+        "results",
+        "learners",
+        "eligibility",
+        "accounts",
+        "announcements",
+        "settings",
+        "help",
+        "discover",
+      ].includes(action)
+    )
+      return navigate(action, id);
+    if (action === "logout") {
+      if (!(await leaveDraft())) return;
+      await window.academy.logout();
+      Object.assign(state, {
+        account: null,
+        active: null,
+        items: [],
+        subjects: [],
+        announcements: [],
+      });
+      $("#app").innerHTML = "";
+      showLogin();
+      return;
+    }
+    if (action === "add") {
+      state.compose = { kind: "material" };
+      renderComposer();
+      $("#composer").scrollIntoView({ block: "nearest" });
+      $("#composer textarea").focus();
+    }
+    if (action === "attach") {
+      $("#link-label").hidden = false;
+      $("#link-label input").focus();
+    }
+    if (action === "cancel-compose") {
+      if (!(await leaveDraft())) return;
+      state.compose = null;
+      renderComposer();
+    }
+    if (action === "edit") {
+      if (!(await leaveDraft())) return;
+      state.compose = { item: state.items.find((i) => i.id === id) };
+      renderComposer();
+      $("#composer").scrollIntoView({ block: "nearest" });
+      $("#composer textarea").focus();
+    }
+    if (action === "open-link")
+      await window.academy.openLink({
+        id,
+        revision: state.items.find((i) => i.id === id).revision,
+        url: target.dataset.url,
+      });
+    if (action === "complete") {
+      if (!(await leaveDraft())) return;
+      const item = state.items.find((i) => i.id === id);
+      await post(`/v1/items/${id}/complete`, { completed: !item.completed });
+      await reloadActive();
+      toast(item.completed ? "Marked unread." : "Reading marked complete.");
+    }
+    if (action === "publish") {
+      if (!(await leaveDraft())) return;
+      const item = state.items.find((i) => i.id === id);
+      await api(`/v1/items/${id}`, {
+        method: "PATCH",
+        body: {
+          published: !item.published,
+          expected_edit_version: item.edit_version,
+        },
+      });
+      await reloadActive();
+      toast(item.published ? "Entry unpublished." : "Entry published.");
+    }
+    if (action === "delete") {
+      if (!(await leaveDraft())) return;
+      if (
+        !(await confirmAction(
+          "Delete this entry?",
+          "This removes it from the subject. Historical learning records are retained.",
+          "Delete entry",
+        ))
+      )
+        return;
+      const item = state.items.find((i) => i.id === id);
+      await api(`/v1/items/${id}`, {
+        method: "PATCH",
+        body: { archived: true, expected_edit_version: item.edit_version },
+      });
+      await reloadActive();
+      toast("Entry deleted.");
+    }
+    if (action === "move") {
+      if (!(await leaveDraft())) return;
+      const ids = state.items.map((i) => i.id),
+        index = ids.indexOf(id),
+        next = index + Number(target.dataset.direction);
+      if (next < 0 || next >= ids.length) return;
+      [ids[index], ids[next]] = [ids[next], ids[index]];
+      await reorder(ids);
+    }
+    if (action === "new-subject" || action === "edit-subject") {
+      if (!(await leaveDraft())) return;
+      renderSubjectForm(action === "edit-subject");
+    }
+    if (action === "learner" && !(await leaveDraft())) return;
+    if (action === "learner") await renderLearner(id);
+    if (action === "roster-page") {
+      state.rosterOffset = Number(target.dataset.offset);
+      await renderLearners();
+    }
+    if (action === "export") {
+      const result = await window.academy.exportReport(
+        state.active.id,
+        state.rosterOffset,
+      );
+      if (result.saved) toast("Excel report saved.");
+    }
+    if (action === "task-item") {
+      if (!(await leaveDraft())) return;
+      const item = state.items.find((i) => i.id === id);
+      state.view = "subject";
+      shell();
+      renderSubject();
+      if (manage()) {
+        state.compose = { item };
+        renderComposer();
+        $("#composer").scrollIntoView({ block: "nearest" });
+      } else
+        document
+          .querySelector(`[data-item="${id}"]`)
+          ?.scrollIntoView({ block: "center" });
+    }
+    if (action === "enrol") {
+      await post(`/v1/subjects/${id}/enrol`, { source: "self" });
+      await refreshData();
+      await navigate("subject", id);
+      toast("You’re enrolled.");
+    }
+    if (action === "discover-page") {
+      state.discoverOffset = Number(target.dataset.offset);
+      await renderDiscover();
+    }
+    if (action === "account-page") {
+      state.accountOffset = Number(target.dataset.offset);
+      await renderAccounts();
+    }
+    if (action === "account-status") {
+      if (
+        !(await confirmAction(
+          "Change account access?",
+          target.dataset.status === "suspended"
+            ? "The account will lose access immediately."
+            : "This account will be able to sign in again.",
+          "Save change",
+        ))
+      )
+        return;
+      await api(`/v1/admin/accounts/${id}`, {
+        method: "PATCH",
+        body: { status: target.dataset.status },
+      });
+      await renderAccounts();
+      toast("Account updated.");
+    }
+    if (action === "new-account") {
+      $("#account-form-slot").innerHTML =
+        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label>Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Temporary passphrase · at least 15 characters<input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><p class="small muted">The new account must change its password at first sign-in.</p><div class="form-actions"><button class="primary">Create account</button></div></form>`;
+    }
+    if (action === "delete-announcement") {
+      if (
+        !(await confirmAction(
+          "Delete announcement?",
+          "This removes the update for everyone.",
+          "Delete",
+        ))
+      )
+        return;
+      await api(`/v1/announcements/${id}`, { method: "DELETE" });
+      await refreshData();
+      renderAnnouncements();
+      renderRight();
+      toast("Announcement deleted.");
+    }
+  });
+});
+document.addEventListener("submit", (event) => {
+  const form = event.target;
+  if (form.id === "login-form") return;
+  event.preventDefault();
+  act(async () => {
+    const d = Object.fromEntries(new FormData(form));
+    const id = form.dataset.id;
+    if (form.id === "composer") {
+      const text = d.text.trim(),
+        url = (d.link || "").trim();
+      let body = text;
+      if (url) {
+        let parsed;
+        try {
+          parsed = new URL(url);
+        } catch {
+          throw new Error("Enter a complete HTTP or HTTPS material link.");
+        }
+        if (
+          !["http:", "https:"].includes(parsed.protocol) ||
+          parsed.username ||
+          parsed.password
+        )
+          throw new Error("Use a web link without embedded credentials.");
+        body += "\n" + url;
+      }
+      const title = text.split("\n")[0].trim();
+      if (!title || title.length > 160)
+        throw new Error("Keep the first line between 1 and 160 characters.");
+      if (body.length > 12000)
+        throw new Error("Keep this entry within 12,000 characters.");
+      const item = state.compose.item;
+      const kind = item?.kind || d.kind;
+      const payload = { title, body, published: !!d.published };
+      if (item) {
+        await api(`/v1/items/${item.id}`, {
+          method: "PATCH",
+          body: { ...payload, expected_edit_version: item.edit_version },
+        });
+      } else {
+        payload.kind = kind;
+        if (kind === "material") payload.material_mode = "text";
+        if (kind === "quiz") {
+          payload.options = d.options
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          payload.correct_index = Number(d.correct) - 1;
+        }
+        await post(`/v1/subjects/${state.active.id}/items`, payload);
+      }
+      state.dirty = false;
+      await reloadActive();
+      toast("Entry saved.");
+    }
+    if (form.id === "subject-form") {
+      if (form.dataset.edit === "true") {
+        await api(`/v1/subjects/${state.active.id}`, {
+          method: "PATCH",
+          body: {
+            title: d.title,
+            description: d.description,
+            expected_title: state.active.title,
+            expected_description: state.active.description,
+          },
+        });
+        state.dirty = false;
+        await reloadActive();
+      } else {
+        const created = await post("/v1/subjects", {
+          title: d.title,
+          description: d.description,
+        });
+        state.dirty = false;
+        await refreshData();
+        await navigate("subject", created.id);
+      }
+      toast("Subject saved.");
+    }
+    if (form.dataset.form === "quiz" || form.dataset.form === "submission") {
+      if (
+        !(await confirmAction(
+          "Submit your work?",
+          "You can submit once for this version of the entry.",
+          "Submit",
+        ))
+      )
+        return;
+      form.dataset.key ||= crypto.randomUUID();
+      await post(
+        `/v1/items/${id}/${form.dataset.form === "quiz" ? "quiz" : "submission"}`,
+        form.dataset.form === "quiz"
+          ? { choice: Number(d.choice) }
+          : { output: d.output },
+        form.dataset.key,
+      );
+      state.dirty = false;
+      await reloadActive();
+      toast("Work submitted.");
+    }
+    if (form.dataset.form === "grade") {
+      await post(`/v1/submissions/${id}/grade`, {
+        score: Number(d.score),
+        feedback: d.feedback,
+        expected_graded_at: form.dataset.graded
+          ? Number(form.dataset.graded)
+          : null,
+      });
+      state.dirty = false;
+      await renderLearner(form.dataset.student);
+      toast("Assessment saved.");
+    }
+    if (form.id === "eligibility") {
+      if (
+        !(await confirmAction(
+          "Save enrollment eligibility?",
+          "Self-enrolled students who no longer qualify may lose access. Administrator enrollments remain overrides.",
+          "Save eligibility",
+        ))
+      )
+        return;
+      await post(`/v1/subjects/${state.active.id}/eligibility`, {
+        all_students: !!d.all,
+        student_numbers: d.all
+          ? []
+          : d.numbers
+              .split(/[\n,]+/)
+              .map((x) => x.trim())
+              .filter(Boolean),
+        expected_revision: Number(form.dataset.revision),
+      });
+      state.dirty = false;
+      await renderEligibility();
+      toast("Eligibility saved.");
+    }
+    if (form.id === "join-code") {
+      if (!/^[a-f0-9-]{36}$/.test(d.code.trim()))
+        throw new Error("Enter the full subject code.");
+      await post(`/v1/subjects/${d.code.trim()}/enrol`, { source: "qr" });
+      await refreshData();
+      await navigate("subject", d.code.trim());
+      toast("You’re enrolled.");
+    }
+    if (form.id === "announcement") {
+      await post("/v1/announcements", { title: d.title, body: d.body });
+      state.dirty = false;
+      await refreshData();
+      renderAnnouncements();
+      renderRight();
+      toast("Announcement published.");
+    }
+    if (form.id === "new-account") {
+      const payload = { ...d };
+      if (!payload.student_number) delete payload.student_number;
+      await post("/v1/admin/accounts", payload);
+      state.dirty = false;
+      await renderAccounts();
+      toast("Account created.");
+    }
+    if (form.id === "password") {
+      await post("/v1/auth/password", {
+        current_password: d.current,
+        new_password: d.next,
+      });
+      state.dirty = false;
+      state.account = null;
+      $("#app").innerHTML = "";
+      showLogin();
+      toast("Password changed. Sign in again.");
+    }
+  });
+});
+document.addEventListener("input", (event) => {
+  if (event.target.id === "search") {
+    state.search = event.target.value;
+    const value = state.search.toLowerCase();
+    document.querySelectorAll("[data-item]").forEach((el) => {
+      const item = state.items.find((i) => i.id === el.dataset.item);
+      el.hidden = !(item.title + " " + item.body).toLowerCase().includes(value);
+    });
+    return;
+  }
+  if (event.target.closest("#app form")) state.dirty = true;
+});
+document.addEventListener("change", (event) => {
+  if (event.target.id === "entry-kind") {
+    const text = $("#composer textarea").value;
+    const published = $("#composer").elements.published.checked;
+    state.compose = { kind: event.target.value };
+    renderComposer();
+    $("#composer textarea").value = text;
+    $("#composer").elements.published.checked = published;
+  }
+  if (event.target.id === "context-subject")
+    act(async () => {
+      if (!(await leaveDraft())) return;
+      state.rosterOffset = 0;
+      await loadSubject(event.target.value);
+      shell();
+      if (state.view === "learners") await renderLearners();
+      else await renderEligibility();
+    });
+  else if (event.target.closest("#app form")) state.dirty = true;
+});
+let dragId;
+document.addEventListener("dragstart", (event) => {
+  const handle = event.target.closest("[data-drag]");
+  if (!handle) return;
+  dragId = handle.dataset.drag;
+  event.dataTransfer.setData("text/plain", dragId);
+  event.dataTransfer.effectAllowed = "move";
+});
+document.addEventListener("dragover", (event) => {
+  const card = event.target.closest("[data-item]");
+  if (dragId && card) {
+    event.preventDefault();
+    card.classList.add("drop-target");
+  }
+});
+document.addEventListener("dragleave", (event) =>
+  event.target.closest("[data-item]")?.classList.remove("drop-target"),
+);
+document.addEventListener("dragend", () => {
+  dragId = null;
+  document
+    .querySelectorAll(".drop-target")
+    .forEach((el) => el.classList.remove("drop-target"));
+});
+document.addEventListener("drop", (event) => {
+  const target = event.target.closest("[data-item]"),
+    source = dragId;
+  dragId = null;
+  if (!target || !source) return;
+  event.preventDefault();
+  document
+    .querySelectorAll(".drop-target")
+    .forEach((el) => el.classList.remove("drop-target"));
+  act(async () => {
+    if (!(await leaveDraft())) return;
+    const ids = state.items.map((i) => i.id);
+    if (!ids.includes(source) || source === target.dataset.item) return;
+    ids.splice(ids.indexOf(source), 1);
+    ids.splice(ids.indexOf(target.dataset.item), 0, source);
+    await reorder(ids);
+  });
+});
+window.addEventListener("beforeunload", (event) => {
+  if (state.dirty) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+showLogin();

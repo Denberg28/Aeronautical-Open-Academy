@@ -1,0 +1,51 @@
+name: Desktop preview verification
+on:
+  push:
+    paths: ["desktop/**", "server/**", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["desktop/**", "server/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --prefix desktop
+      - run: npm test --prefix server
+      - run: npm test --prefix desktop
+      - name: Native Electron single-page workflows
+        run: npm run test:ui --prefix desktop
+      - name: Native IPC startup smoke test
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath './desktop/node_modules/electron/dist/electron.exe' -ArgumentList @('desktop','--smoke-test') -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Electron smoke test failed' }
+          $result = Get-Content (Join-Path $env:TEMP 'academy-smoke-result.json') | ConvertFrom-Json
+          if ($result.role -ne 'instructor' -or !$result.bridge) { throw 'Missing IPC evidence' }
+      - run: npm run package:win --prefix desktop
+      - run: node desktop/tools/verify-package.mjs
+      - name: Package verified preview
+        shell: pwsh
+        run: |
+          Set-Content out/source-commit.txt $env:GITHUB_SHA
+          Get-ChildItem out/Academy-PC-*/Academy.exe | Get-FileHash -Algorithm SHA256 | Format-List | Out-File out/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Academy-PC-preview-${{ github.sha }}
+          path: |
+            out/Academy-PC-0.1.0-alpha.1-win32-x64/
+            out/source-commit.txt
+            out/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
