@@ -18,6 +18,9 @@ try {
   });
   console.log("Electron launched");
   const page = await application.firstWindow();
+  // Electron's will-prevent-unload handler owns the native close confirmation.
+  // Do not let Playwright auto-dismiss the same beforeunload event.
+  page.on("dialog", (dialog) => { void dialog.dismiss().catch(() => {}); });
   page.setDefaultTimeout(15000);
   console.log("Window ready");
   await application.evaluate(({ BrowserWindow }) =>
@@ -79,6 +82,25 @@ try {
     "Lesson 02 — Aircraft structure\nA reference for our next discussion.",
   );
   await page.locator("#composer input[name=link]").fill("https://www.faa.gov/");
+  const materials = [
+    ["https://drive.google.com/file/d/synthetic/view?usp=sharing&resourcekey=0-demo", "Google Drive"],
+    ["https://docs.google.com/document/d/synthetic/edit?usp=sharing", "Google Docs"],
+    ["https://docs.google.com/spreadsheets/d/synthetic/edit#gid=14", "Google Sheets"],
+    ["https://docs.google.com/presentation/d/synthetic/edit#slide=id.demo", "Google Slides"],
+    ["https://youtu.be/synthetic?t=30", "YouTube"],
+    ["https://images.nasa.gov/synthetic.jpg?download=1", "Image"],
+  ];
+  for (const [url] of materials) {
+    await action("attach");
+    await page.locator("#composer input[name=link]").last().fill(url);
+  }
+  await page.selectOption("#entry-kind", "quiz");
+  await page.locator("#composer [name=options]").fill("Lift\nDrag");
+  await page.selectOption("#entry-kind", "material");
+  assert.equal(await page.locator("#composer input[name=link]").count(), 7);
+  await page.selectOption("#entry-kind", "quiz");
+  assert.equal(await page.locator("#composer [name=options]").inputValue(), "Lift\nDrag");
+  await page.selectOption("#entry-kind", "material");
   await mkdir(new URL("../../out/desktop-qa/", import.meta.url), {
     recursive: true,
   });
@@ -106,7 +128,13 @@ try {
         exact: true,
       }),
     });
+  for (const [url, label] of materials) {
+    assert.equal(await newCard.locator(`[data-url="${url}"] strong`).textContent(), label);
+    await action("open-link", `[data-url="${url}"]`);
+  }
   await newCard.locator("[data-action=edit]").click();
+  assert.equal(await page.locator("#composer input[name=link]").count(), 7);
+  assert.deepEqual(await page.locator("#composer input[name=link]").evaluateAll((inputs) => inputs.slice(1).map((input) => input.value)), materials.map(([url]) => url));
   await page
     .locator("#composer textarea")
     .fill("Lesson 02 — Aircraft structures\nUpdated notes for class.");
@@ -123,6 +151,27 @@ try {
   await action("move", '[data-direction="-1"]:not([disabled])');
   await action("add");
   await page.locator("#composer textarea").fill("Keep this draft");
+  console.log("Cancel quit check");
+  // A simulated cancelled close must leave the local service alive.
+  await application.evaluate(({ app, BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    const close = window.close;
+    window.close = () => {};
+    app.quit();
+    window.close = close;
+  });
+  assert.ok((await page.evaluate(() => desktopApi.request("/v1/subjects"))).subjects.length);
+  console.log("Cancelled quit retained API");
+  // Expire the session while an instructor is editing. Reauthentication to the
+  // same account restores the live form without bypassing backend edit versions.
+  console.log("Expire underlying session");
+  await page.evaluate(() => desktopApi.logout());
+  console.log("Session cleared; attempt save");
+  await page.locator("#composer button[type=submit]").click();
+  await page.locator("#signin[open]").waitFor();
+  await page.waitForFunction(() => !document.body.classList.contains("working"));
+  await login("instructor");
+  assert.equal(await page.locator("#composer textarea").inputValue(), "Keep this draft");
   // Navigation asks before discarding and keeps the text when cancelled.
   await page.locator(".sidebar [data-action=tasks]").click();
   await page.locator("#confirm[open]").waitFor();
@@ -139,6 +188,19 @@ try {
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
   );
+  await action("add");
+  await page.locator("#composer textarea").fill("Saved despite refresh failure");
+  await page.evaluate(() => {
+    window.academyOriginalReload = reloadActive;
+    reloadActive = async () => { throw new Error("Synthetic refresh outage"); };
+  });
+  await page.locator("#composer button[type=submit]").click();
+  await page.waitForFunction(() => !document.body.classList.contains("working"));
+  assert.equal(await page.locator("#composer").count(), 0);
+  assert.ok((await page.locator("#toast").textContent()).startsWith("Entry saved."));
+  await page.evaluate(() => { reloadActive = window.academyOriginalReload; });
+  await action("refresh");
+  assert.equal(await page.getByRole("heading", { name: "Saved despite refresh failure", exact: true }).count(), 1);
   await action("add");
   await page.selectOption("#entry-kind", "quiz");
   await page
@@ -260,6 +322,11 @@ try {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
+  for (const zoom of [1.25, 1.5, 2]) {
+    await application.evaluate(({ BrowserWindow }, factor) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(factor), zoom);
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
+  }
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1));
   await action("subjects");
   await action("new-subject");
   await page.locator("#subject-form [name=title]").fill("Aircraft Maintenance");
@@ -291,7 +358,11 @@ try {
   console.log(
     "PASS: instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
   );
+} catch (error) {
+  console.error(error);
+  throw error;
 } finally {
+  await application?.windows()[0]?.evaluate(() => { state.dirty = false; }).catch(() => {});
   await application?.close();
   await rm(directory, { recursive: true, force: true });
 }

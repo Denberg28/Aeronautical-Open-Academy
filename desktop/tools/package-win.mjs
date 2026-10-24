@@ -1,9 +1,11 @@
 import { downloadArtifact } from "@electron/get";
-import extract from "extract-zip";
+import { extract } from "@electron-internal/extract-zip";
 import { execFileSync } from "node:child_process";
 import { mkdir, cp, rename, rm, writeFile, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { readdir } from "node:fs/promises";
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(desktop, "..");
 const pkg = JSON.parse(await readFile(join(desktop, "package.json"), "utf8"));
@@ -25,6 +27,7 @@ for (const path of [
   "main.mjs",
   "preload.cjs",
   "bridge.mjs",
+  "materials.mjs",
   "package.json",
   "ui",
 ])
@@ -56,4 +59,15 @@ await cp(
   join(root, "docs", "DESKTOP_TESTING.md"),
   join(output, "VERIFICATION.md"),
 );
+await cp(join(root, "docs", "DESKTOP_RELEASE_NOTES.md"), join(output, "RELEASE-NOTES.md"));
+const hashes = {};
+async function hashFiles(dir, prefix = "") {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const name = prefix + entry.name;
+    if (entry.isDirectory()) await hashFiles(join(dir, entry.name), name + "/");
+    else hashes[name] = createHash("sha256").update(await readFile(join(dir, entry.name))).digest("hex");
+  }
+}
+await hashFiles(output);
+await writeFile(join(output, "package-manifest.json"), JSON.stringify({ version: pkg.version, source, electron: pkg.devDependencies.electron, platform: "win32-x64", sha256: hashes }, null, 2) + "\n");
 console.log(output);

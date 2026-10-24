@@ -1,12 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const call = async (channel, ...args) => {
-  const result = await ipcRenderer.invoke(channel, ...args);
-  if (!result.ok) {
-    const error = new Error(result.error);
-    error.status = result.status;
-    throw error;
-  }
-  return result.value;
+  // contextBridge serializes thrown Errors without custom status properties.
+  // Return the envelope so the renderer can reconstruct typed API errors.
+  return ipcRenderer.invoke(channel, ...args);
 };
 contextBridge.exposeInMainWorld(
   "academy",
@@ -15,6 +11,7 @@ contextBridge.exposeInMainWorld(
     request: (path, options) => call("academy:request", path, options),
     logout: () => call("academy:logout"),
     openLink: (data) => call("academy:link", data),
+    inspectLink: (url) => call("academy:inspect-link", url),
     exportReport: (id, offset) => call("academy:export", id, offset),
   }),
 );

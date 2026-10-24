@@ -118,6 +118,7 @@ async function boot() {
       );
       register("academy:logout", () => bridge.logout());
       register("academy:link", (data) => bridge.openLink(data));
+      register("academy:inspect-link", (url) => bridge.inspectLink(url));
       register("academy:export", async (id, offset) => {
         const bytes = await bridge.exportReport(id, offset);
         if (automated) {
@@ -139,7 +140,7 @@ async function boot() {
       await window.loadURL("academy://app/");
       if (smoke) {
         const result = await window.webContents.executeJavaScript(
-          `window.academy.login({mode:'local',username:'instructor',password:'instructor'}).then(x=>({role:x.account.role,bridge:!!window.academy}))`,
+          `window.academy.login({mode:'local',username:'instructor',password:'instructor'}).then(x=>({role:x.value?.account.role,bridge:x.ok && !!window.academy}))`,
         );
         if (result.role !== "instructor" || !result.bridge)
           throw new Error("Desktop bridge smoke test failed.");
@@ -158,17 +159,19 @@ async function boot() {
     }
   }
 }
-app.on("window-all-closed", () => app.quit());
-app.on("before-quit", (event) => {
-  if (closing || !local) return;
-  event.preventDefault();
+async function finishQuit() {
+  if (closing) return;
   closing = true;
-  Promise.resolve(bridge?.logout())
-    .catch(() => {})
-    .finally(async () => {
-      await local.academy.close();
-      app.quit();
-    });
+  try { await bridge?.logout(); } catch { /* Local cleanup still runs offline. */ }
+  try { await local?.academy.close(); } finally { app.quit(); }
+}
+app.on("window-all-closed", () => void finishQuit());
+app.on("before-quit", (event) => {
+  if (closing) return;
+  event.preventDefault();
+  // Let the renderer's unsaved-work confirmation finish before closing its API.
+  if (window && !window.isDestroyed()) window.close();
+  else void finishQuit();
 });
 
 void boot();

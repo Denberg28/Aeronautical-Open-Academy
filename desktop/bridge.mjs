@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { createAcademy } from "../server/src/server.mjs";
 import { hashPassword } from "../server/src/security.mjs";
 import { externalUrl } from "../server/src/links.mjs";
+import { materialPresentation, describeLink } from "./materials.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
@@ -251,7 +252,17 @@ export class AcademyBridge {
       this.token = "";
       this.account = null;
     }
+    if (Array.isArray(result.items))
+      result.items = result.items.map((item) => ({ ...item, material: materialPresentation(item) }));
     return result;
+  }
+  inspectLink(raw) {
+    const link = describeLink(raw);
+    // Attached links are stored as plain text, using the backend's same parser.
+    const presentation = materialPresentation({ body: link.url, title: "" });
+    if (presentation.links[0]?.url !== link.url)
+      throw new Error("Remove trailing sentence punctuation from the material link.");
+    return link;
   }
   async logout() {
     try {

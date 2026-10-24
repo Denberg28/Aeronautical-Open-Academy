@@ -1,4 +1,15 @@
 "use strict";
+const desktopApi = Object.fromEntries(
+  ["login", "request", "logout", "openLink", "inspectLink", "exportReport"].map((method) => [method, async (...args) => {
+    const result = await window.academy[method](...args);
+    if (!result.ok) {
+      const error = new Error(result.error);
+      error.status = result.status;
+      throw error;
+    }
+    return result.value;
+  }]),
+);
 const $ = (selector) => document.querySelector(selector);
 const escape = (value) =>
   String(value ?? "").replace(
@@ -50,6 +61,7 @@ const state = {
   rosterOffset: 0,
   accountOffset: 0,
 };
+let resumeWorkspace = null;
 let toastTimer,
   loadSequence = 0;
 function toast(message, kind = "") {
@@ -74,7 +86,9 @@ async function act(fn) {
     if ($("#toast").classList.contains("busy")) $("#toast").className = "";
   } catch (error) {
     toast(error.message, "error");
+    if ($("#compose-error")) $("#compose-error").textContent = error.message;
     if (error.status === 401) {
+      if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
       showLogin();
     }
@@ -119,7 +133,7 @@ async function leaveDraft() {
   }
   return leave;
 }
-const api = (path, options) => window.academy.request(path, options);
+const api = (path, options) => desktopApi.request(path, options);
 const post = (path, body, key) =>
   api(path, { method: "POST", body, ...(key ? { key } : {}) });
 const manage = () => state.account?.role !== "student";
@@ -146,7 +160,7 @@ function nav(label, action, glyph, active = false, extra = "") {
 function shell() {
   const a = state.account;
   $("#app").innerHTML =
-    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.1.0 α</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.1.0-rc.1</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
@@ -176,6 +190,12 @@ async function loadSubject(id) {
 }
 async function start() {
   await refreshData();
+  state.items = [];
+  state.summary = null;
+  state.active = null;
+  state.rosterOffset = 0;
+  state.accountOffset = 0;
+  state.discoverOffset = 0;
   state.view = "subject";
   state.search = "";
   state.compose = null;
@@ -185,7 +205,7 @@ async function start() {
   renderSubject();
 }
 function utility() {
-  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div></div>`;
+  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
 }
 function header(title, subtitle, actions = "") {
   return `<div class="row between"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions}</div>`;
@@ -194,23 +214,8 @@ function empty(title, description) {
   return `<div class="empty">${icon("book")}<h3>${escape(title)}</h3><p>${escape(description)}</p></div>`;
 }
 function bodyParts(item) {
-  let lines = item.body.split("\n");
-  if (lines[0].trim() === item.title.trim()) lines.shift();
-  const urls = [];
-  const text = lines
-    .join("\n")
-    .replace(/https?:\/\/[^\s<>"`]+/gi, (raw) => {
-      try {
-        const u = new URL(raw.replace(/[.,;!]+$/, ""));
-        if (!["http:", "https:"].includes(u.protocol)) return raw;
-        urls.push(u.href);
-        return "";
-      } catch {
-        return raw;
-      }
-    })
-    .trim();
-  return `${text ? `<p class="preserve">${escape(text)}</p>` : ""}${[...new Set(urls)].map((url) => button(`${icon("link")}${escape(new URL(url).hostname)} ${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="${escape(url)}"`, "link")).join("<br>")}`;
+  const material = item.material || { text: item.body, links: [] };
+  return `${material.text ? `<p class="preserve">${escape(material.text)}</p>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
 }
 function itemCard(item, index) {
   const editable = manage() && owned(item);
@@ -265,6 +270,26 @@ function renderSubject() {
   if (manage()) renderComposer();
   renderRight();
 }
+function linkField(url = "") {
+  return `<div class="link-field"><label>Material link<input name="link" type="url" value="${escape(url)}" maxlength="2048" placeholder="Paste a sharing link · https://…" required></label>${button("Remove", "remove-link", 'aria-label="Remove attached link"', "quiet")}<p class="link-feedback small muted" aria-live="polite"></p></div>`;
+}
+async function inspectLinkField(input) {
+  const value = input.value;
+  const feedback = input.closest(".link-field").querySelector(".link-feedback");
+  if (!value.trim()) { feedback.textContent = ""; return; }
+  try {
+    const link = await desktopApi.inspectLink(value.trim());
+    if (input.isConnected && input.value === value) {
+      feedback.textContent = `${link.label} · ${link.host} · opens in browser`;
+      feedback.classList.remove("error");
+    }
+  } catch (error) {
+    if (input.isConnected && input.value === value) {
+      feedback.textContent = error.message;
+      feedback.classList.add("error");
+    }
+  }
+}
 function renderComposer() {
   const slot = $("#composer-slot");
   if (!slot) return;
@@ -280,15 +305,14 @@ function renderComposer() {
   const item = state.compose.item;
   const kind = item?.kind || state.compose.kind || "material";
   let text = item?.body || "";
-  let link = "";
+  const links = [];
   if (item && kind === "material") {
     const lines = text.split("\n");
-    if (/^https?:\/\/\S+$/.test(lines.at(-1))) {
-      link = lines.pop();
-      text = lines.join("\n");
-    }
+    while (/^https?:\/\/\S+$/.test(lines.at(-1))) links.unshift(lines.pop());
+    text = lines.join("\n") || item.title;
   }
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : "Add to your subject"}</h3><span class="compose-hint">A text line and a link. That’s all you need.</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type"><option value="material" ${kind === "material" ? "selected" : ""}>Material / link</option><option value="activity" ${kind === "activity" ? "selected" : ""}>Written activity</option><option value="examination" ${kind === "examination" ? "selected" : ""}>Written examination</option><option value="quiz" ${kind === "quiz" ? "selected" : ""}>Quiz</option></select>`}</div><label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Google Drive, PDF, YouTube or any public web link</span></div><label id="link-label" ${link ? "" : "hidden"}>Material link<input name="link" type="url" value="${escape(link)}" maxlength="2048" placeholder="https://…"></label>` : ""}${kind === "quiz" && !item ? '<label>Answer choices · one per line<textarea name="options" rows="3" maxlength="1800" placeholder="First choice\nSecond choice" required></textarea></label><label>Correct choice number<input name="correct" type="number" min="1" max="6" value="1" required></label>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : "Add to your subject"}</h3><span class="compose-hint">A text line and a link. That’s all you need.</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type"><option value="material" ${kind === "material" ? "selected" : ""}>Material / link</option><option value="activity" ${kind === "activity" ? "selected" : ""}>Written activity</option><option value="examination" ${kind === "examination" ? "selected" : ""}>Written examination</option><option value="quiz" ${kind === "quiz" ? "selected" : ""}>Quiz</option></select>`}</div><label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${kind === "quiz" && !item ? '<label>Answer choices · one per line<textarea name="options" rows="3" maxlength="1800" placeholder="First choice\nSecond choice" required></textarea></label><label>Correct choice number<input name="correct" type="number" min="1" max="6" value="1" required></label>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  slot.querySelectorAll("input[name=link]").forEach(inspectLinkField);
 }
 function renderRight() {
   const notices = state.announcements.slice(0, 3);
@@ -313,7 +337,10 @@ async function navigate(view, id) {
   state.search = "";
   state.view = view;
   if (view === "subject")
-    await loadSubject(id || state.active?.id || state.subjects[0]?.id);
+    {
+      const selected = id || state.active?.id || state.subjects[0]?.id;
+      if (selected) await loadSubject(selected);
+    }
   shell();
   if (view === "subject") return renderSubject();
   const center = $("#center");
@@ -480,7 +507,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in one workspace.") +
-    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or activity, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Arrange your subject</h3><p>Drag the handle below an entry or use its up/down arrows. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Docs, Slides, Drive, YouTube and other material links open externally. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>Desktop preview limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
+    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or activity, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Arrange your subject</h3><p>Drag the handle below an entry or use its up/down arrows. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -517,19 +544,28 @@ $("#login-form").addEventListener("submit", (e) => {
     const submit = form.querySelector("button[type=submit]");
     submit.disabled = true;
     try {
-      const session = await window.academy.login(
+      const session = await desktopApi.login(
         Object.fromEntries(new FormData(form)),
       );
+      const resume = resumeWorkspace && resumeWorkspace.id === session.account.id && resumeWorkspace.role === session.account.role && resumeWorkspace.mode === session.mode && resumeWorkspace.origin === session.origin && !session.account.must_change_password;
       state.account = session.account;
       state.mode = session.mode;
-      $("#signin").close();
+      state.origin = session.origin;
       form.elements.password.value = "";
-      if (state.account.must_change_password) {
+      if (resume) {
+        $("#app").hidden = false;
+        toast("Signed in. Your unsaved work is restored; review before saving.");
+      } else if (state.account.must_change_password) {
         shell();
         state.view = "settings";
         renderSettings();
         toast("Change your temporary password to continue.");
-      } else await start();
+      } else {
+        state.dirty = false;
+        await start();
+      }
+      resumeWorkspace = null;
+      $("#signin").close();
     } catch (error) {
       $("#login-error").textContent = error.message;
       throw error;
@@ -575,7 +611,8 @@ document.addEventListener("click", (event) => {
       return navigate(action, id);
     if (action === "logout") {
       if (!(await leaveDraft())) return;
-      await window.academy.logout();
+      await desktopApi.logout();
+      resumeWorkspace = null;
       Object.assign(state, {
         account: null,
         active: null,
@@ -594,8 +631,19 @@ document.addEventListener("click", (event) => {
       $("#composer textarea").focus();
     }
     if (action === "attach") {
-      $("#link-label").hidden = false;
-      $("#link-label input").focus();
+      if ($("#link-fields").children.length >= 12) throw new Error("Use up to 12 attached links per entry.");
+      $("#link-fields").insertAdjacentHTML("beforeend", linkField());
+      $("#link-fields").lastElementChild.querySelector("input").focus();
+      state.dirty = true;
+    }
+    if (action === "remove-link") {
+      target.closest(".link-field").remove();
+      state.dirty = true;
+    }
+    if (action === "refresh") {
+      if (!(await leaveDraft())) return;
+      await reloadActive();
+      toast("Subject refreshed.");
     }
     if (action === "cancel-compose") {
       if (!(await leaveDraft())) return;
@@ -610,7 +658,7 @@ document.addEventListener("click", (event) => {
       $("#composer textarea").focus();
     }
     if (action === "open-link")
-      await window.academy.openLink({
+      await desktopApi.openLink({
         id,
         revision: state.items.find((i) => i.id === id).revision,
         url: target.dataset.url,
@@ -673,7 +721,7 @@ document.addEventListener("click", (event) => {
       await renderLearners();
     }
     if (action === "export") {
-      const result = await window.academy.exportReport(
+      const result = await desktopApi.exportReport(
         state.active.id,
         state.rosterOffset,
       );
@@ -755,24 +803,9 @@ document.addEventListener("submit", (event) => {
     const d = Object.fromEntries(new FormData(form));
     const id = form.dataset.id;
     if (form.id === "composer") {
-      const text = d.text.trim(),
-        url = (d.link || "").trim();
-      let body = text;
-      if (url) {
-        let parsed;
-        try {
-          parsed = new URL(url);
-        } catch {
-          throw new Error("Enter a complete HTTP or HTTPS material link.");
-        }
-        if (
-          !["http:", "https:"].includes(parsed.protocol) ||
-          parsed.username ||
-          parsed.password
-        )
-          throw new Error("Use a web link without embedded credentials.");
-        body += "\n" + url;
-      }
+      const text = d.text.trim();
+      const links = await Promise.all(new FormData(form).getAll("link").map((raw) => desktopApi.inspectLink(raw.trim())));
+      const body = [text, ...new Set(links.map((link) => link.url))].join("\n");
       const title = text.split("\n")[0].trim();
       if (!title || title.length > 160)
         throw new Error("Keep the first line between 1 and 160 characters.");
@@ -799,7 +832,13 @@ document.addEventListener("submit", (event) => {
         await post(`/v1/subjects/${state.active.id}/items`, payload);
       }
       state.dirty = false;
-      await reloadActive();
+      state.compose = null;
+      renderComposer();
+      try { await reloadActive(); }
+      catch (error) {
+        error.message = "Entry saved. The subject could not refresh; use Refresh before adding another entry. " + error.message;
+        throw error;
+      }
       toast("Entry saved.");
     }
     if (form.id === "subject-form") {
@@ -929,16 +968,33 @@ document.addEventListener("input", (event) => {
     });
     return;
   }
+  if (event.target.matches("#composer input[name=link]")) {
+    clearTimeout(event.target.linkTimer);
+    event.target.linkTimer = setTimeout(() => inspectLinkField(event.target), 200);
+  }
   if (event.target.closest("#app form")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
   if (event.target.id === "entry-kind") {
-    const text = $("#composer textarea").value;
-    const published = $("#composer").elements.published.checked;
-    state.compose = { kind: event.target.value };
+    const form = $("#composer");
+    const previous = [...form.elements].filter((el) => el.name && el.name !== "kind").map((el) => ({ name: el.name, value: el.value, checked: el.checked }));
+    const fields = { ...state.compose.fields };
+    for (const field of previous) {
+      if (field.name !== "link") fields[field.name] = field;
+    }
+    if ($("#link-fields")) fields.links = previous.filter((field) => field.name === "link");
+    state.compose = { kind: event.target.value, fields };
     renderComposer();
-    $("#composer textarea").value = text;
-    $("#composer").elements.published.checked = published;
+    const restored = $("#composer");
+    for (const field of [...Object.values(fields).filter((field) => field.name), ...(fields.links || [])]) {
+      if (field.name === "link" && $("#link-fields")) $("#link-fields").insertAdjacentHTML("beforeend", linkField(field.value));
+      else if (restored.elements[field.name]) {
+        restored.elements[field.name].value = field.value;
+        if (restored.elements[field.name].type === "checkbox") restored.elements[field.name].checked = field.checked;
+      }
+    }
+    $("#link-fields")?.querySelectorAll("input").forEach(inspectLinkField);
+    state.dirty = true;
   }
   if (event.target.id === "context-subject")
     act(async () => {

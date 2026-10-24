@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { createHash } from "node:crypto";
 const root = resolve(import.meta.dirname, "../..");
 const pkg = JSON.parse(
   await readFile(join(root, "desktop/package.json"), "utf8"),
@@ -15,6 +16,7 @@ for (const file of [
   "resources/app/desktop/main.mjs",
   "resources/app/desktop/preload.cjs",
   "resources/app/desktop/bridge.mjs",
+  "resources/app/desktop/materials.mjs",
   "resources/app/desktop/ui/index.html",
   "resources/app/desktop/ui/app.js",
   "resources/app/desktop/ui/style.css",
@@ -22,6 +24,9 @@ for (const file of [
   "resources/app/server/src/schema.sql",
   "resources/app/server/src/store.mjs",
   "READ-ME.md",
+  "VERIFICATION.md",
+  "RELEASE-NOTES.md",
+  "source-commit.txt",
 ])
   assert.ok((await readFile(join(dir, file))).length, file);
 const walk = async (folder) => {
@@ -35,6 +40,14 @@ const walk = async (folder) => {
   }
 };
 await walk(dir);
+const manifest = JSON.parse(await readFile(join(dir, "package-manifest.json"), "utf8"));
+assert.equal(manifest.version, pkg.version);
+assert.equal(manifest.electron, pkg.devDependencies.electron);
+assert.equal(manifest.source, (await readFile(join(dir, "source-commit.txt"), "utf8")).trim());
+for (const [name, hash] of Object.entries(manifest.sha256)) {
+  assert.ok(!name.includes("..") && !name.startsWith("/"), name);
+  assert.equal(createHash("sha256").update(await readFile(join(dir, name))).digest("hex"), hash, name);
+}
 console.log(
   "PASS: Windows x64 PE, packaged renderer/preload/backend/schema and user guide, no data or key files.",
 );

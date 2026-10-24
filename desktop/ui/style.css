@@ -1100,3 +1100,31 @@ h3,
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.material-links { display: grid; gap: 8px; margin-top: 10px; }
+.resource-link { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; gap: 10px; }
+.resource-link span { min-width: 0; flex: 1; }
+.resource-link strong, .resource-link small { display: block; }
+.resource-link strong { font-size: 12px; font-weight: 600; color: var(--navy); }
+.resource-link small { color: #67778b; font-size: 11px; margin-top: 2px; }
+.link-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; margin-top: 12px; align-items: center; }
+.link-field label { min-width: 0; }
+.link-field input { margin-bottom: 0; }
+.link-feedback { grid-column: 1 / -1; margin: 4px 0 0; overflow-wrap: anywhere; min-height: 18px; }
+.utility .search-wrap { margin-left: auto; }
+.attach-row { flex-wrap: wrap; }
+@media (max-width: 650px) {
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; }
+  .sidebar { grid-column: 1; grid-row: auto; padding: 16px; }
+  .sidebar .brand { margin-bottom: 10px; }
+  .sidebar-foot { padding: 8px 0; }
+  .topbar, .rightbar { grid-column: 1; }
+  .topbar { min-height: 60px; }
+  .center { padding: 20px 16px; }
+  .rightbar { display: block; }
+  .subject-hero, .material, .composer { padding: 18px; }
+  .utility, .type-row, .hero-toolbar, .form-actions { flex-wrap: wrap; }
+  .utility .eyebrow { display: none; }
+  .account-name { max-width: 150px; }
+  dialog, #signin { width: min(470px, calc(100vw - 24px)); padding: 24px; }
+}
