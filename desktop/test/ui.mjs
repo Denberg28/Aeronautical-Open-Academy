@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 const directory = await mkdtemp(join(tmpdir(), "academy-ui-"));
 let application;
 try {
@@ -105,8 +106,7 @@ try {
     recursive: true,
   });
   await page.screenshot({
-    path: new URL("../../out/desktop-qa/instructor-editor.png", import.meta.url)
-      .pathname,
+    path: fileURLToPath(new URL("../../out/desktop-qa/instructor-editor.png", import.meta.url)),
     fullPage: true,
   });
   await page.locator("#composer button[type=submit]").click();
@@ -257,8 +257,7 @@ try {
   );
   await page.getByText("Submitted · score 1 / 1").waitFor();
   await page.screenshot({
-    path: new URL("../../out/desktop-qa/student-viewer.png", import.meta.url)
-      .pathname,
+    path: fileURLToPath(new URL("../../out/desktop-qa/student-viewer.png", import.meta.url)),
     fullPage: true,
   });
   await action("results");
