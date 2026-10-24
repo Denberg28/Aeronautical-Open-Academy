@@ -43,3 +43,13 @@ Subject order is a device-local view preference, isolated by account ID and orga
 ### Temporary capture policy (0.8.1)
 
 User-authorized screenshots and screen recording are enabled on account screens and the in-app protected PDF viewer during feature refinement. `SCREEN_CAPTURE_ALLOWED=true` applies to current builds; setting it false restores the existing FLAG_SECURE guards. Device screenshot/recording behavior remains NOT TESTED. Access checks, enrollment and private file handling are unchanged.
+
+## PC desktop preview — 0.1.0-alpha.1
+
+The desktop is a separate preview with a local test workspace and optional existing organization HTTPS service. Local PC/Android test workspaces do not synchronize. It supports the focused text/link material path and core LMS flows; see [desktop/README.md](../desktop/README.md) for the explicit UI scope. Windows installation/accessibility, browser/provider sign-in, native save dialogs, upgrade and a live organization backend need acceptance validation; no stable Windows readiness is claimed. Desktop automated evidence is recorded in [DESKTOP_TESTING.md](DESKTOP_TESTING.md).
+
+## PC link-focused Windows candidate — 0.1.0-rc.1
+
+The first Windows candidate adds service labels and multiple references per material, canonical link parsing, same-account in-memory session recovery, saved-form refresh recovery, cancelled-quit cleanup and a clean packaging dependency audit. Originals and sharing controls remain with Google/YouTube/the image host. No in-app image gallery, automatic Drive uploads, Google OAuth integration or live provider checks are included. Link-only mode needs no Google service account.
+
+Windows CI checks the native UI and packaged executable on Windows Server 2025; its delivered `windows-verification.json` records final results. This does not substitute for Windows 10/11 physical-device accessibility, provider sign-in, an institution deployment or signed upgrade validation. The package is unsigned, has no automatic updater, and remains a release candidate. Local test workspaces are per-PC, synthetic, and do not sync. An ambiguous write timeout can have committed remotely: refresh/check before recreating; automatic retries are intentionally absent. In-memory drafts do not survive application exit/crash.

@@ -40,6 +40,10 @@ Students cannot self-register, select their own role, join ineligible/revoked su
 
 A subject QR identifies a subject; the backend checks the signed-in account’s eligibility and enrolls it once. QR codes contain no credentials. Existing students can receive their verified ID through Admin → Accounts.
 
+## PC Windows release candidate
+
+A Windows desktop version is available under [`desktop/`](desktop/README.md). Its single main page has collapsible LMS navigation on the left, a central instructor subject editor or student viewer, and announcements/tasks on the right. Instructors add a text line, attach a material link and select Done. Existing Academy account, enrollment, quiz, submission, grading and report APIs are reused. Local test data stays on each PC; organization sharing requires a configured HTTPS backend. Desktop version **0.1.0-rc.1** adds multiple references and labels for Google Drive/Docs/Sheets/Slides, YouTube and image links, with original sharing URLs preserved. Its Windows workflow verifies the native UI and packaged executable; physical Windows/provider acceptance still blocks stable promotion. See [Windows release notes](docs/DESKTOP_RELEASE_NOTES.md).
+
 ## Android build
 
 JDK 17, Android SDK 35/build tools 35.0.0, and Gradle 8.11.1 (wrapper included).
