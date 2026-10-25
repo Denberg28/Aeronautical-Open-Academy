@@ -72,13 +72,32 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    audit(a.id,'eligibility-edit',subject.id);
   });
  }
+ function visibleToStudent(item){
+  if(!item.published||item.archived)return false;
+  if(!item.parent_id)return true;
+  const parent=get("SELECT published,archived,kind,subject_id FROM items WHERE id=?",item.parent_id);
+  return !!parent&&!!parent.published&&!parent.archived&&parent.kind==='material'&&parent.subject_id===item.subject_id;
+ }
+ function orderedItems(subjectId){
+  const rows=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id',subjectId);
+  const children=new Map();
+  for(const item of rows)if(item.parent_id){if(!children.has(item.parent_id))children.set(item.parent_id,[]);children.get(item.parent_id).push(item);}
+  return rows.filter(i=>!i.parent_id).flatMap(i=>[i,...(children.get(i.id)||[])]);
+ }
+ function validateParent(a,parentId,subjectId,kind,examination){
+  requireThat(parentId===null||typeof parentId==='string',400,'Choose a material in this subject.');
+  if(parentId===null)return;
+  requireThat(['activity','quiz'].includes(kind)&&!examination,400,'Only activities and quizzes belong inside a material. Examinations stay at subject level.');
+  const parent=itemFor(a,parentId,true);
+  requireThat(parent.subject_id===subjectId&&parent.kind==='material'&&!parent.parent_id,400,'Choose a material in this subject.');
+ }
  function itemFor(a,id,write=false){
   const item=get('SELECT * FROM items WHERE id=? AND archived=0',id);requireThat(item,404,'Material or activity unavailable.');subjectFor(a,item.subject_id);
   if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
-  else if(a.role==='student')requireThat(item.published,404,'Material or activity unavailable.');return item;
+  else if(a.role==='student')requireThat(visibleToStudent(item),404,'Material or activity unavailable.');return item;
  }
  function presentItem(a,item){
-  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
+  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
    copy.options=JSON.parse(item.options_json);
    if(canManage(a,item.owner_id))copy.correct_index=item.correct_index;
@@ -109,7 +128,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   const summary={read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
   return {student:{id:student.id,name:student.name,email:student.email,status:student.status,student_number:student.student_number??null},summary,...(detail?{items:states}:{})};
  }
- const publishedItems=id=>all('SELECT * FROM items WHERE subject_id=? AND published=1 AND archived=0 ORDER BY sort_order,created_at,id',id);
+ const publishedItems=id=>orderedItems(id).filter(visibleToStudent);
  function reportPage(subjectId,offset){
   const items=publishedItems(subjectId),total=get("SELECT count(*) n FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted'",subjectId).n;
   const students=all("SELECT a.id,a.name,a.email,a.status,a.student_number FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND a.role='student' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 100 OFFSET ?",subjectId,offset);
@@ -137,7 +156,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:1,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -256,8 +275,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     run('INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.description,'description',1000),owner,now());audit(a.id,'subject-create',id);return send(201,{id});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
-    const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i));
-    return send(200,{subject,items,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
+    const subject=subjectFor(a,match[1]);const items=orderedItems(subject.id).slice(0,200).filter(i=>a.role!=='student'||visibleToStudent(i)).map(i=>presentItem(a,i));
+    return send(200,{subject,items,tree_version:1,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
@@ -285,7 +304,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
     requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
     requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
-    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
+    const parentId=d.parent_id??null;validateParent(a,parentId,match[1],d.kind,examination);
+    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard',parentId);run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -296,7 +316,28 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
     const changed=title!==item.title||body!==item.body;
-    transaction(()=>{run('UPDATE items SET title=?,body=?,published=?,archived=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,changed?1:0,item.id);if(d.archived===true)run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',item.subject_id);audit(a.id,'item-edit',item.id);});return send(200,{saved:true});
+    const parentId='parent_id' in d?d.parent_id:item.parent_id;
+    const moving=parentId!==item.parent_id;
+    if(moving){
+     requireThat(Number.isInteger(d.expected_edit_version)&&d.expected_edit_version===item.edit_version,409,'This entry changed. Refresh before moving it.');
+     requireThat(Number.isInteger(d.expected_order_revision)&&d.expected_order_revision===subjectFor(a,item.subject_id,true).order_revision,409,'The subject tree changed. Refresh before moving it.');
+     requireThat(['activity','quiz'].includes(item.kind)&&item.assessment_type!=='examination',400,'Only activities and quizzes can move into a material.');
+     requireThat(parentId!==null,400,'Choose a material for this activity or quiz.');
+     validateParent(a,parentId,item.subject_id,item.kind,false);
+    }
+    const children=item.kind==='material'&&d.archived===true?all('SELECT * FROM items WHERE parent_id=? AND archived=0',item.id):[];
+    if(children.length){
+     requireThat(d.archive_children===true,409,'This material contains activities or quizzes. Confirm removing the whole material group.');
+     requireThat(d.expected_order_revision===subjectFor(a,item.subject_id,true).order_revision,409,'The material contents changed. Refresh before removing them.');
+     requireThat(children.every(child=>canManage(a,child.owner_id)),403,'An administrator must remove entries created by another owner.');
+    }
+    transaction(()=>{
+     run('UPDATE items SET title=?,body=?,published=?,archived=?,parent_id=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,parentId,changed?1:0,item.id);
+     if(moving)run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=?) WHERE id=?',item.subject_id,item.id);
+     if(children.length)run('UPDATE items SET archived=1,edit_version=edit_version+1 WHERE parent_id=? AND archived=0',item.id);
+     if(d.archived===true||moving)run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',item.subject_id);
+     audit(a.id,'item-edit',item.id);
+    });return send(200,{saved:true});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/open-link$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(Number.isInteger(payload.expected_revision)&&payload.expected_revision===item.revision,409,'This material changed. Refresh and review the link before opening it.');

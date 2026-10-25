@@ -5,7 +5,7 @@ export function openDatabase(path){
   if(path!==':memory:')mkdirSync(dirname(path),{recursive:true,mode:0o700});
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>5){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>6){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
   if(version<2){
@@ -58,6 +58,23 @@ export function openDatabase(path){
       UPDATE items SET sort_order=(SELECT position FROM ranked WHERE ranked.id=items.id);
       CREATE INDEX items_sequence ON items(subject_id,archived,sort_order,created_at,id);
       PRAGMA user_version=5;
+      COMMIT;`);
+  }
+  if(version<6){
+    db.exec(`BEGIN IMMEDIATE;
+      ALTER TABLE items ADD COLUMN parent_id TEXT REFERENCES items(id);
+      CREATE INDEX items_parent ON items(parent_id,archived,sort_order);
+      CREATE TRIGGER items_tree_insert BEFORE INSERT ON items WHEN NEW.parent_id IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.kind NOT IN ('activity','quiz') OR NEW.assessment_type='examination'
+          OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND p.parent_id IS NULL);
+      END;
+      CREATE TRIGGER items_tree_update BEFORE UPDATE OF parent_id,subject_id,kind,assessment_type ON items WHEN NEW.parent_id IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.kind NOT IN ('activity','quiz') OR NEW.assessment_type='examination'
+          OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND p.parent_id IS NULL);
+      END;
+      PRAGMA user_version=6;
       COMMIT;`);
   }
   db.exec('PRAGMA busy_timeout=5000;');

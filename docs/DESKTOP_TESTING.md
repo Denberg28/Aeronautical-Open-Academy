@@ -1,6 +1,6 @@
-# Desktop verification — 0.1.0-rc.1
+# Desktop verification — 0.2.0-rc.1
 
-Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The shared server and Android source are unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous desktop baseline: `e9025d2`. Date: 25 October 2026 (Asia/Manila).
+Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server adds schema-6 grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `cbd9286`. Date: 25 October 2026 (Asia/Manila).
 
 ## Acceptance criteria
 
@@ -20,7 +20,7 @@ Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows deskto
 | A — Windows package structure | PASS | `node desktop/tools/verify-package.mjs`: PE machine x64, runtime renderer/preload/backend/schema, README, no data/key files |
 | B — Desktop bridge integration | PASS | `npm test --prefix desktop`: 4 tests covering role boundaries, persisted reading/submission across restart, report ZIP, revision/link authorization, local API header, organization-origin/credential isolation |
 | B — Native desktop workflows | PASS | Playwright drives the actual Electron 45 window on Linux/Xvfb: instructor add/attach/save/edit/order/quiz/draft; student reading/submission/quiz/results/tasks; grading/export; admin announcements/accounts; escaped HTML; responsive width; Google link metadata; same-account session recovery; post-save refresh failure; simulated cancelled quit |
-| C — Shared backend regression | PASS | `npm test --prefix server`: 31 tests; no server behavior changes |
+| C — Shared backend regression | PASS | `npm test --prefix server`: 34 tests; no server behavior changes |
 | C — Existing project integrity | PASS | `python tools/project_checks.py`: catalog/assets/XML/wrapper/network/focused secret checks |
 | C — Android build/device | N/A | No Android app or server source change; this artifact is a separate Windows preview, not an Android candidate |
 | D — Native startup/IPC | PASS | Actual Electron Linux startup, custom scheme, sandboxed preload and instructor login via `--smoke-test` |
@@ -60,3 +60,13 @@ Extract the entire package and launch Academy.exe on Windows 10/11 x64. Test def
 Security audit: the unmaintained `extract-zip` packaging dependency was removed in favor of Electron's existing `@electron-internal/extract-zip` package, pinned at 1.0.6. No new runtime dependency is shipped. Run the current locked dependency audit again in Windows CI.
 
 API errors now cross the isolated desktop bridge as explicit data envelopes, preserving HTTP status. The renderer reconstructs errors locally, so a 401 reliably opens sign-in and same-account drafts can resume. The native UI test invalidates its underlying session and verifies this behavior.
+
+## Subject tree acceptance (0.2)
+
+- Subject + offers material/examination only. Material + offers activity/quiz only and remains after the final child; the inline editor follows its context. Examinations cannot be nested.
+- Legacy standalone assessments remain visible and can be assigned through Edit → Material. Migration must preserve IDs, order, learner submissions and grades with parent IDs initially null. Reopen grouped schema-6 data without losing links.
+- Root moves carry children; child moves remain among siblings. Cross-material placement requires explicit parent selection and current item/tree versions. Membership/order changes invalidate stale tree snapshots without incrementing learning revisions.
+- Student lists, direct item/link/submission access, completion denominators, results and instructor reports all exclude children of a hidden parent. Group deletion requires explicit cascade confirmation and checks every child owner; archive retains historical work.
+- Older organization backends must not silently create a supposed child as a root. The UI detects tree_version and hides nested creation until an upgraded service is present. Existing Android organization flows continue through the flattened API; Android local mode is unchanged.
+
+Local evidence: 34 server tests and 4 desktop tests pass. Native Electron role/creation/recovery/zoom checks pass on Linux; the Windows CI JSON remains authoritative for native Windows and packaged EXE checks. Android compilation/lint must also pass on the final commit before candidate delivery. Physical device, provider sign-in and organization deployment remain NOT TESTED.

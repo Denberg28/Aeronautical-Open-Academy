@@ -160,7 +160,7 @@ function nav(label, action, glyph, active = false, extra = "") {
 function shell() {
   const a = state.account;
   $("#app").innerHTML =
-    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.1.0-rc.1</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.2.0-rc.1</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
@@ -184,6 +184,7 @@ async function loadSubject(id) {
   if (sequence !== loadSequence) return;
   state.active = data.subject;
   state.items = data.items;
+  state.treeSupported = data.tree_version === 1;
   state.summary = data.summary || null;
   state.compose = null;
   state.dirty = false;
@@ -217,8 +218,37 @@ function bodyParts(item) {
   const material = item.material || { text: item.body, links: [] };
   return `${material.text ? `<p class="preserve">${escape(material.text)}</p>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
 }
-function itemCard(item, index) {
+const siblingsOf = (item) => state.items.filter((other) => (other.parent_id || null) === (item.parent_id || null));
+const childrenOf = (id) => state.items.filter((item) => item.parent_id === id);
+const rootsOf = () => state.items.filter((item) => !item.parent_id);
+const isVisibleEntry = (item) => item.published && (!item.parent_id || state.items.some((parent) => parent.id === item.parent_id && parent.published));
+function flattenTree(roots, groups = new Map()) {
+  return roots.flatMap((item) => [item.id, ...(groups.get(item.id) || childrenOf(item.id)).map((child) => child.id)]);
+}
+function applySubjectSearch() {
+  const query = state.search.toLowerCase();
+  const matches = (item) => (item.title + " " + item.body).toLowerCase().includes(query);
+  let count = 0;
+  for (const group of document.querySelectorAll("[data-group]")) {
+    const root = state.items.find((item) => item.id === group.dataset.group);
+    const children = childrenOf(root.id);
+    const rootMatch = matches(root);
+    group.hidden = !rootMatch && !children.some(matches);
+    if (!group.hidden) count++;
+    for (const card of group.querySelectorAll(".tree-children [data-item]")) {
+      const item = children.find((child) => child.id === card.dataset.item);
+      card.hidden = !rootMatch && !matches(item);
+    }
+  }
+  if ($("#search-empty")) $("#search-empty").hidden = count > 0 || !query;
+}
+function treeMarkup() {
+  return rootsOf().map((item, index) => `<section class="subject-group ${item.kind === "material" ? "material-group" : "assessment-group"}" data-group="${escape(item.id)}">${itemCard(item,index,String(index+1).padStart(2,"0"))}${item.kind === "material" ? `<div class="tree-children" data-children="${escape(item.id)}" aria-label="Activities and quizzes for ${escape(item.title)}">${childrenOf(item.id).map((child, childIndex) => itemCard(child,childIndex,`${index+1}.${childIndex+1}`)).join("")}${manage() && owned(item) && state.treeSupported ? `<div class="composer-slot" data-add-parent="${escape(item.id)}"></div>` : ""}</div>` : ""}</section>`).join("");
+}
+function itemCard(item, index, number) {
   const editable = manage() && owned(item);
+  const siblings = siblingsOf(item);
+  const siblingIndex = siblings.findIndex((other) => other.id === item.id);
   const kind =
     item.assessment_type === "examination"
       ? "Written examination"
@@ -240,7 +270,7 @@ function itemCard(item, index) {
         ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<p class="preserve">${escape(item.submission.feedback)}</p>` : ""}<details><summary>Your response</summary><p class="preserve">${escape(item.submission.output)}</p></details></div>`
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
-  return `<article class="material" data-item="${escape(item.id)}"><div class="number">${String(index + 1).padStart(2, "0")}</div><div class="material-content"><div class="material-type">${escape(kind)} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div><h3>${escape(item.title)}</h3>${bodyParts(item)}${student}${editable ? `<div class="material-tools"><span draggable="true" data-drag="${escape(item.id)}" class="drag-handle" title="Drag to reorder">⠿</span>${button("↑", "move", `data-id="${escape(item.id)}" data-direction="-1" aria-label="Move up" ${index === 0 ? "disabled" : ""}`, "quiet")}${button("↓", "move", `data-id="${escape(item.id)}" data-direction="1" aria-label="Move down" ${index === state.items.length - 1 ? "disabled" : ""}`, "quiet")}<span class="push"></span>${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div></article>`;
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="number">${escape(number)}</div><div class="material-content"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div><h3>${escape(item.title)}</h3>${bodyParts(item)}${student}${editable ? `<div class="material-tools"><span draggable="true" data-drag="${escape(item.id)}" class="drag-handle" title="Drag to reorder">⠿</span>${button("↑", "move", `data-id="${escape(item.id)}" data-direction="-1" aria-label="Move up" ${siblingIndex === 0 ? "disabled" : ""}`, "quiet")}${button("↓", "move", `data-id="${escape(item.id)}" data-direction="1" aria-label="Move down" ${siblingIndex === siblings.length - 1 ? "disabled" : ""}`, "quiet")}<span class="push"></span>${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -261,13 +291,14 @@ function renderSubject() {
     return;
   }
   const s = state.active;
-  const visible = state.items.filter((i) =>
-    (i.title + " " + i.body).toLowerCase().includes(state.search.toLowerCase()),
-  );
+  const materials = state.items.filter((i) => i.kind === "material").length;
+  const assessments = state.items.filter((i) => i.kind !== "material" && i.assessment_type !== "examination").length;
+  const examinations = state.items.filter((i) => i.assessment_type === "examination").length;
   center.innerHTML =
     utility() +
-    `<section class="subject-hero"><div class="row between"><span class="tag">${manage() ? "INSTRUCTOR WORKSPACE" : "MY SUBJECT"}</span>${manage() ? button(icon("more"), "edit-subject", 'aria-label="Edit subject details" title="Edit subject details"', "quiet") : ""}</div><div class="eyebrow">AERONAUTICAL OPEN ACADEMY</div><h1>${escape(s.title)}</h1><p class="preserve">${escape(s.description)}</p><div class="hero-toolbar"><span>${state.items.filter((i) => i.kind === "material").length} materials</span><span>·</span><span>${state.items.filter((i) => i.kind !== "material").length} activities & quizzes</span>${!manage() ? `<span>· ${state.summary?.completion_percent || 0}% complete</span>` : ""}</div></section><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${visible.length ? visible.map((item) => itemCard(item, state.items.indexOf(item))).join("") : empty(state.search ? "No matching entries" : "A fresh start", state.search ? "Try another search." : manage() ? "Add a line of text and attach your first material link." : "Your instructor has not published any content yet.")}</div>${manage() ? '<div id="composer-slot"></div>' : ""}`;
+    `<section class="subject-hero"><div class="row between"><span class="tag">${manage() ? "INSTRUCTOR WORKSPACE" : "MY SUBJECT"}</span>${manage() ? button(icon("more"), "edit-subject", 'aria-label="Edit subject details" title="Edit subject details"', "quiet") : ""}</div><div class="eyebrow">AERONAUTICAL OPEN ACADEMY</div><h1>${escape(s.title)}</h1><p class="preserve">${escape(s.description)}</p><div class="hero-toolbar"><span>${materials} ${materials === 1 ? "material" : "materials"}</span><span>·</span><span>${assessments} activities & quizzes</span><span>·</span><span>${examinations} ${examinations === 1 ? "examination" : "examinations"}</span>${!manage() ? `<span>· ${state.summary?.completion_percent || 0}% complete</span>` : ""}</div></section><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", manage() ? "Add a material or an examination to begin." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${manage() ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
   if (manage()) renderComposer();
+  applySubjectSearch();
   renderRight();
 }
 function linkField(url = "") {
@@ -291,27 +322,30 @@ async function inspectLinkField(input) {
   }
 }
 function renderComposer() {
-  const slot = $("#composer-slot");
-  if (!slot) return;
-  if (!state.compose) {
-    slot.innerHTML = button(
-      icon("plus") + " Add material or activity",
-      "add",
-      "",
-      "add-line",
-    );
-    return;
-  }
+  document.querySelectorAll(".entry-editor").forEach((slot) => { slot.innerHTML = ""; });
+  document.querySelectorAll("[data-add-parent]").forEach((slot) => {
+    const parent = slot.dataset.addParent;
+    slot.innerHTML = button(icon("plus") + (parent ? " Add activity or quiz" : " Add material or examination"), "add", `data-parent="${escape(parent)}" aria-label="${parent ? "Add activity or quiz to this material" : "Add material or examination to this subject"}"`, "add-line");
+  });
+  if (!state.compose) return;
   const item = state.compose.item;
-  const kind = item?.kind || state.compose.kind || "material";
+  const parentId = item?.parent_id || state.compose.parentId || "";
+  const parent = state.items.find((entry) => entry.id === parentId);
+  const slot = item ? document.querySelector(`[data-edit-slot="${item.id}"]`) : document.querySelector(`[data-add-parent="${parentId}"]`);
+  if (!slot) return;
+  const kind = item ? (item.assessment_type === "examination" ? "examination" : item.kind) : state.compose.kind || (parentId ? "activity" : "material");
+  const choices = parentId ? [["activity", "Activity"], ["quiz", "Quiz"]] : [["material", "Material / links"], ["examination", "Examination"]];
+  const parentChoices = item && ["activity", "quiz"].includes(item.kind) && item.assessment_type !== "examination" && state.treeSupported ? `<label>Material<select name="parent_id" aria-label="Parent material" required>${!item.parent_id ? '<option value="">Choose a material to group this entry</option>' : ""}${state.items.filter((entry) => entry.kind === "material" && (owned(entry) || entry.id === item.parent_id)).map((entry) => `<option value="${escape(entry.id)}" ${entry.id === item.parent_id ? "selected" : ""}>${escape(entry.title)}</option>`).join("")}</select></label>` : "";
   let text = item?.body || "";
+  if (item && text.split("\n")[0].trim() !== item.title.trim()) text = item.title + "\n" + text;
   const links = [];
   if (item && kind === "material") {
     const lines = text.split("\n");
     while (/^https?:\/\/\S+$/.test(lines.at(-1))) links.unshift(lines.pop());
     text = lines.join("\n") || item.title;
   }
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : "Add to your subject"}</h3><span class="compose-hint">A text line and a link. That’s all you need.</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type"><option value="material" ${kind === "material" ? "selected" : ""}>Material / link</option><option value="activity" ${kind === "activity" ? "selected" : ""}>Written activity</option><option value="examination" ${kind === "examination" ? "selected" : ""}>Written examination</option><option value="quiz" ${kind === "quiz" ? "selected" : ""}>Quiz</option></select>`}</div><label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${kind === "quiz" && !item ? '<label>Answer choices · one per line<textarea name="options" rows="3" maxlength="1800" placeholder="First choice\nSecond choice" required></textarea></label><label>Correct choice number<input name="correct" type="number" min="1" max="6" value="1" required></label>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  if (item) { state.compose.initialText = text; state.compose.initialLinks = [...links]; }
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${kind === "quiz" && !item ? '<label>Answer choices · one per line<textarea name="options" rows="3" maxlength="1800" placeholder="First choice\nSecond choice" required></textarea></label><label>Correct choice number<input name="correct" type="number" min="1" max="6" value="1" required></label>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
   slot.querySelectorAll("input[name=link]").forEach(inspectLinkField);
 }
 function renderRight() {
@@ -329,7 +363,7 @@ function renderRight() {
         )
         .join("") ||
       '<p class="small-info">No pending tasks in this subject.</p>'
-    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>Read, submitted and graded work</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter((i) => i.published).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
+    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>Read, submitted and graded work</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter(isVisibleEntry).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
 }
 async function navigate(view, id) {
   if (!(await leaveDraft())) return;
@@ -507,7 +541,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in one workspace.") +
-    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or activity, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Arrange your subject</h3><p>Drag the handle below an entry or use its up/down arrows. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
+    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has its own + Add activity or quiz below its last child. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the handle below an entry or use its up/down arrows within the same level. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -625,7 +659,10 @@ document.addEventListener("click", (event) => {
       return;
     }
     if (action === "add") {
-      state.compose = { kind: "material" };
+      if (!(await leaveDraft())) return;
+      const parentId = target.dataset.parent || "";
+      if (parentId && !state.treeSupported) throw new Error("Update the learning service to use the subject tree.");
+      state.compose = { parentId, kind: parentId ? "activity" : "material" };
       renderComposer();
       $("#composer").scrollIntoView({ block: "nearest" });
       $("#composer textarea").focus();
@@ -685,10 +722,11 @@ document.addEventListener("click", (event) => {
     }
     if (action === "delete") {
       if (!(await leaveDraft())) return;
+      const children = childrenOf(id);
       if (
         !(await confirmAction(
           "Delete this entry?",
-          "This removes it from the subject. Historical learning records are retained.",
+          children.length ? `Remove this material and its ${children.length} activities/quizzes? Historical learning records are retained.` : "This removes it from the subject. Historical learning records are retained.",
           "Delete entry",
         ))
       )
@@ -696,19 +734,20 @@ document.addEventListener("click", (event) => {
       const item = state.items.find((i) => i.id === id);
       await api(`/v1/items/${id}`, {
         method: "PATCH",
-        body: { archived: true, expected_edit_version: item.edit_version },
+        body: { archived: true, expected_edit_version: item.edit_version, ...(children.length ? {archive_children:true, expected_order_revision:state.active.order_revision} : {}) },
       });
       await reloadActive();
       toast("Entry deleted.");
     }
     if (action === "move") {
       if (!(await leaveDraft())) return;
-      const ids = state.items.map((i) => i.id),
-        index = ids.indexOf(id),
-        next = index + Number(target.dataset.direction);
-      if (next < 0 || next >= ids.length) return;
-      [ids[index], ids[next]] = [ids[next], ids[index]];
-      await reorder(ids);
+      const item = state.items.find((entry) => entry.id === id);
+      const siblings = siblingsOf(item);
+      const index = siblings.findIndex((entry) => entry.id === id);
+      const next = index + Number(target.dataset.direction);
+      if (next < 0 || next >= siblings.length) return;
+      [siblings[index], siblings[next]] = [siblings[next], siblings[index]];
+      await reorder(item.parent_id ? flattenTree(rootsOf(), new Map([[item.parent_id,siblings]])) : flattenTree(siblings));
     }
     if (action === "new-subject" || action === "edit-subject") {
       if (!(await leaveDraft())) return;
@@ -804,23 +843,31 @@ document.addEventListener("submit", (event) => {
     const id = form.dataset.id;
     if (form.id === "composer") {
       const text = d.text.trim();
-      const links = await Promise.all(new FormData(form).getAll("link").map((raw) => desktopApi.inspectLink(raw.trim())));
-      const body = [text, ...new Set(links.map((link) => link.url))].join("\n");
+      const rawLinks = new FormData(form).getAll("link").map((raw) => raw.trim());
+      const links = await Promise.all(rawLinks.map((raw) => desktopApi.inspectLink(raw)));
+      let body = [text, ...new Set(links.map((link) => link.url))].join("\n");
       const title = text.split("\n")[0].trim();
       if (!title || title.length > 160)
         throw new Error("Keep the first line between 1 and 160 characters.");
+      const item = state.compose.item;
+      if (item && text === state.compose.initialText && JSON.stringify(rawLinks) === JSON.stringify(state.compose.initialLinks)) body = item.body;
       if (body.length > 12000)
         throw new Error("Keep this entry within 12,000 characters.");
-      const item = state.compose.item;
+      let savedId = item?.id;
       const kind = item?.kind || d.kind;
       const payload = { title, body, published: !!d.published };
       if (item) {
+        if (d.parent_id && d.parent_id !== item.parent_id) {
+          payload.parent_id = d.parent_id;
+          payload.expected_order_revision = state.active.order_revision;
+        }
         await api(`/v1/items/${item.id}`, {
           method: "PATCH",
           body: { ...payload, expected_edit_version: item.edit_version },
         });
       } else {
         payload.kind = kind;
+        if (state.compose.parentId) payload.parent_id = state.compose.parentId;
         if (kind === "material") payload.material_mode = "text";
         if (kind === "quiz") {
           payload.options = d.options
@@ -829,7 +876,8 @@ document.addEventListener("submit", (event) => {
             .filter(Boolean);
           payload.correct_index = Number(d.correct) - 1;
         }
-        await post(`/v1/subjects/${state.active.id}/items`, payload);
+        const created = await post(`/v1/subjects/${state.active.id}/items`, payload);
+        savedId = created.id;
       }
       state.dirty = false;
       state.compose = null;
@@ -839,6 +887,7 @@ document.addEventListener("submit", (event) => {
         error.message = "Entry saved. The subject could not refresh; use Refresh before adding another entry. " + error.message;
         throw error;
       }
+      document.querySelector(`[data-item="${savedId}"]`)?.scrollIntoView({block:"nearest"});
       toast("Entry saved.");
     }
     if (form.id === "subject-form") {
@@ -961,11 +1010,7 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("input", (event) => {
   if (event.target.id === "search") {
     state.search = event.target.value;
-    const value = state.search.toLowerCase();
-    document.querySelectorAll("[data-item]").forEach((el) => {
-      const item = state.items.find((i) => i.id === el.dataset.item);
-      el.hidden = !(item.title + " " + item.body).toLowerCase().includes(value);
-    });
+    applySubjectSearch();
     return;
   }
   if (event.target.matches("#composer input[name=link]")) {
@@ -983,7 +1028,7 @@ document.addEventListener("change", (event) => {
       if (field.name !== "link") fields[field.name] = field;
     }
     if ($("#link-fields")) fields.links = previous.filter((field) => field.name === "link");
-    state.compose = { kind: event.target.value, fields };
+    state.compose = { ...state.compose, kind: event.target.value, fields };
     renderComposer();
     const restored = $("#composer");
     for (const field of [...Object.values(fields).filter((field) => field.name), ...(fields.links || [])]) {
@@ -1042,11 +1087,16 @@ document.addEventListener("drop", (event) => {
     .forEach((el) => el.classList.remove("drop-target"));
   act(async () => {
     if (!(await leaveDraft())) return;
-    const ids = state.items.map((i) => i.id);
-    if (!ids.includes(source) || source === target.dataset.item) return;
-    ids.splice(ids.indexOf(source), 1);
-    ids.splice(ids.indexOf(target.dataset.item), 0, source);
-    await reorder(ids);
+    const sourceItem = state.items.find((item) => item.id === source);
+    const targetItem = state.items.find((item) => item.id === target.dataset.item);
+    if (!sourceItem || !targetItem || source === targetItem.id) return;
+    if ((sourceItem.parent_id || null) !== (targetItem.parent_id || null)) {
+      toast("Drag within the same level. Use Edit → Material to move an activity or quiz to another material.");
+      return;
+    }
+    const siblings = siblingsOf(sourceItem).filter((item) => item.id !== source);
+    siblings.splice(siblings.findIndex((item) => item.id === targetItem.id), 0, sourceItem);
+    await reorder(sourceItem.parent_id ? flattenTree(rootsOf(), new Map([[sourceItem.parent_id,siblings]])) : flattenTree(siblings));
   });
 });
 window.addEventListener("beforeunload", (event) => {

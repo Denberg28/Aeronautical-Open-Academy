@@ -57,12 +57,13 @@ export async function startLocal(directory) {
           "INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin')",
         )
         .run(subject, ids[2]);
+      const materialId = randomUUID();
       academy.db
         .prepare(
           "INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,material_mode,sort_order) VALUES(?,?,?,'material',?,?,1,?,'text',0)",
         )
         .run(
-          randomUUID(),
+          materialId,
           subject,
           ids[1],
           "The principles of flight",
@@ -81,6 +82,7 @@ export async function startLocal(directory) {
           "In your own words, describe how lift, weight, thrust and drag interact during steady flight.",
           Date.now(),
         );
+      academy.db.prepare("UPDATE items SET parent_id=? WHERE subject_id=? AND kind='activity'").run(materialId,subject);
       academy.db
         .prepare(
           "INSERT INTO announcements(id,title,body,author_id,created_at) VALUES(?,?,?,?,?)",

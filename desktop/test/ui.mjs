@@ -30,6 +30,7 @@ try {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const action = async (name, extra = "") => {
+    if (name === "add" && !extra) extra = '[data-parent=""]';
     console.log("Action:", name);
     if (
       ["settings", "help"].includes(name) &&
@@ -95,13 +96,10 @@ try {
     await action("attach");
     await page.locator("#composer input[name=link]").last().fill(url);
   }
-  await page.selectOption("#entry-kind", "quiz");
-  await page.locator("#composer [name=options]").fill("Lift\nDrag");
+  assert.deepEqual(await page.locator("#entry-kind option").evaluateAll((options) => options.map((option) => option.value)), ["material", "examination"]);
+  await page.selectOption("#entry-kind", "examination");
   await page.selectOption("#entry-kind", "material");
   assert.equal(await page.locator("#composer input[name=link]").count(), 7);
-  await page.selectOption("#entry-kind", "quiz");
-  assert.equal(await page.locator("#composer [name=options]").inputValue(), "Lift\nDrag");
-  await page.selectOption("#entry-kind", "material");
   await mkdir(new URL("../../out/desktop-qa/", import.meta.url), {
     recursive: true,
   });
@@ -120,7 +118,7 @@ try {
     })
     .waitFor();
   await action("open-link", '[data-url="https://www.faa.gov/"]');
-  const newCard = page
+  let newCard = page
     .locator("article.material")
     .filter({
       has: page.getByRole("heading", {
@@ -128,6 +126,7 @@ try {
         exact: true,
       }),
     });
+  const materialId = await newCard.getAttribute("data-item");
   for (const [url, label] of materials) {
     assert.equal(await newCard.locator(`[data-url="${url}"] strong`).textContent(), label);
     await action("open-link", `[data-url="${url}"]`);
@@ -148,6 +147,7 @@ try {
       exact: true,
     })
     .waitFor();
+  newCard = page.locator(`[data-item="${materialId}"]`);
   await action("move", '[data-direction="-1"]:not([disabled])');
   await action("add");
   await page.locator("#composer textarea").fill("Keep this draft");
@@ -202,7 +202,19 @@ try {
   await action("refresh");
   assert.equal(await page.getByRole("heading", { name: "Saved despite refresh failure", exact: true }).count(), 1);
   await action("add");
+  await page.selectOption("#entry-kind", "examination");
+  await page.locator("#composer textarea").fill("Midterm examination\nExplain the four forces.");
+  await page.locator("#composer button[type=submit]").click();
+  await page.waitForFunction(() => !state.busy);
+  const examGroup = page.locator("[data-group]").filter({ has: page.getByRole("heading", {name:"Midterm examination",exact:true}) });
+  assert.equal(await examGroup.locator(".tree-children").count(), 0);
+  await action("add", `[data-parent="${materialId}"]`);
+  assert.deepEqual(await page.locator("#entry-kind option").evaluateAll((options) => options.map((option) => option.value)), ["activity", "quiz"]);
   await page.selectOption("#entry-kind", "quiz");
+  await page.locator("#composer [name=options]").fill("Lift\nDrag");
+  await page.selectOption("#entry-kind", "activity");
+  await page.selectOption("#entry-kind", "quiz");
+  assert.equal(await page.locator("#composer [name=options]").inputValue(), "Lift\nDrag");
   await page
     .locator("#composer textarea[name=text]")
     .fill("Practice quiz\nChoose the lifting force.");
@@ -214,6 +226,34 @@ try {
   await page
     .getByRole("heading", { name: "Practice quiz", exact: true })
     .waitFor();
+  const quizGroup = page.locator(`[data-group="${materialId}"]`);
+  assert.equal(await quizGroup.locator(".tree-children").getByRole("heading",{name:"Practice quiz",exact:true}).count(),1);
+  assert.equal(await quizGroup.locator("[data-add-parent]").last().getAttribute("data-add-parent"), materialId);
+  await newCard.locator('[data-action="move"][data-direction="1"]').click();
+  await page.waitForFunction(() => !state.busy);
+  assert.equal(await page.locator(`[data-group="${materialId}"] .tree-children`).getByRole("heading",{name:"Practice quiz",exact:true}).count(),1);
+  // Existing flat entries keep their IDs and can be explicitly assigned to a material.
+  const legacyId = await page.evaluate(async () => {
+    const created = await desktopApi.request(`/v1/subjects/${state.active.id}/items`, {method:"POST",body:{kind:"activity",title:"Previous standalone activity",body:"x".repeat(12000),published:false}});
+    return created.id;
+  });
+  await action("refresh");
+  await page.locator(`[data-item="${legacyId}"] [data-action=edit]`).click();
+  await page.selectOption("#composer [name=parent_id]", materialId);
+  await page.locator("#composer button[type=submit]").click();
+  await page.waitForFunction(() => !state.busy);
+  assert.equal(await page.locator(`[data-children="${materialId}"] [data-item="${legacyId}"]`).count(),1);
+  const retained = await page.evaluate((id) => state.items.find((item) => item.id === id), legacyId);
+  assert.equal(retained.title,"Previous standalone activity");
+  assert.equal(retained.body,"x".repeat(12000));
+  assert.equal(retained.revision,1);
+  await page.locator("#search").fill("Previous standalone activity");
+  assert.equal(await page.locator(`[data-group="${materialId}"]`).isVisible(),true);
+  assert.equal(await page.locator(`[data-item="${legacyId}"]`).isVisible(),true);
+  await page.locator("#search").fill("");
+  await page.evaluate(() => {state.treeSupported=false;renderSubject();});
+  assert.equal(await page.locator('[data-action=add][data-parent]:not([data-parent=""])').count(),0);
+  await page.evaluate(() => {state.treeSupported=true;renderSubject();});
   await action("add");
   await page.locator("#composer textarea").fill("Unpublished sample");
   await page.locator("#composer [name=published]").uncheck();
@@ -221,6 +261,8 @@ try {
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
   );
+  await page.evaluate(() => { document.querySelector("#center").scrollTop=0; });
+  await page.screenshot({path:fileURLToPath(new URL("../../out/desktop-qa/subject-tree-instructor.png",import.meta.url)),fullPage:true});
   await action("eligibility");
   await page.locator("#eligibility").waitFor();
   await action("learners");
@@ -238,7 +280,7 @@ try {
   );
   assert.equal(await page.locator("[data-action=add]").count(), 0);
   await action("complete");
-  const written = page.locator("form[data-form=submission]");
+  const written = page.locator("article.material").filter({has:page.getByRole("heading",{name:"Reflect on the four forces",exact:true})}).locator("form[data-form=submission]");
   await written
     .locator("textarea")
     .fill("Lift balances weight. Thrust balances drag.");
@@ -247,7 +289,7 @@ try {
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
   );
-  assert.equal(await page.locator("form[data-form=submission]").count(), 0);
+  assert.equal(await written.count(), 0);
   const quiz = page.locator("form[data-form=quiz]");
   await quiz.locator('input[value="0"]').check();
   await quiz.locator("button[type=submit]").click();
@@ -355,7 +397,7 @@ try {
     .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
+    "PASS: contextual subject/material + controls, nested quiz creation/type switching, root examinations, material group moves; instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
   );
 } catch (error) {
   console.error(error);

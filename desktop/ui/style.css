@@ -1102,6 +1102,22 @@ h3,
 }
 
 .material-links { display: grid; gap: 8px; margin-top: 10px; }
+.subject-group { margin: 16px 0 24px; }
+.subject-group > .material { margin-bottom: 0; }
+.tree-children { margin: 0 0 0 28px; padding: 8px 0 0 20px; border-left: 2px solid #dce4ef; }
+.tree-children:empty { display: none; }
+.tree-children .material { margin: 10px 0; padding: 18px; }
+.tree-children .number { width: 34px; background: #edf2f8; }
+.tree-children .add-line { padding: 11px; border: 0; justify-content: flex-start; margin-top: 4px; }
+.root-add-slot { padding-top: 4px; }
+.root-add-slot .add-line { border-style: dashed; }
+.entry-editor:empty { display: none; }
+.entry-editor .composer { margin: 10px 0; }
+.assessment-group > .material { border-left: 3px solid var(--gold); }
+@media (max-width: 650px) {
+  .tree-children { margin-left: 10px; padding-left: 10px; }
+  .tree-children .material { padding: 14px; gap: 10px; }
+}
 .resource-link { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; gap: 10px; }
 .resource-link span { min-width: 0; flex: 1; }
 .resource-link strong, .resource-link small { display: block; }

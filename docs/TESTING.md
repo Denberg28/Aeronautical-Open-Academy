@@ -154,3 +154,7 @@ Baseline: `443d215`, v0.8.0-alpha.1-test.13. User authorizes temporarily disabli
 ## PC desktop client
 
 The independent Windows desktop preview uses the native Electron/Windows gates and acceptance criteria in [DESKTOP_TESTING.md](DESKTOP_TESTING.md). Android binaries are unaffected by this desktop-only change. Source, backend and desktop behavior evidence does not replace real Windows validation.
+
+### Subject tree candidate (schema 6)
+
+The Windows candidate’s gates now include contextual + creation, persistent material parents, root examinations, inherited publication authorization, archive confirmation, sibling/group ordering, retained assessments and schema-5 upgrade/reopen. See [DESKTOP_TESTING.md](DESKTOP_TESTING.md). A matching schema-6 organization backend is required for grouping; Android organization compatibility is regression checked, with physical-device behavior still NOT TESTED.
