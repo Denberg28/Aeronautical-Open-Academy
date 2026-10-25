@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: publish-pc-v0.1.0-rc.1
+  group: publish-pc-v0.2.0-rc.1
   cancel-in-progress: false
 jobs:
   publish:
@@ -18,14 +18,14 @@ jobs:
       actions: read
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_COMMIT: cbd9286d6eb7860b0b6cb0cf028888e76890ee17
-      WINDOWS_RUN: '40132530190'
-      ANDROID_RUN: '40132530060'
-      RELEASE_TAG: pc-v0.1.0-rc.1
+      SOURCE_COMMIT: 3991aa3ebd21c9b79863105438e412645240bc45
+      WINDOWS_RUN: '40152067361'
+      ANDROID_RUN: '40152067362'
+      RELEASE_TAG: pc-v0.2.0-rc.1
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: cbd9286d6eb7860b0b6cb0cf028888e76890ee17
+          ref: 3991aa3ebd21c9b79863105438e412645240bc45
           persist-credentials: false
       - name: Require successful builds of the exact source
         run: |
@@ -42,8 +42,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
-          run-id: 40132530190
-          name: Academy-PC-Windows-cbd9286d6eb7860b0b6cb0cf028888e76890ee17
+          run-id: 40152067361
+          name: Academy-PC-Windows-3991aa3ebd21c9b79863105438e412645240bc45
           path: out/verified
       - name: Verify the original Windows ZIP and prepare evidence
         run: |
@@ -51,17 +51,17 @@ jobs:
           import hashlib, json, os, zipfile
           from pathlib import Path
           root = Path('out/verified')
-          name = 'Aeronautical-Open-Academy-PC-v0.1.0-rc.1-Windows-x64.zip'
+          name = 'Aeronautical-Open-Academy-PC-v0.2.0-rc.1-Windows-x64.zip'
           package = root/name
           digest = hashlib.sha256(package.read_bytes()).hexdigest()
-          assert digest == '553b27d32808cf372a212a8f5e44e19923ad9d0f9d56a205fc3a8031c363f2ed', 'ZIP differs from verified artifact'
+          assert digest == 'a61fd61f8e6b8b8202096216b20b48bfb5ce4bae090a000be81d8541e3510f6b', 'ZIP differs from verified artifact'
           with zipfile.ZipFile(package) as z:
               assert z.testzip() is None
-              prefix = 'Academy-PC-0.1.0-rc.1-win32-x64/'
+              prefix = 'Academy-PC-0.2.0-rc.1-win32-x64/'
               manifest = json.loads(z.read(prefix+'package-manifest.json'))
               evidence = json.loads(z.read('windows-verification.json').decode('utf-8-sig'))
               assert manifest['source'] == evidence['commit'] == os.environ['SOURCE_COMMIT']
-              assert manifest['version'] == evidence['version'] == '0.1.0-rc.1'
+              assert manifest['version'] == evidence['version'] == '0.2.0-rc.1'
               for field in ['desktop_tests','package_integrity','backend_regression','dependency_audit','packaged_startup_ipc','native_ui_workflows']:
                   assert evidence[field] == 'PASS', field
               for path, expected in manifest['sha256'].items():
@@ -78,6 +78,6 @@ jobs:
             echo 'Release already exists; never replace a published version.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --draft --prerelease --latest=false --title 'Academy PC 0.1.0-rc.1 — first Windows release candidate' --notes-file docs/DESKTOP_RELEASE_NOTES.md
+          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --draft --prerelease --latest=false --title 'Academy PC 0.2.0-rc.1 — subject tree release candidate' --notes-file docs/DESKTOP_RELEASE_NOTES.md
       - name: Publish the completed prerelease
         run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
