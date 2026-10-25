@@ -1,0 +1,56 @@
+import { _electron } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+const directory=await mkdtemp(join(tmpdir(),'academy-delete-'));
+let app,page;
+const launch=async()=>{app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_DATA:directory}});page=await app.firstWindow();page.setDefaultTimeout(15000);};
+try{
+ await launch();
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ const wait=()=>page.waitForFunction(()=>!state.busy);
+ const action=async(name)=>{await page.locator(`[data-action="${name}"]`).first().click();await wait();};
+ const login=async(role)=>{await page.locator(`[data-demo="${role}"]`).click();await page.locator('#login-form button[type=submit]').click();await page.waitForSelector('#app:not([hidden]) #center');await wait();};
+ await login('instructor');
+ const initial=await page.evaluate(()=>state.active.id);
+ const id=await page.evaluate(async()=>{
+  const course=await post('/v1/subjects',{title:'Temporary subject',description:'Deletion verification'});
+  await post(`/v1/subjects/${course.id}/items`,{kind:'material',title:'Keep reference',body:'https://docs.google.com/document/d/synthetic/edit',material_mode:'text',published:true});
+  await refreshData();await navigate('subject',course.id);return course.id;
+ });
+ await action('edit-subject');
+ assert.equal(await page.locator('[data-action=delete-subject]').count(),1);
+ await page.locator('#subject-form [name=title]').fill('Keep unsaved title');
+ await page.locator('[data-action=delete-subject]').click();await page.locator('#confirm-no').click();await wait();
+ assert.equal(await page.locator('#subject-form [name=title]').inputValue(),'Keep unsaved title');
+ assert.equal(await page.evaluate(()=>state.dirty),true);
+ await page.evaluate(()=>{window.savedRequest=desktopApi.request;desktopApi.request=async(path,...args)=>{if(path.endsWith('/archive'))throw new Error('Synthetic deletion outage');return window.savedRequest(path,...args);};});
+ await page.locator('[data-action=delete-subject]').click();await page.locator('#confirm-yes').click();await wait();
+ assert.equal(await page.locator('#subject-form [name=title]').inputValue(),'Keep unsaved title');
+ assert.equal(await page.evaluate(()=>state.active.title),'Temporary subject');
+ assert.match(await page.locator('#toast').textContent(),/Synthetic deletion outage/);
+ await page.evaluate(()=>desktopApi.request=window.savedRequest);
+ await page.locator('[data-action=delete-subject]').click();await page.locator('#confirm-yes').click();await wait();
+ assert.equal(await page.locator(`#subject-nav [data-id="${id}"]`).count(),0);
+ assert.equal(await page.locator('.course-card').filter({hasText:'Temporary subject'}).count(),0);
+ assert.equal(await page.locator('#center h1').textContent(),'My subjects');
+ assert.equal(await page.evaluate(()=>state.dirty),false);
+ await page.locator(`#subject-nav [data-id="${initial}"]`).click();await wait();
+ await action('edit-subject');await page.locator('[data-action=delete-subject]').click();await page.locator('#confirm-yes').click();await wait();
+ assert.equal(await page.locator('.course-card').count(),0);
+ await action('new-subject');assert.equal(await page.locator('[data-action=delete-subject]').count(),0);
+ await page.locator('#subject-form [name=title]').fill('Fresh start');await page.locator('#subject-form [name=description]').fill('Created after deleting the final subject');
+ await page.locator('#subject-form button.primary').click();await wait();
+ assert.equal(await page.locator('.subject-hero h1').textContent(),'Fresh start');
+ const fresh=await page.evaluate(()=>state.active.id);
+ await app.close();app=null;await launch();page.on('pageerror',error=>errors.push(error.message));await login('instructor');
+ assert.equal(await page.evaluate(()=>state.subjects.length),1);
+ assert.equal(await page.evaluate(()=>state.active.id),fresh);
+ await action('logout');await login('student');assert.equal(await page.locator('[data-action=delete-subject]').count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: subject deletion confirmation/cancel; failure retains draft; successful removal updates navigation; final-subject empty state/new creation; restart persistence; student has no delete control.');
+}finally{
+ if(page)await page.evaluate(()=>state.dirty=false).catch(()=>{});
+ if(app)await app.close();await rm(directory,{recursive:true,force:true});
+}

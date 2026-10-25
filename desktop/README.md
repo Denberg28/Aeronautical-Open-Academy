@@ -1,4 +1,4 @@
-# Aeronautical Open Academy for PC — 0.3.1-rc.1
+# Aeronautical Open Academy for PC — 0.3.2-rc.1
 
 Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
@@ -55,7 +55,7 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.3.1-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.3.2-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
@@ -70,3 +70,5 @@ Back up the closed local workspace or stopped organization backend before first 
 An organization service must run this updated server to enable grouping. Android’s existing organization client can still read the canonical flattened order and perform its legacy flows; the Android UI and its independent local test workspace remain flat. Children hidden by their parent are denied by the server on every client, including direct link/submission routes. Reverting to schema-5 software requires restoring its matching database backup; do not open the upgraded database with the old server.
 
 Materials include one **+ Add activity or quiz** control. Drag the left grip to move a material with its children, or move an activity/quiz among its siblings. The insertion marker shows the destination and the existing cards move together after the save succeeds. Saved subsections from 0.3.0 become regular materials with content and learner work retained. Back up the workspace before schema-8 migration; rollback requires the prior app and matching database backup.
+
+To delete a subject you created, open it, select the three-dot **Subject details** control, then **Delete subject** and confirm. Administrators can manage any subject. Deletion removes active access and retains saved learner work/grades. Cancelling or a failed request keeps unsaved form text. The updated organization backend is required for deletion; the bundled local backend already supports it.

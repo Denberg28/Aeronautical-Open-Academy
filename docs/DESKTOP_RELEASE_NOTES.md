@@ -1,23 +1,19 @@
-# Aeronautical Open Academy for Windows — 0.3.1-rc.1
+# Aeronautical Open Academy for Windows — 0.3.2-rc.1
 
-25 October 2026 · Simple material contents and smoother dragging
+25 October 2026 · Instructor subject deletion
 
-Materials have one **+ Add activity or quiz** control. Subsection creation is removed. Subject-level creation remains Material or Examination; the chevron still minimizes a material's activities and quizzes.
+Instructors can delete subjects they created through **Subject details → Delete subject**. Administrators can manage any subject. The confirmation identifies the subject and warns when unsaved changes will be discarded. Cancelling or a failed request keeps the editor and its text intact.
 
-Drag a left-side grip. One stable insertion line shows before/after placement without flickering as the pointer crosses text, links or buttons. Material groups move with their children. Only siblings can be reordered; Edit → Material remains the explicit way to assign an activity/quiz to another material.
+Deletion removes the subject, its contents and related tasks from active instructor/student workspaces. Saved materials, links, student submissions and grades are retained internally. Direct item, enrollment, reporting and content access through the deleted subject is denied. No Google Drive or other host file is deleted.
 
-After the server confirms the order, existing cards move in place rather than rebuilding the subject. A short animation moves whole groups, respecting reduced motion. Drops keep the moved header near the chosen destination. Keyboard focus returns without scrolling to the top. Failed/stale saves leave the prior view intact; no-op drops make no request. Bounded edge scrolling stops when the drag ends or is cancelled. Save or cancel a draft before pointer dragging.
+The server requires confirmation and a current subject/content snapshot, rejecting changes made since the subject was loaded. Archiving and its audit record commit atomically; retries after an acknowledged deletion are idempotent. Navigation updates immediately after acknowledgement without depending on another fetch. Deleting the final subject leaves an empty workspace with New subject available. Previously improved material/Activity/Quiz creation and dragging remain included.
 
-## Existing data and upgrade
+## Compatibility and installation
 
-Schema 8 converts saved subsections from 0.3.0 into regular materials, preserving IDs, text/links, activities/quizzes, reading records, submitted work and grades. A subsection hidden by its parent remains unpublished after conversion. Existing regular materials and assessments keep their grouping. No content is deleted.
+No database schema change is introduced; the application continues using schema 8. Back up the closed workspace before upgrading. Organization deletion requires the matching updated backend. The Android local test workspace remains separate.
 
-**Close Academy and back up the workspace before upgrading.** Earlier applications cannot reopen schema-8 data. Rollback needs the prior app and matching database backup. Organization deployments must update the backend. The Android local test workspace is separate.
+Extract the entire ZIP and open Academy.exe. Default local accounts: admin/admin, instructor/instructor, student/student. Local workspaces stay on each PC.
 
-## Verification and installation
+Required verification covers 39 backend and four desktop tests, native LMS/drag/deletion workflows, cancellation/failure/restart behavior, packaged Windows startup and hashes, dependency audit and Android build/lint compatibility. The ZIP includes its exact source commit and per-commit verification evidence.
 
-The CI-built ZIP includes source-commit.txt, windows-verification.json and package-manifest.json. Required checks cover 37 backend tests, four desktop bridge/link tests, native LMS and dragging suites, migration/reopen, failed saves, exact order persistence, marker cleanup, reduced motion, enlarged layouts, dependency audit, package hashes and packaged EXE startup. Android compatibility must pass on the same source tree. Per-commit CI evidence records the actual result.
-
-Extract the entire ZIP and open Academy.exe. Test logins: admin/admin, instructor/instructor, student/student. Local data stays on this PC.
-
-Unsigned release candidate. Physical Windows accessibility, real Google/provider sign-in/sharing, organization deployment and signed upgrades remain unverified.
+Unsigned release candidate. Physical Windows accessibility, real Google/provider sharing/sign-in, organization deployment and signed upgrades remain unverified.

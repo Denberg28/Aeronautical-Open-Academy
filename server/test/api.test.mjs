@@ -520,3 +520,52 @@ test('material creation rejects nested materials while activities and quizzes re
   for(const kind of ['activity','quiz'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Practice',body:'Instructions',parent_id:root,...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}})).status,201);
  }finally{await f.close();}
 });
+
+test('subject deletion is owner/admin-only, removes access and preserves learner records',async()=>{
+ const f=await fixture({materials:null});try{
+  const owner=await f.account('delete-owner@example.test','instructor'),other=await f.account('delete-other@example.test','instructor'),student=await f.account('delete-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Delete practice',description:'Keep learner history'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Practice',body:'Write your answer',published:true}})).body.id;
+  await f.call(`/v1/items/${item}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Retained work'}});
+  const submission=f.app.db.prepare('SELECT id FROM submissions WHERE item_id=?').get(item);
+  assert.equal((await f.call(`/v1/submissions/${submission.id}/grade`,{method:'POST',token:owner.token,body:{score:88,feedback:'Retained feedback'}})).status,200);
+  const detail=(await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body;
+  const body={confirm_delete:true,expected_title:detail.subject.title,expected_description:detail.subject.description,expected_order_revision:detail.subject.order_revision,expected_eligibility_revision:detail.subject.eligibility_revision,expected_items:detail.items.map(i=>({id:i.id,edit_version:i.edit_version}))};
+  for(const token of [other.token,student.token])assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token,body})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:{...body,confirm_delete:false}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,200);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,200,'Acknowledged deletion is idempotent');
+  for(const token of [owner.token,f.admin,student.token]){
+   assert.equal((await f.call(`/v1/subjects/${subject}`,{token})).status,404);
+   assert.ok(!(await f.call('/v1/subjects',{token})).body.subjects.some(s=>s.id===subject));
+   assert.equal((await f.call(`/v1/items/${item}`,{token})).status,404);
+  }
+  assert.equal((await f.call(`/v1/items/${item}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Denied'}})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export`,{token:owner.token})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/enrol`,{method:'POST',token:student.token,body:{source:'self'}})).status,404);
+  assert.deepEqual({...f.app.db.prepare('SELECT output,score,feedback FROM submissions WHERE item_id=?').get(item)},{output:'Retained work',score:88,feedback:'Retained feedback'});
+  assert.equal(f.app.db.prepare('SELECT archived FROM items WHERE id=?').get(item).archived,0);
+  assert.equal(f.app.db.prepare("SELECT count(*) n FROM audit WHERE action='subject-delete' AND target_id=?").get(subject).n,1);
+ }finally{await f.close();}
+});
+
+test('subject deletion rejects stale snapshots, rolls back failure and allows administrator management',async()=>{
+ const f=await fixture({materials:null});try{
+  const owner=await f.account('delete-safe@example.test','instructor');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Snapshot subject',description:'Review before deleting'}})).body.id;
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Lesson',body:'Notes'}})).body.id;
+  const snapshot=async()=>{const d=(await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body;return {confirm_delete:true,expected_title:d.subject.title,expected_description:d.subject.description,expected_order_revision:d.subject.order_revision,expected_eligibility_revision:d.subject.eligibility_revision,expected_items:d.items.map(i=>({id:i.id,edit_version:i.edit_version}))};};
+  const old=await snapshot();
+  await f.call(`/v1/items/${item}`,{method:'PATCH',token:owner.token,body:{body:'Updated notes',expected_edit_version:1}});
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:old})).status,409);
+  const fresh=await snapshot();
+  for(const body of [{...fresh,expected_items:[]},{...fresh,expected_title:'Old title'},{...fresh,expected_order_revision:0},{...fresh,expected_eligibility_revision:0}])assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,409);
+  f.app.db.exec("CREATE TRIGGER fail_subject_delete BEFORE INSERT ON audit WHEN NEW.action='subject-delete' BEGIN SELECT RAISE(ABORT,'Synthetic failure'); END;");
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:fresh})).status,500);
+  assert.equal(f.app.db.prepare('SELECT archived FROM subjects WHERE id=?').get(subject).archived,0);
+  assert.equal((await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body.subject.order_revision,fresh.expected_order_revision);
+  f.app.db.exec('DROP TRIGGER fail_subject_delete;');
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:f.admin,body:fresh})).status,200);
+ }finally{await f.close();}
+});

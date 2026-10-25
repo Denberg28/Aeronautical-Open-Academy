@@ -100,3 +100,10 @@ The renderer keeps its scroll containers mounted on data refresh and restores th
 Schema 8 restores Activity/Quiz-only children under root materials; examinations stay at subject level. It converts existing material children to root materials, increments structure/edit versions and preserves learning revisions/records. A former child hidden through an unpublished/archived parent is unpublished before promotion to avoid expanding student access. This runs transactionally; v8 reopens without reapplying it. API tree capability returns 1, the supported material/assessment shape.
 
 Acknowledged reorders update the cached order revision and move existing sibling group nodes with a document fragment. Whole-group FLIP animations keep descendants aligned. The renderer does not reload the subject for a reorder. Pointer placement resolves the appropriate sibling group, uses one non-layout-changing marker with a small midpoint deadband, and bounds edge scrolling through requestAnimationFrame. End/cancel/blur cleans the preview/marker/animation loop. Failed saves keep the prior tree intact; a refresh reconciles a remote conflict. Pointer dragging is blocked during dirty drafts; keyboard controls retain their explicit draft-discard confirmation.
+
+
+## Subject deletion (PC 0.3.2)
+
+POST /v1/subjects/:id/archive requires an authenticated subject owner or administrator, explicit confirmation and a current subject/item snapshot. It transactionally sets the existing archived flag, advances the order revision and writes an audit event. Subject authorization already excludes archived rows, revoking active nested content/enrollment/report access without removing historical records. Authorized retries are idempotent. No schema or external-host file mutation is required.
+
+The delete control is in Subject details. Cancellation and failed/stale writes retain form text. After acknowledgement the renderer removes the subject from its cached lists, clears its active content/tasks/draft state and returns to My subjects; that transition does not depend on a refresh request. The last-subject empty state retains New subject.

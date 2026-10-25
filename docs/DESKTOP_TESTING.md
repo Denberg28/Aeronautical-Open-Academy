@@ -1,4 +1,4 @@
-# Desktop verification — 0.3.1-rc.1
+# Desktop verification — 0.3.2-rc.1
 
 Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server uses schema-8 material grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `3991aa3` (0.2.0-rc.1). Date: 25 October 2026 (Asia/Manila).
 
@@ -20,7 +20,7 @@ Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows deskto
 | A — Windows package structure | PASS | `node desktop/tools/verify-package.mjs`: PE machine x64, runtime renderer/preload/backend/schema, README, no data/key files |
 | B — Desktop bridge integration | PASS | `npm test --prefix desktop`: 4 tests covering role boundaries, persisted reading/submission across restart, report ZIP, revision/link authorization, local API header, organization-origin/credential isolation |
 | B — Native desktop workflows | PASS | Playwright drives the actual Electron 45 window on Linux/Xvfb: instructor add/attach/save/edit/order/quiz/draft; student reading/submission/quiz/results/tasks; grading/export; admin announcements/accounts; escaped HTML; responsive width; Google link metadata; same-account session recovery; post-save refresh failure; simulated cancelled quit |
-| C — Shared backend regression | PASS | `npm test --prefix server`: 37 tests, including grouping, inherited visibility, structure moves, archive confirmation and schema migrations |
+| C — Shared backend regression | PASS | `npm test --prefix server`: 39 tests, including grouping, inherited visibility, structure moves, archive confirmation and schema migrations |
 | C — Existing project integrity | PASS | `python tools/project_checks.py`: catalog/assets/XML/wrapper/network/focused secret checks |
 | C — Android build compatibility | CI REQUIRED | Server changed; the existing Android build/lint/regression workflow must pass for this exact source. Physical Android behavior remains NOT TESTED. |
 | D — Native startup/IPC | PASS | Actual Electron Linux startup, custom scheme, sandboxed preload and instructor login via `--smoke-test` |
@@ -76,7 +76,7 @@ API errors now cross the isolated desktop bridge as explicit data envelopes, pre
 - Student lists, direct item/link/submission access, completion denominators, results and instructor reports all exclude children of a hidden parent. Group deletion requires explicit cascade confirmation and checks every child owner; archive retains historical work.
 - Older organization backends must not silently create a supposed child as a root. The UI detects tree_version and hides nested creation until an upgraded service is present. Existing Android organization flows continue through the flattened API; Android local mode is unchanged.
 
-Local evidence: 37 server tests and 4 desktop tests pass. Native Electron role/creation/recovery/zoom checks pass on Linux; the Windows CI JSON remains authoritative for native Windows and packaged EXE checks. Android compilation/lint must also pass on the final commit before candidate delivery. Physical device, provider sign-in and organization deployment remain NOT TESTED.
+Local evidence: 39 server tests and 4 desktop tests pass. Native Electron role/creation/recovery/zoom checks pass on Linux; the Windows CI JSON remains authoritative for native Windows and packaged EXE checks. Android compilation/lint must also pass on the final commit before candidate delivery. Physical device, provider sign-in and organization deployment remain NOT TESTED.
 
 ## Activity/Quiz-only materials and drag continuity (0.3.1-rc.1)
 
@@ -87,3 +87,12 @@ Baseline: 0.3.0-rc.1, source tree b961be2ba69880378c00fa71df9401cf473a16c9. Scop
 - `desktop/test/motion.mjs` uses a 24-material subject more than 1,000px down. Refresh and keyboard movement retain a visible header within 3px where document bounds permit. A native pointer drop places the moved header at the chosen insertion boundary (clamped to the viewport). Repeated before/after drops must match the backend sequence. Center, sidebar, material and child node identities survive reorder.
 - The same insertion marker stays in place while the pointer crosses a target's text/buttons. Cancellation clears the marker, dimming and preview. Edge auto-scroll stays bounded to the center and stops on cancellation. Active drafts block pointer drag initiation. Reduced motion disables movement animation. Normal/1060px and 125/150/200% zoom must fit without horizontal overflow.
 - Both native Windows UI suites, packaged EXE startup/IPC, package hash verification and dependency audit are required on the final source. Android build/lint/regression remains required. Physical Windows accessibility, real provider access and organization deployment remain NOT TESTED.
+
+## Instructor subject deletion (0.3.2-rc.1)
+
+Baseline: 0.3.1-rc.1 source tree 67d239e9d4d1a3768843b5764c10c33159d580a0. Schema 8 is unchanged.
+
+- Only the instructor owner or an administrator may archive a subject. Confirmation and matching title/description, order/eligibility revision and complete current item/edit-version set are required. Foreign instructors/students cannot delete. Changed content/structure rejects the stale snapshot. Audit failure rolls the archive back; an authorized repeated confirmed deletion succeeds once without duplicate audit.
+- Deleted subjects disappear from lists and direct item/subject/report/enrollment access fails. Materials, student outputs, scores and feedback remain stored. No external host operation occurs.
+- `desktop/test/subject-delete.mjs` checks confirmation cancellation with unsaved text, a failed deletion preserving the form, successful navigation/list cleanup, deleting the final subject, creating a fresh subject afterwards, restart persistence and absent student controls.
+- The Windows UI command now runs LMS, motion and deletion suites. Windows CI must pass them and packaged startup/hash/audit gates on the final source. Android build/lint/regression remains required. Physical Windows/provider/organization acceptance remains NOT TESTED.

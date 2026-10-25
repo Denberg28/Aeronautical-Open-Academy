@@ -289,6 +289,17 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(d.self_enrol===undefined||typeof d.self_enrol==='boolean',400,'Set self_enrol true or false.');
     transaction(()=>{run('UPDATE subjects SET title=?,description=?,self_enrol=? WHERE id=?',d.title===undefined?old.title:text(d.title,'title',160),d.description===undefined?old.description:text(d.description,'description',1000),d.self_enrol===undefined?old.self_enrol:d.self_enrol?1:0,match[1]);if(d.self_enrol!==undefined){run('UPDATE subjects SET eligibility_all=?,eligibility_revision=eligibility_revision+1 WHERE id=?',d.self_enrol?1:0,old.id);run('DELETE FROM eligible_students WHERE subject_id=?',old.id);if(!d.self_enrol)run("DELETE FROM enrolments WHERE subject_id=? AND source IN ('qr','self')",old.id);}audit(a.id,'subject-edit',match[1]);});return send(200,{saved:true});
    }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/archive$/))&&method==='POST'){
+    const subject=get('SELECT * FROM subjects WHERE id=?',match[1]),d=payload;
+    requireThat(subject&&canManage(a,subject.owner_id),404,'Subject unavailable.');
+    requireThat(d.confirm_delete===true,400,'Confirm deleting this subject.');
+    if(subject.archived)return send(200,{deleted:true});
+    requireThat(d.expected_title===subject.title&&d.expected_description===subject.description&&d.expected_order_revision===subject.order_revision&&d.expected_eligibility_revision===subject.eligibility_revision,409,'This subject changed. Refresh and review it before deleting.');
+    const items=all('SELECT id,edit_version FROM items WHERE subject_id=? AND archived=0',subject.id);
+    requireThat(Array.isArray(d.expected_items)&&d.expected_items.length===items.length&&new Set(d.expected_items.map(i=>i?.id)).size===items.length&&items.every(item=>d.expected_items.some(expected=>expected?.id===item.id&&expected.edit_version===item.edit_version)),409,'Subject contents changed. Refresh and review them before deleting.');
+    transaction(()=>{run('UPDATE subjects SET archived=1,order_revision=order_revision+1 WHERE id=?',subject.id);audit(a.id,'subject-delete',subject.id);});
+    return send(200,{deleted:true});
+   }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/order$/))&&method==='POST'){
     const subject=subjectFor(a,match[1],true),d=payload;
     requireThat(Number.isInteger(d.expected_revision)&&d.expected_revision===subject.order_revision,409,'Entries changed. Refresh before moving them.');

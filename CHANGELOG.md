@@ -1,5 +1,11 @@
 # Changelog
 
+## PC 0.3.2-rc.1
+
+- Add confirmed owner/admin subject deletion under Subject details, with retained learner records.
+- Reject stale deletion snapshots and preserve drafts on cancellation/failure; update navigation after acknowledged deletion.
+
+
 ## PC 0.3.1-rc.1
 
 - Remove subsection creation; retain Activity and Quiz inside materials.
