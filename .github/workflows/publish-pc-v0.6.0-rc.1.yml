@@ -1,0 +1,118 @@
+name: Publish Academy PC 0.6.0-rc.1
+on:
+  push:
+    branches: [desktop/compact-controls-grading]
+    paths: [.github/workflows/publish-pc-v0.6.0-rc.1.yml]
+permissions:
+  contents: read
+concurrency:
+  group: publish-pc-v0.6.0-rc.1
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'Denberg28/Aeronautical-Open-Academy'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: 5c1d94ad37d6a2a40dc188e54de8ab7f6e05ef62
+      WINDOWS_RUN: '40224456193'
+      ANDROID_RUN: '40224456191'
+      RELEASE_TAG: pc-v0.6.0-rc.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5c1d94ad37d6a2a40dc188e54de8ab7f6e05ef62
+          persist-credentials: false
+      - name: Require successful builds of the exact final source
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          for key, path in [('WINDOWS_RUN','.github/workflows/desktop.yml'), ('ANDROID_RUN','.github/workflows/android.yml')]:
+              run = json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{os.environ[key]}']))
+              assert run['head_sha'] == os.environ['SOURCE_COMMIT'], 'Build source mismatch'
+              assert run['status'] == 'completed' and run['conclusion'] == 'success', 'Build gate not passed'
+              assert run['path'] == path and run['event'] == 'push', 'Unexpected build workflow'
+              assert run['repository']['full_name'] == repo, 'Unexpected repository'
+          PY
+      - name: Download and authenticate the original CI artifact
+        run: |
+          set -euo pipefail
+          mkdir -p out/verified
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/12611060696/zip" > out/windows-artifact.zip
+          python3 - <<'PY'
+          import hashlib, zipfile
+          from pathlib import Path
+          archive = Path('out/windows-artifact.zip')
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == '5ffb467155efb00df121d6d9572f582ab6237423d13b98502e4dcc51d76228cc', 'CI artifact digest mismatch'
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None, 'Corrupt artifact'
+              for name in z.namelist():
+                  assert not Path(name).is_absolute() and '..' not in Path(name).parts, 'Unsafe artifact path'
+              z.extractall('out/verified')
+          PY
+      - name: Verify package manifest, final version, and recorded gates
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, zipfile
+          from pathlib import Path
+          root = Path('out/verified')
+          name = 'Aeronautical-Open-Academy-PC-v0.6.0-rc.1-Windows-x64.zip'
+          package = root/name
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          original_sums = (root/'SHA256SUMS.txt').read_text(encoding='utf-8-sig')
+          assert digest.lower() in original_sums.lower(), 'CI package checksum mismatch'
+          with zipfile.ZipFile(package) as z:
+              assert z.testzip() is None, 'Corrupt Windows ZIP'
+              prefix = 'Academy-PC-0.6.0-rc.1-win32-x64/'
+              manifest = json.loads(z.read(prefix+'package-manifest.json'))
+              evidence = json.loads(z.read('windows-verification.json').decode('utf-8-sig'))
+              assert manifest['source'] == evidence['commit'] == os.environ['SOURCE_COMMIT'], 'Source mismatch'
+              assert manifest['version'] == evidence['version'] == '0.6.0-rc.1', 'Version mismatch'
+              assert evidence['github_release_channel'] == 'prerelease'
+              for field in ['desktop_tests','package_integrity','backend_regression','dependency_audit','packaged_startup_ipc','native_ui_workflows']:
+                  assert evidence[field] == 'PASS', field
+              for path, expected in manifest['sha256'].items():
+                  assert hashlib.sha256(z.read(prefix+path)).hexdigest() == expected, path
+              assert json.loads(z.read(prefix+'resources/app/package.json'))['version'] == '0.6.0-rc.1'
+          external = json.loads((root/'windows-verification.json').read_text(encoding='utf-8-sig'))
+          assert external == evidence, 'Evidence mismatch'
+          (root/'SHA256SUMS.txt').write_text(f'{digest}  {name}\n')
+          (root/'source-commit.txt').write_text(os.environ['SOURCE_COMMIT']+'\n')
+          proof = {
+              'source_commit': os.environ['SOURCE_COMMIT'],
+              'windows_run': int(os.environ['WINDOWS_RUN']),
+              'android_run': int(os.environ['ANDROID_RUN']),
+              'windows_native_ui_packaged_startup_integrity': 'PASS',
+              'android_build_lint_regression': 'PASS',
+              'github_release_channel': 'prerelease',
+              'tier': 'unsigned Windows x64 release candidate',
+              'physical_windows_accessibility': 'NOT TESTED',
+              'real_provider_access': 'NOT TESTED',
+              'organization_deployment': 'NOT TESTED',
+              'production_readiness': 'NOT CLAIMED',
+              'package_sha256': digest
+          }
+          (root/'release-verification.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+      - name: Create a new draft with all verified assets
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          for endpoint in [f'repos/{repo}/releases?per_page=100', f'repos/{repo}/git/matching-refs/tags/{tag}']:
+              records = json.loads(subprocess.check_output(['gh','api',endpoint]))
+              assert not any(r.get('tag_name') == tag or r.get('ref') == f'refs/tags/{tag}' for r in records), 'Release/tag already exists; never overwrite'
+          PY
+          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --draft --prerelease --title 'Academy PC 0.6.0-rc.1 — Compact controls and grading' --notes-file docs/DESKTOP_RELEASE_NOTES.md
+      - name: Publish the complete release candidate
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets
