@@ -1103,6 +1103,7 @@ h3,
 
 .material-links { display: grid; gap: 8px; margin-top: 10px; }
 .subject-group { margin: 16px 0 24px; }
+.hero-toolbar { flex-wrap: wrap; row-gap: 7px; }
 .subject-group > .material { margin-bottom: 0; }
 .tree-children { margin: 0 0 0 28px; padding: 8px 0 0 20px; border-left: 2px solid #dce4ef; }
 .tree-children:empty { display: none; }

@@ -366,6 +366,7 @@ try {
   for (const zoom of [1.25, 1.5, 2]) {
     await application.evaluate(({ BrowserWindow }, factor) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(factor), zoom);
     await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
+    await page.waitForFunction(() => document.querySelector("#center").scrollWidth <= document.querySelector("#center").clientWidth);
   }
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1));
   await action("subjects");
