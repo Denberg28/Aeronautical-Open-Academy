@@ -20,9 +20,9 @@ Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows deskto
 | A — Windows package structure | PASS | `node desktop/tools/verify-package.mjs`: PE machine x64, runtime renderer/preload/backend/schema, README, no data/key files |
 | B — Desktop bridge integration | PASS | `npm test --prefix desktop`: 4 tests covering role boundaries, persisted reading/submission across restart, report ZIP, revision/link authorization, local API header, organization-origin/credential isolation |
 | B — Native desktop workflows | PASS | Playwright drives the actual Electron 45 window on Linux/Xvfb: instructor add/attach/save/edit/order/quiz/draft; student reading/submission/quiz/results/tasks; grading/export; admin announcements/accounts; escaped HTML; responsive width; Google link metadata; same-account session recovery; post-save refresh failure; simulated cancelled quit |
-| C — Shared backend regression | PASS | `npm test --prefix server`: 34 tests; no server behavior changes |
+| C — Shared backend regression | PASS | `npm test --prefix server`: 34 tests, including grouping, inherited visibility, structure moves, archive confirmation and schema migrations |
 | C — Existing project integrity | PASS | `python tools/project_checks.py`: catalog/assets/XML/wrapper/network/focused secret checks |
-| C — Android build/device | N/A | No Android app or server source change; this artifact is a separate Windows preview, not an Android candidate |
+| C — Android build compatibility | CI REQUIRED | Server changed; the existing Android build/lint/regression workflow must pass for this exact source. Physical Android behavior remains NOT TESTED. |
 | D — Native startup/IPC | PASS | Actual Electron Linux startup, custom scheme, sandboxed preload and instructor login via `--smoke-test` |
 | D — Organization service / host material access | NOT TESTED | HTTPS-origin/credential separation tested with a synthetic transport; no real organization deployment, Google sign-in or provider sharing test |
 | E — Hardware control | N/A | Education app does not command physical equipment |

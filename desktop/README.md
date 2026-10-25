@@ -36,7 +36,7 @@ Admins create accounts, suspend/reactivate access and publish/delete announcemen
 
 Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v6, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
 
-The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the existing organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
+The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the updated schema-6 organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
 
 ## Development
 
