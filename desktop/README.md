@@ -1,10 +1,10 @@
-# Aeronautical Open Academy for PC — 0.5.0-rc.1
+# Aeronautical Open Academy for PC — 0.5.0
 
-Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
+Windows 10/11 x64 desktop **stable distribution release**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
 ## Open the Windows application
 
-Extract the **entire ZIP** to a folder, then double-click **Academy.exe**. Keep all files beside it; the executable alone is not portable. No Python, Java or Node installation is needed. Windows 10/11 x64 is the intended target. Windows ARM/macOS/Linux distributions are not included. This candidate does not have an organization code-signing identity or automatic updates.
+Extract the **entire ZIP** to a folder, then double-click **Academy.exe**. Keep all files beside it; the executable alone is not portable. No Python, Java or Node installation is needed. Windows 10/11 x64 is the intended target. Windows ARM/macOS/Linux distributions are not included. This release does not have an organization code-signing identity or automatic updates.
 
 Choose **Local test workspace** and sign in:
 
@@ -55,11 +55,11 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.5.0-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.5.0-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
-See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows release candidate. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
+See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows stable-channel release. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
 
 The focused PC workflow does not yet include camera QR scanning, protected uploaded-PDF viewing/upload, account deletion/ID correction/password reset screens, administrator enrollment overrides, audit browsing, per-user subject-list dragging, or file attachments to submissions. Those existing Android/backend capabilities are preserved. Links are the desktop material path; no hosted content is copied into the app. Image references open at the original host in the browser, without an in-app gallery. Tasks derive from incomplete entries/drafts and have no due dates, notifications or calendar integration. Subject/item lists retain existing backend limits (200); discovery, rosters and admin accounts page in groups of 100. Remote providers, real Windows accessibility/font scaling, institution sign-in and real upgrade/rollback need device validation.
 
@@ -90,3 +90,7 @@ Select Quiz inside a material. Enter the Number of questions (1–50), then Appl
 Students select Start quiz and confirm readiness. Every question requires one answer. Minimize/expand preserves the current answers; final submission confirms once and sends the entire quiz for server-side scoring. The completed quiz collapses, is marked Done, and shows correct answers / total items. Expanding it after submission is read-only. Results and Excel use the same numerator and denominator. This does not add a timer, proctoring, retakes or a weighted course grade. Draft answers are held in memory, not crash recovery.
 
 Schema 9 preserves existing one-question quizzes, IDs, attempts, links, grades and ordering. Back up the closed workspace before upgrading. Organization servers need this backend for multiple-question authoring; older servers remain limited to one question. Older mobile clients cannot submit multi-question quizzes; this Android source displays a use-PC notice and correct denominators against an updated organization service. No Android APK is delivered by this Windows change. Rollback requires the old app and its matching pre-upgrade database backup.
+
+## Stable distribution scope (0.5.0)
+
+Version 0.5.0 is published on GitHub’s stable release channel at the owner’s request. It promotes the verified 0.5.0-rc.1 feature set without behavior or schema changes. The stable-channel label identifies the distributed version; it does not turn unperformed physical-device, accessibility, provider, organization deployment or signed-upgrade checks into passes. The portable executable remains unsigned. Use the local synthetic workspace for evaluation; real organization deployment requires its own validated service and individually assigned accounts. All automated Windows/Android, startup, package integrity, security-audit and regression gates remain required on the exact final source.

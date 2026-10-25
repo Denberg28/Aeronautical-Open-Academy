@@ -85,3 +85,9 @@
 - Confirm student readiness, preserve answers when minimized, and collapse completed quizzes with correct / total results.
 - Grade and commit all answers on the server; preserve replay/revision/privacy checks and show totals in reports.
 - Migrate schema 8 to 9 while preserving legacy quizzes and attempts; add Android compatibility notice and denominator display.
+
+## PC 0.5.0 — 2026-10-25
+
+- Promote the verified multi-question quiz feature set to the owner-requested GitHub stable distribution channel.
+- Finalize package/display version and documentation; no behavior or database schema change from 0.5.0-rc.1.
+- Retain exact automated evidence and explicit unsigned/physical-device/organization validation limits.
