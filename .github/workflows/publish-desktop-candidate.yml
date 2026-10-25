@@ -1,4 +1,4 @@
-name: Publish verified Windows candidate
+name: Publish verified Windows stable release
 on:
   push:
     branches: [desktop/single-page-lms]
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: publish-pc-v0.2.0-rc.1
+  group: publish-pc-v0.5.0
   cancel-in-progress: false
 jobs:
   publish:
@@ -18,14 +18,14 @@ jobs:
       actions: read
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_COMMIT: 3991aa3ebd21c9b79863105438e412645240bc45
-      WINDOWS_RUN: '40152067361'
-      ANDROID_RUN: '40152067362'
-      RELEASE_TAG: pc-v0.2.0-rc.1
+      SOURCE_COMMIT: 739ab0da832bfa14bcad6b2da373bbdcf108ddaa
+      WINDOWS_RUN: '40196310986'
+      ANDROID_RUN: '40196310961'
+      RELEASE_TAG: pc-v0.5.0
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 3991aa3ebd21c9b79863105438e412645240bc45
+          ref: 739ab0da832bfa14bcad6b2da373bbdcf108ddaa
           persist-credentials: false
       - name: Require successful builds of the exact source
         run: |
@@ -42,8 +42,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
-          run-id: 40152067361
-          name: Academy-PC-Windows-3991aa3ebd21c9b79863105438e412645240bc45
+          run-id: 40196310986
+          name: Academy-PC-Windows-739ab0da832bfa14bcad6b2da373bbdcf108ddaa
           path: out/verified
       - name: Verify the original Windows ZIP and prepare evidence
         run: |
@@ -51,24 +51,26 @@ jobs:
           import hashlib, json, os, zipfile
           from pathlib import Path
           root = Path('out/verified')
-          name = 'Aeronautical-Open-Academy-PC-v0.2.0-rc.1-Windows-x64.zip'
+          name = 'Aeronautical-Open-Academy-PC-v0.5.0-Windows-x64.zip'
           package = root/name
           digest = hashlib.sha256(package.read_bytes()).hexdigest()
-          assert digest == 'a61fd61f8e6b8b8202096216b20b48bfb5ce4bae090a000be81d8541e3510f6b', 'ZIP differs from verified artifact'
+          assert digest.upper() in (root/'SHA256SUMS.txt').read_text(encoding='utf-8-sig').upper(), 'ZIP differs from verified CI checksum'
           with zipfile.ZipFile(package) as z:
               assert z.testzip() is None
-              prefix = 'Academy-PC-0.2.0-rc.1-win32-x64/'
+              prefix = 'Academy-PC-0.5.0-win32-x64/'
               manifest = json.loads(z.read(prefix+'package-manifest.json'))
               evidence = json.loads(z.read('windows-verification.json').decode('utf-8-sig'))
               assert manifest['source'] == evidence['commit'] == os.environ['SOURCE_COMMIT']
-              assert manifest['version'] == evidence['version'] == '0.2.0-rc.1'
+              assert manifest['version'] == evidence['version'] == '0.5.0'
+              assert evidence['github_release_channel'] == 'stable'
+              assert json.loads(z.read(prefix+'resources/app/package.json'))['version'] == '0.5.0'
               for field in ['desktop_tests','package_integrity','backend_regression','dependency_audit','packaged_startup_ipc','native_ui_workflows']:
                   assert evidence[field] == 'PASS', field
               for path, expected in manifest['sha256'].items():
                   assert hashlib.sha256(z.read(prefix+path)).hexdigest() == expected, path
           (root/'SHA256SUMS.txt').write_text(f'{digest}  {name}\n')
           (root/'source-commit.txt').write_text(os.environ['SOURCE_COMMIT']+'\n')
-          proof = {'source_commit':os.environ['SOURCE_COMMIT'], 'windows_run':int(os.environ['WINDOWS_RUN']), 'android_run':int(os.environ['ANDROID_RUN']), 'windows_native_ui_packaged_startup_integrity':'PASS', 'android_build_lint_regression':'PASS', 'tier':'unsigned Windows release candidate', 'physical_windows_accessibility':'NOT TESTED', 'real_provider_access':'NOT TESTED', 'stable':'BLOCKED'}
+          proof = {'source_commit':os.environ['SOURCE_COMMIT'], 'windows_run':int(os.environ['WINDOWS_RUN']), 'android_run':int(os.environ['ANDROID_RUN']), 'windows_native_ui_packaged_startup_integrity':'PASS', 'android_build_lint_regression':'PASS', 'tier':'owner-authorized stable GitHub distribution', 'github_release_channel':'stable', 'physical_windows_accessibility':'NOT TESTED', 'real_provider_access':'NOT TESTED', 'production_readiness':'NOT CLAIMED', 'code_signing':'UNSIGNED'}
           (root/'release-verification.json').write_text(json.dumps(proof,indent=2)+'\n')
           PY
       - name: Create a new draft and upload verified assets
@@ -78,6 +80,23 @@ jobs:
             echo 'Release already exists; never replace a published version.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --draft --prerelease --latest=false --title 'Academy PC 0.2.0-rc.1 — subject tree release candidate' --notes-file docs/DESKTOP_RELEASE_NOTES.md
-      - name: Publish the completed prerelease
-        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --draft --latest=false --title 'Academy PC 0.5.0 — Stable' --notes-file docs/DESKTOP_RELEASE_NOTES.md
+      - name: Confirm all assets before publication
+        run: |
+          python3 - <<'PYVERIFY'
+          import json, os, subprocess, hashlib
+          from pathlib import Path
+          release=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{os.environ['RELEASE_TAG']}"]))
+          assert release['draft'] and not release['prerelease'], 'Unexpected release state'
+          names={item['name'] for item in release['assets']}
+          required={'Aeronautical-Open-Academy-PC-v0.5.0-Windows-x64.zip','SHA256SUMS.txt','source-commit.txt','windows-verification.json','release-verification.json'}
+          assert required<=names, 'Release assets missing'
+          assert all(item['state']=='uploaded' and item['size']>0 for item in release['assets']), 'Asset upload incomplete'
+          for item in release['assets']:
+              path=Path('out/verified')/item['name']
+              assert path.stat().st_size==item['size'], 'Uploaded size differs'
+              if item.get('digest'):
+                  assert item['digest']=='sha256:'+hashlib.sha256(path.read_bytes()).hexdigest(), 'Uploaded asset digest differs'
+          PYVERIFY
+      - name: Publish stable release and mark Latest
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest=true
