@@ -91,3 +91,11 @@
 - Promote the verified multi-question quiz feature set to the owner-requested GitHub stable distribution channel.
 - Finalize package/display version and documentation; no behavior or database schema change from 0.5.0-rc.1.
 - Retain exact automated evidence and explicit unsigned/physical-device/organization validation limits.
+
+
+## PC 0.6.0-rc.1 — 2026-10-26
+
+- Put entry actions into compact top bars; label the subject editing control.
+- Save individual activity grades without discarding other drafts or moving the page; return saved versions and commit grade/audit atomically.
+- Add a dated quiz-score matrix with numeric correct-answer counts, preserving zeros and blanks; retain detailed assessment reports.
+- Keep schema 9 and stable 0.5.0 intact; candidate Windows/Android verification is required for final source.

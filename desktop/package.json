@@ -1,13 +1,13 @@
 {
   "name": "aeronautical-open-academy-desktop",
-  "version": "0.5.0",
+  "version": "0.6.0-rc.1",
   "private": true,
   "type": "module",
   "main": "main.mjs",
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.mjs",
-    "test:ui": "node test/ui.mjs && node test/motion.mjs && node test/subject-delete.mjs",
+    "test:ui": "node test/ui.mjs && node test/motion.mjs && node test/subject-delete.mjs && node test/grading.mjs",
     "package:win": "node tools/package-win.mjs"
   },
   "devDependencies": {
