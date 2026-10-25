@@ -119,6 +119,21 @@ async function boot() {
       register("academy:logout", () => bridge.logout());
       register("academy:link", (data) => bridge.openLink(data));
       register("academy:inspect-link", (url) => bridge.inspectLink(url));
+      register("academy:subject-qr", async (id, save = false) => {
+        const qr = await bridge.subjectQr(id);
+        if (!save) return {image:qr.image, payload:qr.payload};
+        if (automated) {
+          await writeFile(join(app.getPath("userData"), "test-subject-qr.svg"), qr.svg);
+          return {saved:true};
+        }
+        const result = await dialog.showSaveDialog(window, {
+          title:"Save subject QR code", defaultPath:`Academy-subject-${id}.svg`,
+          filters:[{name:"QR image (SVG)", extensions:["svg"]}],
+        });
+        if (result.canceled) return {saved:false};
+        await writeFile(result.filePath, qr.svg, {mode:0o600});
+        return {saved:true};
+      });
       register("academy:export", async (id, offset) => {
         const bytes = await bridge.exportReport(id, offset);
         if (automated) {

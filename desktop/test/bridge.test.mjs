@@ -134,3 +134,39 @@ test("organization sign-in never maps demo credentials or forwards the local acc
   ])
     assert.throws(() => validateOrigin(origin));
 });
+
+test("subject QR is owner-authorized and contains only the Android subject identifier", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "academy-qr-"));
+  const local = await startLocal(directory);
+  const bridge = new AcademyBridge(local);
+  try {
+    await assert.rejects(bridge.subjectQr("../../etc"), /valid subject/);
+    await bridge.login({username:"instructor", password:"instructor"});
+    const {subjects} = await bridge.request("/v1/subjects");
+    const subject = subjects[0];
+    const qr = await bridge.subjectQr(subject.id);
+    assert.equal(qr.payload, `aoa://subject/${subject.id}`);
+    assert.equal(Buffer.from(qr.image.split(",")[1],"base64").toString(),qr.svg);
+    assert.match(qr.svg, /<svg/);
+    assert.ok(!qr.svg.includes(subject.title));
+    await bridge.logout();
+    await bridge.login({username:"student",password:"student"});
+    await assert.rejects(bridge.subjectQr(subject.id), /Only the subject instructor/);
+    const {items} = await bridge.request(`/v1/subjects/${subject.id}`);
+    assert.ok(items.every((item) => item.correct_index === undefined));
+    await bridge.logout();
+    await assert.rejects(bridge.subjectQr(subject.id), /Sign in/);
+    await bridge.login({username:"admin",password:"admin"});
+    assert.equal((await bridge.subjectQr(subject.id)).payload, qr.payload);
+    const detail = await bridge.request(`/v1/subjects/${subject.id}`);
+    await bridge.request(`/v1/subjects/${subject.id}/archive`,{method:"POST",body:{
+      confirm_delete:true, expected_title:subject.title, expected_description:subject.description,
+      expected_order_revision:detail.subject.order_revision, expected_eligibility_revision:detail.subject.eligibility_revision,
+      expected_items:detail.items.map((item) => ({id:item.id,edit_version:item.edit_version})),
+    }});
+    await assert.rejects(bridge.subjectQr(subject.id), /unavailable/i);
+  } finally {
+    await bridge.logout(); await local.academy.close();
+    await rm(directory,{recursive:true,force:true});
+  }
+});

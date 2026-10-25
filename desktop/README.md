@@ -1,4 +1,4 @@
-# Aeronautical Open Academy for PC — 0.3.2-rc.1
+# Aeronautical Open Academy for PC — 0.4.0-rc.1
 
 Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
@@ -55,7 +55,7 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.3.2-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.4.0-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
@@ -72,3 +72,13 @@ An organization service must run this updated server to enable grouping. Android
 Materials include one **+ Add activity or quiz** control. Drag the left grip to move a material with its children, or move an activity/quiz among its siblings. The insertion marker shows the destination and the existing cards move together after the save succeeds. Saved subsections from 0.3.0 become regular materials with content and learner work retained. Back up the workspace before schema-8 migration; rollback requires the prior app and matching database backup.
 
 To delete a subject you created, open it, select the three-dot **Subject details** control, then **Delete subject** and confirm. Administrators can manage any subject. Deletion removes active access and retains saved learner work/grades. Cancelling or a failed request keeps unsaved form text. The updated organization backend is required for deletion; the bundled local backend already supports it.
+
+## Quiz answers, QR codes and results (0.4)
+
+When creating a Quiz, enter 2–6 choices, then select the correct answer next to its text. Changing the choices clears the answer selection; choose it again before Done. The server scores submissions automatically. Existing quiz answers cannot be edited; create a replacement quiz if the key must change.
+
+Open Enrollment → Generate QR code → Save QR image (SVG) to display or save a printable subject QR. It contains only `aoa://subject/<subject UUID>`, matching the existing Android scanner. Students can also paste that value in Find a subject. Both clients must use the same organization backend; PC and Android local test workspaces do not sync. A QR identifies the subject and never bypasses account eligibility.
+
+Open Students & progress → View work to rate submitted activities/examinations out of 100 and add feedback. Save assessment retains the visible location. Export Excel includes quiz/activity scores for the current roster page (up to 100 students); advance to export additional pages. The app does not calculate a weighted course grade.
+
+QR generation uses the MIT-licensed qrcode-generator 2.0.4, vendored byte-for-byte from the pinned development dependency. It runs offline without a QR web service; its license is included in the package. jsQR 1.4.0 is test-only and independently decodes the displayed QR during native UI verification.

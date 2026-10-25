@@ -1,4 +1,4 @@
-# Desktop verification — 0.3.2-rc.1
+# Desktop verification — 0.4.0-rc.1
 
 Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server uses schema-8 material grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `3991aa3` (0.2.0-rc.1). Date: 25 October 2026 (Asia/Manila).
 
@@ -88,7 +88,7 @@ Baseline: 0.3.0-rc.1, source tree b961be2ba69880378c00fa71df9401cf473a16c9. Scop
 - The same insertion marker stays in place while the pointer crosses a target's text/buttons. Cancellation clears the marker, dimming and preview. Edge auto-scroll stays bounded to the center and stops on cancellation. Active drafts block pointer drag initiation. Reduced motion disables movement animation. Normal/1060px and 125/150/200% zoom must fit without horizontal overflow.
 - Both native Windows UI suites, packaged EXE startup/IPC, package hash verification and dependency audit are required on the final source. Android build/lint/regression remains required. Physical Windows accessibility, real provider access and organization deployment remain NOT TESTED.
 
-## Instructor subject deletion (0.3.2-rc.1)
+## Instructor subject deletion (0.4.0-rc.1)
 
 Baseline: 0.3.1-rc.1 source tree 67d239e9d4d1a3768843b5764c10c33159d580a0. Schema 8 is unchanged.
 
@@ -96,3 +96,9 @@ Baseline: 0.3.1-rc.1 source tree 67d239e9d4d1a3768843b5764c10c33159d580a0. Schem
 - Deleted subjects disappear from lists and direct item/subject/report/enrollment access fails. Materials, student outputs, scores and feedback remain stored. No external host operation occurs.
 - `desktop/test/subject-delete.mjs` checks confirmation cancellation with unsaved text, a failed deletion preserving the form, successful navigation/list cleanup, deleting the final subject, creating a fresh subject afterwards, restart persistence and absent student controls.
 - The Windows UI command now runs LMS, motion and deletion suites. Windows CI must pass them and packaged startup/hash/audit gates on the final source. Android build/lint/regression remains required. Physical Windows/provider/organization acceptance remains NOT TESTED.
+
+## 0.4.0-rc.1 acceptance and evidence
+
+Baseline: desktop `5b59057` / 0.3.2-rc.1. Changes are desktop-only; schema 8 and Android sources are unchanged. Acceptance: a non-first correct answer is explicitly selected, changing choices invalidates it, unchanged draft/type switching preserves it, a student receives the expected server score, and student payloads exclude answer keys. QR generation/saving is owner/admin-only and uses the Android subject identifier, not an authorization token. An independent jsQR decoder must recover the exact payload from the displayed SVG image. The saved file must be present. The native suite also grades an activity and checks numeric grade and quiz rows in the exported workbook, alongside existing drag/delete/role regressions. No data migration is expected.
+
+Local source checks and bridge regression run under Node 24.22.1. Windows CI is the required native UI, QR decoding, packaged startup, dependency audit, package integrity and export gate for this exact source. Earlier PASS rows describe established baseline coverage; use the delivered per-commit windows-verification.json for final evidence. Android CI must pass the same commit before delivery. Physical Windows, organization deployment, real host access and mobile cross-device enrollment remain NOT TESTED; stable promotion remains BLOCKED.

@@ -1,6 +1,8 @@
 import { _electron } from "playwright";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, mkdir } from "node:fs/promises";
+import jsQR from "jsqr";
+import { extract } from "@electron-internal/extract-zip";
+import { mkdtemp, rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -219,7 +221,18 @@ try {
   await page
     .locator("#composer textarea[name=text]")
     .fill("Practice quiz\nChoose the lifting force.");
-  await page.locator("#composer textarea[name=options]").fill("Lift\nDrag");
+  await page.locator("#composer textarea[name=options]").fill("Drag\nLift");
+  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
+  await page.locator('#correct-choices input[value="1"]').check();
+  await page.locator("#composer textarea[name=options]").fill("Drag\nLift\nWeight");
+  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
+  await page.selectOption("#entry-kind", "activity");
+  await page.selectOption("#entry-kind", "quiz");
+  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
+  await page.locator('#correct-choices input[value="1"]').check();
+  await page.selectOption("#entry-kind", "activity");
+  await page.selectOption("#entry-kind", "quiz");
+  assert.equal(await page.locator('#correct-choices input[value="1"]').isChecked(), true);
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -324,6 +337,19 @@ try {
   await page.screenshot({path:fileURLToPath(new URL("../../out/desktop-qa/subject-tree-instructor.png",import.meta.url)),fullPage:true});
   await action("eligibility");
   await page.locator("#eligibility").waitFor();
+  await action("generate-qr");
+  await page.locator("#subject-qr img").waitFor();
+  const qrPixels = await page.locator("#subject-qr img").evaluate(async (image) => {
+    await image.decode();
+    const canvas = document.createElement("canvas"); canvas.width=canvas.height=512;
+    const ctx = canvas.getContext("2d"); ctx.fillStyle="white"; ctx.fillRect(0,0,512,512);
+    ctx.drawImage(image,0,0,512,512);
+    return [...ctx.getImageData(0,0,512,512).data];
+  });
+  const subjectId = await page.locator('[aria-label="Subject code"]').inputValue();
+  assert.equal(jsQR(new Uint8ClampedArray(qrPixels),512,512)?.data, `aoa://subject/${subjectId}`);
+  await action("save-qr");
+  assert.match(await readFile(join(directory,"test-subject-qr.svg"),"utf8"), /<svg/);
   await action("learners");
   await page
     .getByRole("heading", { name: "Students & progress", exact: true })
@@ -363,7 +389,7 @@ try {
   );
   assert.equal(await written.count(), 0);
   const quiz = page.locator("form[data-form=quiz]");
-  await quiz.locator('input[value="0"]').check();
+  await quiz.locator('input[value="1"]').check();
   await quiz.locator("button[type=submit]").click();
   await page.locator("#confirm-yes").click();
   await page.waitForFunction(
@@ -398,6 +424,14 @@ try {
     await page.locator("[data-form=grade] [name=score]").inputValue(),
     "95",
   );
+  await action("learners");
+  await action("export");
+  const reportDir = join(directory,"report");
+  await extract(join(directory,"test-report.xlsx"), {dir:reportDir});
+  const assessments = await readFile(join(reportDir,"xl/worksheets/sheet2.xml"),"utf8");
+  assert.match(assessments, /<v>95<\/v>/);
+  assert.match(assessments, /Practice quiz/);
+  assert.match(assessments, /<v>1<\/v>/);
   await action("logout");
   await login("admin");
   await action("announcements");
@@ -464,7 +498,10 @@ try {
   await action("logout");
   await login("student");
   await action("discover");
-  await action("enrol");
+  const newSubjectId = await page.evaluate(() => state.active?.id);
+  const discoveredId = await page.locator('[data-action="enrol"]').first().getAttribute('data-id');
+  await page.locator('#join-code [name=code]').fill(`aoa://subject/${discoveredId}`);
+  await submit('#join-code');
   await page
     .getByRole("heading", { name: "Aircraft Maintenance", exact: true })
     .waitFor();

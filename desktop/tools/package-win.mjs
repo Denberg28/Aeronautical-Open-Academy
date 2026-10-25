@@ -28,6 +28,8 @@ for (const path of [
   "preload.cjs",
   "bridge.mjs",
   "materials.mjs",
+  "enrollment.mjs",
+  "vendor",
   "package.json",
   "ui",
 ])

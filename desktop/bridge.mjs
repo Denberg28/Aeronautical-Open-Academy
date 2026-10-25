@@ -5,6 +5,7 @@ import { createAcademy } from "../server/src/server.mjs";
 import { hashPassword } from "../server/src/security.mjs";
 import { externalUrl } from "../server/src/links.mjs";
 import { materialPresentation, describeLink } from "./materials.mjs";
+import { enrollmentQr } from "./enrollment.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
@@ -283,6 +284,14 @@ export class AcademyBridge {
     const safe = externalUrl(result.url);
     await this.openExternal(safe);
     return { opened: true };
+  }
+  async subjectQr(id) {
+    if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))
+      throw new Error("Choose a valid subject.");
+    const {subject} = await this.request(`/v1/subjects/${id}`);
+    if (!this.account || !(this.account.role === "admin" || this.account.role === "instructor" && subject.owner_id === this.account.id))
+      throw new Error("Only the subject instructor or administrator can generate enrollment codes.");
+    return enrollmentQr(subject.id);
   }
   async exportReport(id, offset = 0) {
     if (

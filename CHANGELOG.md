@@ -71,3 +71,10 @@
 - Added persistent, unique background PDF downloads, cancellation, size/hash/readability checks, and offline reading/removal.
 - Added source/core/catalog tests, Android build configuration, private-only CI/candidate release automation, and operational documentation.
 - Android build/release/device/organization validation blocked or pending; no APK/stable readiness claimed.
+
+## PC 0.4.0-rc.1 — 2026-10-25
+
+- Explicit correct-answer radio selection for automatically graded quizzes; choice edits clear selection and draft/type switching retains unchanged selections.
+- Owner-authorized subject QR preview/SVG export in the Android-compatible format, with clear shared-server and eligibility requirements.
+- Preserve activity grading position and prevent stale resubmission after an acknowledged save/failed refresh.
+- Verify QR decode, non-first answer scoring, activity grading and Excel results in native Windows workflows.
