@@ -1,5 +1,33 @@
 # Changelog
 
+## PC 0.3.2-rc.1
+
+- Add confirmed owner/admin subject deletion under Subject details, with retained learner records.
+- Reject stale deletion snapshots and preserve drafts on cancellation/failure; update navigation after acknowledged deletion.
+
+
+## PC 0.3.1-rc.1
+
+- Remove subsection creation; retain Activity and Quiz inside materials.
+- Promote saved subsections to regular materials without losing content or learner records.
+- Move existing cards after acknowledged reorder, with stable drop markers, whole-group animation, precise before/after placement and bounded edge scrolling.
+
+
+## PC 0.3.0-rc.1
+
+- Preserve the subject viewport after reorder, save and refresh; smooth movement feedback honors reduced motion.
+- Add optional collapsible material subsections with text/links, activities and quizzes.
+- Migrate to schema 7 with recursive visibility, ordering and confirmed subtree archive, preserving learner records.
+
+
+## PC desktop 0.1.0-alpha.1 — 24 October 2026
+
+- Add a Windows desktop application with a spacious three-pane, single-page LMS workspace.
+- Add inline text-plus-link materials, edit/publish/delete/reorder, quizzes and written work.
+- Reuse the current backend for roles, eligibility, enrollment, results, grading, announcements and Excel reports.
+- Include isolated local demonstration accounts and optional organization HTTPS sign-in, a reproducible Windows package and native desktop automation.
+- Android app/version and backend behavior remain unchanged. See desktop/README.md for scope and verification limits.
+
 ## 0.8.1-alpha.1
 
 - Temporarily allow screenshots/screen recording of account screens and the in-app PDF viewer for development feedback, as requested.
@@ -43,3 +71,23 @@
 - Added persistent, unique background PDF downloads, cancellation, size/hash/readability checks, and offline reading/removal.
 - Added source/core/catalog tests, Android build configuration, private-only CI/candidate release automation, and operational documentation.
 - Android build/release/device/organization validation blocked or pending; no APK/stable readiness claimed.
+
+## PC 0.4.0-rc.1 — 2026-10-25
+
+- Explicit correct-answer radio selection for automatically graded quizzes; choice edits clear selection and draft/type switching retains unchanged selections.
+- Owner-authorized subject QR preview/SVG export in the Android-compatible format, with clear shared-server and eligibility requirements.
+- Preserve activity grading position and prevent stale resubmission after an acknowledged save/failed refresh.
+- Verify QR decode, non-first answer scoring, activity grading and Excel results in native Windows workflows.
+
+## PC 0.5.0-rc.1 — 2026-10-25
+
+- Add 1–50 question quiz editor with expandable cards, editable choices and clickable correct-answer keys.
+- Confirm student readiness, preserve answers when minimized, and collapse completed quizzes with correct / total results.
+- Grade and commit all answers on the server; preserve replay/revision/privacy checks and show totals in reports.
+- Migrate schema 8 to 9 while preserving legacy quizzes and attempts; add Android compatibility notice and denominator display.
+
+## PC 0.5.0 — 2026-10-25
+
+- Promote the verified multi-question quiz feature set to the owner-requested GitHub stable distribution channel.
+- Finalize package/display version and documentation; no behavior or database schema change from 0.5.0-rc.1.
+- Retain exact automated evidence and explicit unsigned/physical-device/organization validation limits.

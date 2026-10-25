@@ -1,0 +1,74 @@
+name: Windows desktop release verification
+on:
+  push:
+    paths: ["desktop/**", "server/**", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["desktop/**", "server/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --prefix desktop
+      - run: npm audit --prefix desktop --audit-level=high
+      - run: npm test --prefix server
+      - run: npm test --prefix desktop
+      - name: Native Electron single-page workflows
+        run: npm run test:ui --prefix desktop
+      - name: Native IPC startup smoke test
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath './desktop/node_modules/electron/dist/electron.exe' -ArgumentList @('desktop','--smoke-test') -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Electron smoke test failed' }
+          $result = Get-Content (Join-Path $env:TEMP 'academy-smoke-result.json') | ConvertFrom-Json
+          if ($result.role -ne 'instructor' -or !$result.bridge) { throw 'Missing IPC evidence' }
+      - run: npm run package:win --prefix desktop
+      - run: node desktop/tools/verify-package.mjs
+      - name: Packaged Windows launch and IPC
+        shell: pwsh
+        run: |
+          $resultPath = Join-Path $env:TEMP 'academy-smoke-result.json'
+          Remove-Item $resultPath -ErrorAction SilentlyContinue
+          $exe = (Get-ChildItem out/Academy-PC-*/Academy.exe).FullName
+          $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (!$process.WaitForExit(90000)) { $process.Kill(); throw 'Packaged startup timed out' }
+          if ($process.ExitCode -ne 0) { throw 'Packaged startup failed' }
+          $result = Get-Content $resultPath | ConvertFrom-Json
+          if ($result.role -ne 'instructor' -or !$result.bridge) { throw 'Missing packaged IPC evidence' }
+      - name: Package verified desktop release
+        shell: pwsh
+        run: |
+          $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
+          $channel = if ($version -match '-') { 'prerelease' } else { 'stable' }
+          $evidence = @{commit=$env:GITHUB_SHA; version=$version; windows_runner='windows-2025'; desktop_tests='PASS'; native_ui_workflows='PASS'; packaged_startup_ipc='PASS'; package_integrity='PASS'; backend_regression='PASS'; dependency_audit='PASS'; real_provider_sign_in='NOT TESTED'; physical_windows_accessibility='NOT TESTED'; github_release_channel=$channel; physical_acceptance='NOT TESTED'; production_readiness='NOT CLAIMED'; tier='Windows desktop build'}
+          $evidence | ConvertTo-Json | Set-Content out/windows-verification.json
+          Compress-Archive -Path "out/Academy-PC-$version-win32-x64",out/windows-verification.json -DestinationPath "out/Aeronautical-Open-Academy-PC-v$version-Windows-x64.zip"
+          Get-ChildItem out/*.zip | Get-FileHash -Algorithm SHA256 | Format-List | Out-File out/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Academy-PC-Windows-${{ github.sha }}
+          path: |
+            out/*.zip
+            out/windows-verification.json
+            out/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Academy-PC-QA-${{ github.sha }}
+          path: out/desktop-qa/
+          if-no-files-found: ignore
+          retention-days: 7

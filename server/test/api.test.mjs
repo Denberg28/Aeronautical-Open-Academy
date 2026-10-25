@@ -389,7 +389,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -455,5 +455,152 @@ test('entry order is owner-controlled, atomic, persistent and independent of lea
   await f.call(`/v1/items/${ids[1]}`,{method:'POST',token:owner.token,body:{archived:true,expected_edit_version:1}});
   assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{item_ids:latest.body.items.map(i=>i.id),expected_revision:latest.body.subject.order_revision}})).status,409);
   assert.ok(!(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body.items.some(i=>i.id===ids[1]));
+ }finally{await f.close();}
+});
+
+test('subject tree groups activities and quizzes, retains root examinations and preserves learning when moved',async()=>{
+ const f=await fixture({materials:null});try{
+  const owner=await f.account('tree-teacher@example.test','instructor'),student=await f.account('tree-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Tree subject',description:'Tree'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const create=async(kind,title,extra={})=>{
+   const result=await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind,title,body:title,published:true,...extra}});
+   assert.equal(result.status,201,JSON.stringify(result.body));return result.body.id;
+  };
+  const first=await create('material','First material'),second=await create('material','Second material'),exam=await create('examination','Subject examination');
+  const activity=await create('activity','Practice',{parent_id:first}),quiz=await create('quiz','Check understanding',{parent_id:first,options:['A','B'],correct_index:1});
+  const view=async(token=owner.token)=>(await f.call(`/v1/subjects/${subject}`,{token})).body;
+  let detail=await view();assert.equal(detail.tree_version,1);assert.deepEqual(detail.items.map(i=>i.id),[first,activity,quiz,second,exam]);
+  assert.equal(detail.items.find(i=>i.id===exam).parent_id,null);assert.equal(detail.items.find(i=>i.id===activity).parent_id,first);
+  assert.equal((await f.call(`/v1/items/${quiz}/quiz`,{method:'POST',token:student.token,key:randomUUID(),body:{choice:1}})).status,201);
+  const oldRevision=detail.subject.order_revision;
+  assert.equal((await f.call(`/v1/items/${quiz}`,{method:'PATCH',token:owner.token,body:{parent_id:second,expected_edit_version:1,expected_order_revision:oldRevision}})).status,200);
+  detail=await view(student.token);const moved=detail.items.find(i=>i.id===quiz);assert.equal(moved.parent_id,second);assert.equal(moved.revision,1);assert.equal(moved.attempt.score,1);assert.equal(moved.completed,true);
+  assert.deepEqual(detail.items.map(i=>i.id),[first,activity,second,quiz,exam]);
+  assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{item_ids:detail.items.map(i=>i.id),expected_revision:oldRevision}})).status,409);
+  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,400);
+  const other=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Other',description:'Other'}})).body.id;
+  assert.equal((await f.call(`/v1/subjects/${other}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Wrong parent',body:'Wrong',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Nested material',body:'Subsection',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'examination',title:'Nested examination',body:'Wrong',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:student.token,body:{kind:'activity',title:'Forbidden',body:'Wrong',parent_id:first}})).status,404);
+ }finally{await f.close();}
+});
+
+test('draft and archived material groups hide children from students, direct access, progress and reports',async()=>{
+ const f=await fixture({materials:null});try{
+  const teacher=await f.account('group-teacher@example.test','instructor'),student=await f.account('group-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Grouped',description:'Grouped'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const material=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Draft material',body:'Notes',published:false}})).body.id;
+  const child=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'activity',title:'Child',body:'Work https://www.nasa.gov/',parent_id:material,published:true}})).body.id;
+  let detail=(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body;assert.equal(detail.items.length,0);assert.equal(detail.summary.total,0);
+  assert.equal((await f.call(`/v1/items/${child}`,{token:student.token})).status,404);
+  assert.equal((await f.call(`/v1/items/${child}/open-link`,{method:'POST',token:student.token,body:{expected_revision:1,url:'https://www.nasa.gov/'}})).status,404);
+  assert.equal((await f.call(`/v1/items/${child}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Too early'}})).status,404);
+  await f.call(`/v1/items/${material}`,{method:'PATCH',token:teacher.token,body:{published:true,expected_edit_version:1}});
+  assert.equal((await f.call(`/v1/items/${child}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Saved work'}})).status,201);
+  detail=(await f.call(`/v1/subjects/${subject}`,{token:teacher.token})).body;
+  assert.equal((await f.call(`/v1/items/${material}`,{method:'PATCH',token:teacher.token,body:{archived:true,expected_edit_version:2}})).status,409);
+  assert.equal((await f.call(`/v1/items/${material}`,{method:'PATCH',token:teacher.token,body:{archived:true,archive_children:true,expected_edit_version:2,expected_order_revision:detail.subject.order_revision-1}})).status,409);
+  assert.equal((await f.call(`/v1/items/${material}`,{method:'PATCH',token:teacher.token,body:{archived:true,archive_children:true,expected_edit_version:2,expected_order_revision:detail.subject.order_revision}})).status,200);
+  assert.equal((await f.call(`/v1/items/${child}`,{token:student.token})).status,404);
+  detail=(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body;assert.equal(detail.items.length,0);assert.equal(detail.summary.total,0);
+  assert.equal(f.app.db.prepare('SELECT output FROM submissions WHERE item_id=?').get(child).output,'Saved work');
+  assert.equal(f.app.db.prepare('SELECT archived FROM items WHERE id=?').get(child).archived,1);
+ }finally{await f.close();}
+});
+
+test('material creation rejects nested materials while activities and quizzes remain available',async()=>{
+ const f=await fixture({materials:null});try{
+  const teacher=await f.account('simple-teacher@example.test','instructor');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Simple tree',description:'Materials with activities and quizzes'}})).body.id;
+  const root=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Lesson',body:'References',published:true}})).body.id;
+  for(const kind of ['material','examination'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Invalid child',body:'References',parent_id:root}})).status,400);
+  for(const kind of ['activity','quiz'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Practice',body:'Instructions',parent_id:root,...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}})).status,201);
+ }finally{await f.close();}
+});
+
+test('subject deletion is owner/admin-only, removes access and preserves learner records',async()=>{
+ const f=await fixture({materials:null});try{
+  const owner=await f.account('delete-owner@example.test','instructor'),other=await f.account('delete-other@example.test','instructor'),student=await f.account('delete-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Delete practice',description:'Keep learner history'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Practice',body:'Write your answer',published:true}})).body.id;
+  await f.call(`/v1/items/${item}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Retained work'}});
+  const submission=f.app.db.prepare('SELECT id FROM submissions WHERE item_id=?').get(item);
+  assert.equal((await f.call(`/v1/submissions/${submission.id}/grade`,{method:'POST',token:owner.token,body:{score:88,feedback:'Retained feedback'}})).status,200);
+  const detail=(await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body;
+  const body={confirm_delete:true,expected_title:detail.subject.title,expected_description:detail.subject.description,expected_order_revision:detail.subject.order_revision,expected_eligibility_revision:detail.subject.eligibility_revision,expected_items:detail.items.map(i=>({id:i.id,edit_version:i.edit_version}))};
+  for(const token of [other.token,student.token])assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token,body})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:{...body,confirm_delete:false}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,200);
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,200,'Acknowledged deletion is idempotent');
+  for(const token of [owner.token,f.admin,student.token]){
+   assert.equal((await f.call(`/v1/subjects/${subject}`,{token})).status,404);
+   assert.ok(!(await f.call('/v1/subjects',{token})).body.subjects.some(s=>s.id===subject));
+   assert.equal((await f.call(`/v1/items/${item}`,{token})).status,404);
+  }
+  assert.equal((await f.call(`/v1/items/${item}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Denied'}})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export`,{token:owner.token})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${subject}/enrol`,{method:'POST',token:student.token,body:{source:'self'}})).status,404);
+  assert.deepEqual({...f.app.db.prepare('SELECT output,score,feedback FROM submissions WHERE item_id=?').get(item)},{output:'Retained work',score:88,feedback:'Retained feedback'});
+  assert.equal(f.app.db.prepare('SELECT archived FROM items WHERE id=?').get(item).archived,0);
+  assert.equal(f.app.db.prepare("SELECT count(*) n FROM audit WHERE action='subject-delete' AND target_id=?").get(subject).n,1);
+ }finally{await f.close();}
+});
+
+test('subject deletion rejects stale snapshots, rolls back failure and allows administrator management',async()=>{
+ const f=await fixture({materials:null});try{
+  const owner=await f.account('delete-safe@example.test','instructor');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Snapshot subject',description:'Review before deleting'}})).body.id;
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Lesson',body:'Notes'}})).body.id;
+  const snapshot=async()=>{const d=(await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body;return {confirm_delete:true,expected_title:d.subject.title,expected_description:d.subject.description,expected_order_revision:d.subject.order_revision,expected_eligibility_revision:d.subject.eligibility_revision,expected_items:d.items.map(i=>({id:i.id,edit_version:i.edit_version}))};};
+  const old=await snapshot();
+  await f.call(`/v1/items/${item}`,{method:'PATCH',token:owner.token,body:{body:'Updated notes',expected_edit_version:1}});
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:old})).status,409);
+  const fresh=await snapshot();
+  for(const body of [{...fresh,expected_items:[]},{...fresh,expected_title:'Old title'},{...fresh,expected_order_revision:0},{...fresh,expected_eligibility_revision:0}])assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body})).status,409);
+  f.app.db.exec("CREATE TRIGGER fail_subject_delete BEFORE INSERT ON audit WHEN NEW.action='subject-delete' BEGIN SELECT RAISE(ABORT,'Synthetic failure'); END;");
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:owner.token,body:fresh})).status,500);
+  assert.equal(f.app.db.prepare('SELECT archived FROM subjects WHERE id=?').get(subject).archived,0);
+  assert.equal((await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body.subject.order_revision,fresh.expected_order_revision);
+  f.app.db.exec('DROP TRIGGER fail_subject_delete;');
+  assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:f.admin,body:fresh})).status,200);
+ }finally{await f.close();}
+});
+
+test('multi-question quiz scores all answers atomically, hides keys, validates revisions and exports totals',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('quiz-teacher@example.test','instructor'),s=await f.account('quiz-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Multi quiz',description:'Synthetic'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id}});
+  const questions=Array.from({length:3},(_,n)=>({prompt:`Question ${n+1}`,options:['A','B','C'],correct_index:n}));
+  const create=body=>f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'quiz',title:'Three questions',body:'Instructions',published:true,...body}});
+  for(const q of [[],Array(51).fill(questions[0]),[{...questions[0],correct_index:null}],[{...questions[0],options:['one']}],[{...questions[0],prompt:''}]])assert.equal((await create({questions:q})).status,400);
+  const made=await create({questions});assert.equal(made.status,201);const id=made.body.id;
+  const before=(await f.call(`/v1/items/${id}`,{token:s.token})).body.item;
+  assert.equal(before.question_count,3);assert.ok(!JSON.stringify(before).includes('correct_index'));assert.deepEqual(before.options,[]);
+  const owner=(await f.call(`/v1/items/${id}`,{token:i.token})).body.item;assert.equal(owner.questions[2].correct_index,2);
+  assert.equal((await f.call(`/v1/items/${id}`,{method:'PATCH',token:i.token,body:{questions}})).status,400);
+  const submit=(body,key=randomUUID())=>f.call(`/v1/items/${id}/quiz`,{method:'POST',token:s.token,key,body});
+  assert.equal((await submit({choice:0})).status,409);
+  for(const answers of [[0],[0,1,9],[0,1,null],[0,1,'2']])assert.equal((await submit({answers,expected_revision:1})).status,400);
+  assert.equal((await submit({answers:[0,1,2],expected_revision:0})).status,409);
+  const key=randomUUID(),result=await submit({answers:[0,1,0],expected_revision:1,score:3,correct_index:0},key);
+  assert.equal(result.status,201);assert.equal(result.body.attempt.score,2);assert.equal(result.body.attempt.max_score,3);
+  assert.equal((await submit({answers:[0,1,0],expected_revision:1},key)).body.attempt.id,result.body.attempt.id);
+  assert.equal((await submit({answers:[0,1,2],expected_revision:1},key)).status,409);
+  assert.equal((await submit({answers:[0,1,0],expected_revision:1})).status,409);
+  const after=(await f.call(`/v1/items/${id}`,{token:s.token})).body.item;
+  assert.equal(after.completed,true);assert.equal(after.attempt.max_score,3);assert.ok(!JSON.stringify(after).includes('correct_index'));
+  const learner=(await f.call(`/v1/subjects/${subject}/learners/${s.id}`,{token:i.token})).body;
+  assert.equal(learner.items[0].score,2);assert.equal(learner.items[0].max_score,3);assert.match(learner.items[0].answer,/Question 3: A/);
+  const report=await f.call(`/v1/subjects/${subject}/export`,{token:i.token});assert.equal(report.status,200);assert.equal(report.body.subarray(0,2).toString(),'PK');
+  // A failed audit cannot leave a hidden committed quiz attempt.
+  const other=(await create({questions})).body.id;
+  f.app.db.exec("CREATE TRIGGER quiz_audit_failure BEFORE INSERT ON audit WHEN NEW.action='quiz-submit' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;");
+  assert.equal((await f.call(`/v1/items/${other}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers:[0,1,2],expected_revision:1}})).status,500);
+  assert.equal(f.app.db.prepare('SELECT COUNT(*) n FROM attempts WHERE item_id=?').get(other).n,0);
  }finally{await f.close();}
 });

@@ -76,3 +76,34 @@ Backend v5 adds ordering columns/index transactionally, deriving historical posi
 `SubjectBoard` uses one RecyclerView with non-draggable header/footer and stable-ID subject rows. ItemTouchHelper initiates only from a handle long-press, uses a 0.22 move threshold and measured bounds, animates neighbor swaps and supplies edge scrolling. It saves dirty order on clear/cancel and lifecycle flush; Move up/down invokes the same ordering policy. Header/account controls and the trailing transparent + scroll with the board, preserving usable space on small/landscape screens.
 
 Only the account’s currently authorized subject response is arranged. `SubjectOrder.merge` intersects saved IDs with current IDs and appends newly available IDs, without carrying stale/revoked content into the list. Private SharedPreferences namespace is a name UUID of organization origin + account ID. Preferences contain only IDs, with no tokens/material text. `apply()` updates memory immediately and queues durable writing through Android’s preference lifecycle handling. Subject IDs/material order/enrollment/grades remain unchanged and no backend API is added. The board saves layout state across navigation/configuration changes; existing content views remain centered and page animation runs only on navigation when Android animators are enabled.
+
+## Desktop subject tree and schema 6
+
+Items add nullable parent_id referencing a material in the same subject. SQL triggers reject nested materials/examinations, cross-subject parents and non-material parents. Legacy root activity/quiz items remain valid for older Android clients. New desktop creation uses only material/examination roots and activity/quiz children.
+
+Canonical reads flatten each material followed by its children, preserving their independent sort positions. Reorder still accepts the complete active-ID set with order_revision; grouping never derives from proximity. Explicit parent changes require current edit_version and order_revision, append within the new group, and preserve content revision/learner work.
+
+Students must satisfy publication of both child and parent, and an active parent, on list/read/link/file/assessment routes. Published-item progress/report denominators use the same effective visibility. Removing a group archives all active children in one transaction only after explicit confirmation, matching order revision and authority over every child. Existing records are retained.
+
+Subject responses advertise tree_version:1; /v1/me adds capabilities.subject_tree:1. Older desktop/Android organization clients can consume the flattened compatible item shape, while current desktop disables nested controls against an older service. Schema 5 → 6 migration leaves old parents null; operator backup is mandatory before upgrading and old software must not silently downgrade the data.
+
+
+## Desktop subsections and schema 7
+
+Schema 7 replaces the parent constraints to permit a material subsection directly under a root material, with activities/quizzes under either level. Examinations stay at the root. Parent ownership and same-subject checks remain enforced; SQL rejects self-parenting and excess material depth. Material parent reassignment is not exposed by the API. Recursive canonical reads, publication checks and confirmed archive cover every descendant. Moving an assessment preserves revisions and learner records. Responses advertise tree_version/capabilities.subject_tree 2; capability-1 backends retain the former controls.
+
+The renderer keeps its scroll containers mounted on data refresh and restores the first surviving visible entry's offset (prefer the moved entry or drop target). Missing/deleted anchors fall back to another visible entry or a clamped scroll offset. Short FLIP motion uses current viewport geometry and honors reduced motion. Scroll restoration is immediate; intentional composer/new-entry reveal scrolls only as far as needed. No animation changes persisted data.
+
+
+## Activity/Quiz-only material tree and schema 8
+
+Schema 8 restores Activity/Quiz-only children under root materials; examinations stay at subject level. It converts existing material children to root materials, increments structure/edit versions and preserves learning revisions/records. A former child hidden through an unpublished/archived parent is unpublished before promotion to avoid expanding student access. This runs transactionally; v8 reopens without reapplying it. API tree capability returns 1, the supported material/assessment shape.
+
+Acknowledged reorders update the cached order revision and move existing sibling group nodes with a document fragment. Whole-group FLIP animations keep descendants aligned. The renderer does not reload the subject for a reorder. Pointer placement resolves the appropriate sibling group, uses one non-layout-changing marker with a small midpoint deadband, and bounds edge scrolling through requestAnimationFrame. End/cancel/blur cleans the preview/marker/animation loop. Failed saves keep the prior tree intact; a refresh reconciles a remote conflict. Pointer dragging is blocked during dirty drafts; keyboard controls retain their explicit draft-discard confirmation.
+
+
+## Subject deletion (PC 0.3.2)
+
+POST /v1/subjects/:id/archive requires an authenticated subject owner or administrator, explicit confirmation and a current subject/item snapshot. It transactionally sets the existing archived flag, advances the order revision and writes an audit event. Subject authorization already excludes archived rows, revoking active nested content/enrollment/report access without removing historical records. Authorized retries are idempotent. No schema or external-host file mutation is required.
+
+The delete control is in Subject details. Cancellation and failed/stale writes retain form text. After acknowledgement the renderer removes the subject from its cached lists, clears its active content/tasks/draft state and returns to My subjects; that transition does not depend on a refresh request. The last-subject empty state retains New subject.

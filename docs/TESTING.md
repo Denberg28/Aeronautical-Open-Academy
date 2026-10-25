@@ -150,3 +150,11 @@ Required device procedure before stable: create 8+ subjects of mixed one/multili
 ## 0.8.1 capture feedback check
 
 Baseline: `443d215`, v0.8.0-alpha.1-test.13. User authorizes temporarily disabling screenshot/recording protection until features are streamlined. Both account and protected PDF FLAG_SECURE guards now depend on the common SCREEN_CAPTURE_ALLOWED build flag, currently true. No backend/data migration or permission changes. Required automated gate: source/configuration checks plus Android debug/release compile/lint and existing regressions. No redundant test is added for the direct boolean guards. Device check: take a screenshot and start the phone’s screen recorder in admin/instructor/student views, open an in-app PDF and capture its page, then rotate/background/resume and repeat. Expected: the app does not block capture. Physical OS/device behavior remains NOT TESTED. Restore SCREEN_CAPTURE_ALLOWED=false when capture protection is reintroduced.
+
+## PC desktop client
+
+The independent Windows desktop preview uses the native Electron/Windows gates and acceptance criteria in [DESKTOP_TESTING.md](DESKTOP_TESTING.md). Android binaries are unaffected by this desktop-only change. Source, backend and desktop behavior evidence does not replace real Windows validation.
+
+### Subject tree candidate (schema 6)
+
+The Windows candidate’s gates now include contextual + creation, persistent material parents, root examinations, inherited publication authorization, archive confirmation, sibling/group ordering, retained assessments and schema-5 upgrade/reopen. See [DESKTOP_TESTING.md](DESKTOP_TESTING.md). A matching schema-6 organization backend is required for grouping; Android organization compatibility is regression checked, with physical-device behavior still NOT TESTED.
