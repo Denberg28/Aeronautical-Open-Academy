@@ -6,6 +6,7 @@ import { mkdtemp, rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+const {version} = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const directory = await mkdtemp(join(tmpdir(), "academy-ui-"));
 let application;
 try {
@@ -65,6 +66,7 @@ try {
     );
   };
   await login("instructor");
+  assert.ok((await page.locator('.sidebar-foot').textContent()).includes(version));
   assert.equal(
     await page.locator(".subject-hero h1").textContent(),
     "Introduction to Aeronautics",

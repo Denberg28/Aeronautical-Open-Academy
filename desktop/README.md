@@ -36,7 +36,7 @@ Admins create accounts, suspend/reactivate access and publish/delete announcemen
 
 ## Organization use and compatibility
 
-Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v6, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
+Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v8, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
 
 The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the updated schema-8 organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
 
@@ -59,13 +59,13 @@ Packaging downloads the official Electron Windows x64 archive with checksum vali
 
 ## Verification and limits
 
-See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is the first link-focused Windows release candidate, not a stable release. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
+See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows release candidate. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
 
 The focused PC workflow does not yet include camera QR scanning, protected uploaded-PDF viewing/upload, account deletion/ID correction/password reset screens, administrator enrollment overrides, audit browsing, per-user subject-list dragging, or file attachments to submissions. Those existing Android/backend capabilities are preserved. Links are the desktop material path; no hosted content is copied into the app. Image references open at the original host in the browser, without an in-app gallery. Tasks derive from incomplete entries/drafts and have no due dates, notifications or calendar integration. Subject/item lists retain existing backend limits (200); discovery, rosters and admin accounts page in groups of 100. Remote providers, real Windows accessibility/font scaling, institution sign-in and real upgrade/rollback need device validation.
 
-## Schema 6 and upgrades
+## Schema 8 and upgrades
 
-Back up the closed local workspace or stopped organization backend before first launch/upgrade. This candidate adds nullable item parent IDs with validation and migration from schema 5 to 6. Existing IDs, ordering, links, learner work and grades are preserved; old standalone assessments are not automatically assigned to a material. The local demonstration on a fresh installation starts with a material and a child activity.
+Back up the closed local workspace or stopped organization backend before first launch/upgrade. The bundled backend uses schema 8, with validated material grouping and migrations from earlier schemas. Existing IDs, ordering, links, learner work and grades are preserved; old standalone assessments are not automatically assigned to a material. The local demonstration on a fresh installation starts with a material and a child activity.
 
 An organization service must run this updated server to enable grouping. Android’s existing organization client can still read the canonical flattened order and perform its legacy flows; the Android UI and its independent local test workspace remain flat. Children hidden by their parent are denied by the server on every client, including direct link/submission routes. Reverting to schema-5 software requires restoring its matching database backup; do not open the upgraded database with the old server.
 

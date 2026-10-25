@@ -112,7 +112,7 @@ async function boot() {
             return { ok: false, error: e.message, status: e.status };
           }
         });
-      register("academy:login", (data) => bridge.login(data));
+      register("academy:login", async (data) => ({...await bridge.login(data), version:app.getVersion()}));
       register("academy:request", (path, options) =>
         bridge.request(path, options),
       );
