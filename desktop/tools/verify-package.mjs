@@ -24,6 +24,7 @@ for (const file of [
   "resources/app/desktop/ui/app.js",
   "resources/app/desktop/ui/style.css",
   "resources/app/server/src/server.mjs",
+  "resources/app/server/src/quizzes.mjs",
   "resources/app/server/src/schema.sql",
   "resources/app/server/src/store.mjs",
   "READ-ME.md",

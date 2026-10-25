@@ -389,7 +389,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -567,5 +567,40 @@ test('subject deletion rejects stale snapshots, rolls back failure and allows ad
   assert.equal((await f.call(`/v1/subjects/${subject}`,{token:owner.token})).body.subject.order_revision,fresh.expected_order_revision);
   f.app.db.exec('DROP TRIGGER fail_subject_delete;');
   assert.equal((await f.call(`/v1/subjects/${subject}/archive`,{method:'POST',token:f.admin,body:fresh})).status,200);
+ }finally{await f.close();}
+});
+
+test('multi-question quiz scores all answers atomically, hides keys, validates revisions and exports totals',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('quiz-teacher@example.test','instructor'),s=await f.account('quiz-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Multi quiz',description:'Synthetic'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id}});
+  const questions=Array.from({length:3},(_,n)=>({prompt:`Question ${n+1}`,options:['A','B','C'],correct_index:n}));
+  const create=body=>f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'quiz',title:'Three questions',body:'Instructions',published:true,...body}});
+  for(const q of [[],Array(51).fill(questions[0]),[{...questions[0],correct_index:null}],[{...questions[0],options:['one']}],[{...questions[0],prompt:''}]])assert.equal((await create({questions:q})).status,400);
+  const made=await create({questions});assert.equal(made.status,201);const id=made.body.id;
+  const before=(await f.call(`/v1/items/${id}`,{token:s.token})).body.item;
+  assert.equal(before.question_count,3);assert.ok(!JSON.stringify(before).includes('correct_index'));assert.deepEqual(before.options,[]);
+  const owner=(await f.call(`/v1/items/${id}`,{token:i.token})).body.item;assert.equal(owner.questions[2].correct_index,2);
+  assert.equal((await f.call(`/v1/items/${id}`,{method:'PATCH',token:i.token,body:{questions}})).status,400);
+  const submit=(body,key=randomUUID())=>f.call(`/v1/items/${id}/quiz`,{method:'POST',token:s.token,key,body});
+  assert.equal((await submit({choice:0})).status,409);
+  for(const answers of [[0],[0,1,9],[0,1,null],[0,1,'2']])assert.equal((await submit({answers,expected_revision:1})).status,400);
+  assert.equal((await submit({answers:[0,1,2],expected_revision:0})).status,409);
+  const key=randomUUID(),result=await submit({answers:[0,1,0],expected_revision:1,score:3,correct_index:0},key);
+  assert.equal(result.status,201);assert.equal(result.body.attempt.score,2);assert.equal(result.body.attempt.max_score,3);
+  assert.equal((await submit({answers:[0,1,0],expected_revision:1},key)).body.attempt.id,result.body.attempt.id);
+  assert.equal((await submit({answers:[0,1,2],expected_revision:1},key)).status,409);
+  assert.equal((await submit({answers:[0,1,0],expected_revision:1})).status,409);
+  const after=(await f.call(`/v1/items/${id}`,{token:s.token})).body.item;
+  assert.equal(after.completed,true);assert.equal(after.attempt.max_score,3);assert.ok(!JSON.stringify(after).includes('correct_index'));
+  const learner=(await f.call(`/v1/subjects/${subject}/learners/${s.id}`,{token:i.token})).body;
+  assert.equal(learner.items[0].score,2);assert.equal(learner.items[0].max_score,3);assert.match(learner.items[0].answer,/Question 3: A/);
+  const report=await f.call(`/v1/subjects/${subject}/export`,{token:i.token});assert.equal(report.status,200);assert.equal(report.body.subarray(0,2).toString(),'PK');
+  // A failed audit cannot leave a hidden committed quiz attempt.
+  const other=(await create({questions})).body.id;
+  f.app.db.exec("CREATE TRIGGER quiz_audit_failure BEFORE INSERT ON audit WHEN NEW.action='quiz-submit' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;");
+  assert.equal((await f.call(`/v1/items/${other}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers:[0,1,2],expected_revision:1}})).status,500);
+  assert.equal(f.app.db.prepare('SELECT COUNT(*) n FROM attempts WHERE item_id=?').get(other).n,0);
  }finally{await f.close();}
 });

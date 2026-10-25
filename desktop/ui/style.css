@@ -1161,3 +1161,15 @@ h3,
 .answer-picker .choice {overflow-wrap:anywhere;}
 .subject-qr {margin-top:18px;}
 .subject-qr img {display:block; width:280px; max-width:100%; height:auto; background:white;}
+
+.quiz-count-row {display:flex; align-items:end; gap:12px; margin:18px 0; flex-wrap:wrap;}
+.quiz-count-row label {max-width:200px;}
+.question-editor,.quiz-attempt,.quiz-review {border:1px solid #dce3ee; border-radius:12px; margin:14px 0; padding:16px; min-width:0;}
+.question-editor summary,.quiz-attempt summary,.quiz-review summary {cursor:pointer; font-weight:600; margin-bottom:12px;}
+.quiz-option-row {display:flex; align-items:center; gap:10px; margin:10px 0;}
+.quiz-option-row input[type=text],.quiz-option-row input:not([type]) {flex:1; min-width:0;}
+.quiz-option-row input[type=radio] {flex:none; width:18px; height:18px; accent-color:#193357;}
+.quiz-question {border:0; border-bottom:1px solid #e5eaf2; margin:14px 0; padding:12px 0 20px; min-width:0;}
+.quiz-question legend {font-weight:600; line-height:1.6; overflow-wrap:anywhere;}
+.quiz-intro {margin-top:16px;}
+.result strong,.result span {display:block;}

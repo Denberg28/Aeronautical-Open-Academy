@@ -216,25 +216,27 @@ try {
   await action("add", `[data-parent="${materialId}"]`);
   assert.deepEqual(await page.locator("#entry-kind option").evaluateAll((options) => options.map((option) => option.value)), ["activity", "quiz"]);
   await page.selectOption("#entry-kind", "quiz");
-  await page.locator("#composer [name=options]").fill("Lift\nDrag");
+  await page.locator('#quiz-count').fill('3');
+  await action('quiz-count');
+  assert.equal(await page.locator('[data-question-editor]').count(),3);
+  const prompts=['Choose the lifting force.','Choose the force opposing motion.','Choose the downward force.'];
+  const choices=[['Drag','Lift'],['Drag','Lift'],['Thrust','Weight']];
+  for(let i=0;i<3;i++){
+    const question=page.locator(`[data-question-editor="${i}"]`);
+    await question.locator('[data-question-prompt]').fill(prompts[i]);
+    for(let j=0;j<2;j++)await question.locator(`[data-question-option="${j}"]`).fill(choices[i][j]);
+    await question.locator(`input[type=radio][value="${i===1?0:1}"]`).check();
+  }
+  const firstQuestion=page.locator('[data-question-editor="0"]');
+  await firstQuestion.locator('[data-question-option="0"]').fill('Resistance');
+  assert.equal(await firstQuestion.locator('input[type=radio]:checked').count(),0);
+  await firstQuestion.locator('input[type=radio][value="1"]').check();
   await page.selectOption("#entry-kind", "activity");
   await page.selectOption("#entry-kind", "quiz");
-  assert.equal(await page.locator("#composer [name=options]").inputValue(), "Lift\nDrag");
-  await page
-    .locator("#composer textarea[name=text]")
-    .fill("Practice quiz\nChoose the lifting force.");
-  await page.locator("#composer textarea[name=options]").fill("Drag\nLift");
-  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
-  await page.locator('#correct-choices input[value="1"]').check();
-  await page.locator("#composer textarea[name=options]").fill("Drag\nLift\nWeight");
-  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
-  await page.selectOption("#entry-kind", "activity");
-  await page.selectOption("#entry-kind", "quiz");
-  assert.equal(await page.locator('#correct-choices input:checked').count(), 0);
-  await page.locator('#correct-choices input[value="1"]').check();
-  await page.selectOption("#entry-kind", "activity");
-  await page.selectOption("#entry-kind", "quiz");
-  assert.equal(await page.locator('#correct-choices input[value="1"]').isChecked(), true);
+  assert.equal(await page.locator('[data-question-editor]').count(),3);
+  assert.equal(await firstQuestion.locator('[data-question-prompt]').inputValue(),prompts[0]);
+  assert.equal(await firstQuestion.locator('input[type=radio][value="1"]').isChecked(),true);
+  await page.locator('#composer textarea[name=text]').fill('Practice quiz\nThree multiple-choice questions.');
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -390,21 +392,34 @@ try {
     () => !document.body.classList.contains("working"),
   );
   assert.equal(await written.count(), 0);
+  await page.locator('[data-action=start-quiz]').click();
+  await page.locator('#confirm-no').click();
+  await page.waitForFunction(()=>!state.busy);
+  assert.equal(await page.locator('.quiz-attempt').isVisible(),false);
+  await page.locator('[data-action=start-quiz]').click();
+  await page.locator('#confirm-yes').click();
+  await page.waitForFunction(()=>!state.busy);
   const quiz = page.locator("form[data-form=quiz]");
-  await quiz.locator('input[value="1"]').check();
+  await quiz.locator('input[name="answer-0"][value="1"]').check();
+  await page.locator('.quiz-attempt > summary').click();
+  assert.equal(await quiz.isVisible(),false);
+  await page.locator('.quiz-attempt > summary').click();
+  assert.equal(await quiz.locator('input[name="answer-0"][value="1"]').isChecked(),true);
+  await quiz.locator('input[name="answer-1"][value="0"]').check();
+  await quiz.locator('input[name="answer-2"][value="0"]').check();
   await quiz.locator("button[type=submit]").click();
   await page.locator("#confirm-yes").click();
-  await page.waitForFunction(
-    () => !document.body.classList.contains("working"),
-  );
-  await page.getByText("Submitted · score 1 / 1").waitFor();
+  await page.waitForFunction(()=>!state.busy);
+  await page.getByText("Done · 2 / 3 correct").waitFor();
+  assert.equal(await page.locator('form[data-form=quiz]').count(),0);
+  assert.equal(await page.locator('.quiz-review[open]').count(),0);
   await page.screenshot({
     path: fileURLToPath(new URL("../../out/desktop-qa/student-viewer.png", import.meta.url)),
     fullPage: true,
   });
   await action("results");
   assert.ok(
-    (await page.locator("#center").textContent()).includes("Quiz score: 1 / 1"),
+    (await page.locator("#center").textContent()).includes("Quiz score: 2 / 3"),
   );
   await action("tasks");
   await action("discover");
@@ -432,8 +447,10 @@ try {
   await extract(join(directory,"test-report.xlsx"), {dir:reportDir});
   const assessments = await readFile(join(reportDir,"xl/worksheets/sheet2.xml"),"utf8");
   assert.match(assessments, /<v>95<\/v>/);
-  assert.match(assessments, /Practice quiz/);
-  assert.match(assessments, /<v>1<\/v>/);
+  const quizRow=assessments.match(/<row[^>]*>(?:(?!<\/row>)[\s\S])*Practice quiz(?:(?!<\/row>)[\s\S])*<\/row>/)?.[0];
+  assert.ok(quizRow);
+  assert.match(quizRow, /<v>2<\/v>/);
+  assert.match(quizRow, /<v>3<\/v>/);
   await action("logout");
   await login("admin");
   await action("announcements");

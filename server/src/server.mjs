@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { linkFromText } from './links.mjs';
 import { workbook } from './xlsx.mjs';
+import { validateQuestions,quizQuestions,publicQuestions,gradeAnswers,MAX_QUIZ_QUESTIONS } from './quizzes.mjs';
 import { openDatabase } from './store.mjs';
 import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber } from './security.mjs';
 
@@ -104,9 +105,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  function presentItem(a,item){
   const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
-   copy.options=JSON.parse(item.options_json);
-   if(canManage(a,item.owner_id))copy.correct_index=item.correct_index;
-   const attempt=get('SELECT id,revision,score,created_at FROM attempts WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);
+   const manager=canManage(a,item.owner_id);
+   copy.questions=publicQuestions(item,manager);
+   copy.question_count=copy.questions.length;
+   copy.options=copy.questions.length===1?copy.questions[0].options:[];
+   if(manager)copy.correct_index=item.correct_index;
+   const attempt=get('SELECT id,revision,score,max_score,created_at FROM attempts WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);
    if(attempt)copy.attempt=attempt;
   }
   const progress=get('SELECT completed,revision FROM progress WHERE student_id=? AND item_id=?',a.id,item.id);
@@ -125,8 +129,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    const p=progress.get(item.id),q=attempts.get(item.id),w=submissions.get(item.id);
    const done=item.kind==='material'?!!(p?.completed&&p.revision===item.revision):item.kind==='quiz'?!!q:!!w;
    if(item.kind==='material'){materials++;if(done)read++;}else{required++;if(done)submitted++;if(q||w?.score!=null)graded++;}
-   const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.kind==='quiz'?1:item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
-   if(detail){result.body=item.body;result.output=w?.output||'';if(q)result.answer=JSON.parse(item.options_json)[q.choice];}
+   const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.kind==='quiz'?(q?.max_score??quizQuestions(item).length):item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
+   if(detail){result.body=item.body;result.output=w?.output||'';if(q){const answers=q.answers_json?JSON.parse(q.answers_json):[q.choice];const questions=quizQuestions(item);result.answer=questions.length===1?questions[0].options[answers[0]]:questions.map((question,i)=>`${i+1}. ${question.prompt}: ${question.options[answers[i]]}`).join('\n');}}
    return result;
   });
   const pct=(n,d)=>d?Math.round(n*100/d):0;
@@ -161,7 +165,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:1,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -249,7 +253,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent,student.student_number||'']);
      for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'']);
     }
-    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz 0–1; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
+    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz: correct answers / total questions; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
     audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/submission$/))&&method==='POST'){
@@ -281,7 +285,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
     const subject=subjectFor(a,match[1]);const items=orderedItems(subject.id).slice(0,200).filter(i=>a.role!=='student'||visibleToStudent(i)).map(i=>presentItem(a,i));
-    return send(200,{subject,items,tree_version:1,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
+    return send(200,{subject,items,tree_version:1,quiz_version:1,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
@@ -310,25 +314,30 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
     subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
-    let options=null,answer=null;
+    let options=null,answer=null,questions=null;
     if(d.kind==='quiz'){
-     requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
-     requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
-    }
+     if(d.questions!==undefined){
+      const normalized=validateQuestions(d.questions);questions=JSON.stringify(normalized);
+      options=JSON.stringify(normalized[0].options);answer=normalized[0].correct_index;
+     }else{
+      requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
+      requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
+     }
+    }else requireThat(d.questions===undefined,400,'Only quizzes contain quiz questions.');
     const mode=d.material_mode??(materials?'file':'text');requireThat(['file','text'].includes(mode),400,'Choose text or file material mode.');
     requireThat(d.kind==='material'||d.material_mode===undefined,400,'Only materials have a material mode.');
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
     requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
     requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
     const parentId=d.parent_id??null;validateParent(a,parentId,match[1],d.kind,examination);
-    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard',parentId);run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
+    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type,parent_id,questions_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard',parentId,questions);run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const item=itemFor(a,match[1],true),d=payload;
     requireThat(d.expected_edit_version===undefined||d.expected_edit_version===item.edit_version,409,'This item changed. Refresh before editing.');
     // Ownership/kind/subject cannot be reassigned. Quiz answer changes require a new item.
-    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
+    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('questions'in d)&&!('options'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
     const changed=title!==item.title||body!==item.body;
@@ -369,11 +378,14 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/quiz$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student'&&item.kind==='quiz',403,'Student quiz submission required.');const d=payload,key=String(req.headers['idempotency-key']||'');
-    requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');requireThat(Number.isInteger(d.choice)&&d.choice>=0&&d.choice<JSON.parse(item.options_json).length,400,'Choose one answer.');
-    const repeated=get('SELECT id,item_id,revision,choice,score,created_at FROM attempts WHERE student_id=? AND request_key=?',a.id,key);
-    if(repeated){requireThat(repeated.item_id===item.id&&repeated.revision===item.revision&&repeated.choice===d.choice,409,'Submission key was already used for another answer.');return send(200,{attempt:repeated});}
+    requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');
+    const graded=gradeAnswers(item,d),encoded=JSON.stringify(graded.answers);
+    const repeated=get('SELECT id,item_id,revision,choice,score,max_score,answers_json,created_at FROM attempts WHERE student_id=? AND request_key=?',a.id,key);
+    if(repeated){requireThat(repeated.item_id===item.id&&repeated.revision===item.revision&&(repeated.answers_json??JSON.stringify([repeated.choice]))===encoded,409,'Submission key was already used for another answer.');return send(200,{attempt:{id:repeated.id,revision:repeated.revision,score:repeated.score,max_score:repeated.max_score,created_at:repeated.created_at}});}
     requireThat(!get('SELECT id FROM attempts WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision),409,'This quiz has already been submitted.');
-    const id=randomUUID(),score=d.choice===item.correct_index?1:0;run('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?)',id,a.id,item.id,item.revision,d.choice,score,key,now());audit(a.id,'quiz-submit',item.id);return send(201,{attempt:{id,revision:item.revision,score,created_at:now()}});
+    const id=randomUUID(),created=now();
+    transaction(()=>{run('INSERT INTO attempts(id,student_id,item_id,revision,choice,score,request_key,created_at,answers_json,max_score) VALUES(?,?,?,?,?,?,?,?,?,?)',id,a.id,item.id,item.revision,graded.answers[0],graded.score,key,created,encoded,graded.max_score);audit(a.id,'quiz-submit',item.id);});
+    return send(201,{attempt:{id,revision:item.revision,score:graded.score,max_score:graded.max_score,created_at:created}});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/file$/))&&method==='POST'){
     const item=itemFor(a,match[1],true);requireThat(item.kind==='material',400,'Choose a material item.');requireThat(item.material_mode==='file',409,'This is text/link material. Edit its text instead of uploading a copy.');requireThat(req.headers['x-item-version']===undefined||String(item.edit_version)===req.headers['x-item-version'],409,'This item changed. Refresh before uploading.');requireThat(materials,503,'Material storage is not configured.');requireThat((req.headers['content-type']||'').split(';')[0]==='application/pdf',415,'Upload a PDF.');

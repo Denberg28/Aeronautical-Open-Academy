@@ -250,7 +250,8 @@ public final class WorkspaceActivity extends AppCompatActivity {
             }
             if(kind.equals("quiz")&&!creator()){
                 JSONObject attempt=item.optJSONObject("attempt");
-                if(attempt!=null)card.addView(txt("Submitted · Score "+attempt.optInt("score")+" / 1",16,true));
+                if(attempt!=null)card.addView(txt("Submitted · Score "+attempt.optInt("score")+" / "+attempt.optInt("max_score",1),16,true));
+                else if(item.optInt("question_count",1)>1)card.addView(txt("Open this multi-question quiz in Academy PC. Your progress and result use the same organization account.",15,false));
                 else{
                     RadioGroup choices=new RadioGroup(this);JSONArray options=item.optJSONArray("options");
                     for(int i=0;i<options.length();i++){RadioButton option=new RadioButton(this);option.setId(View.generateViewId());option.setTag(i);option.setText(options.optString(i));option.setTextSize(16);choices.addView(option);}card.addView(choices);
@@ -351,7 +352,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         for(int i=0;i<items.length();i++){
             JSONObject item=items.optJSONObject(i);if(item.optString("kind").equals("material"))continue;
             LinearLayout c=card();c.addView(txt(item.optString("title"),20,true));JSONObject q=item.optJSONObject("attempt"),w=item.optJSONObject("submission");
-            c.addView(txt(q!=null?"Quiz result: "+q.optInt("score")+" / 1":w==null?"Not submitted":w.isNull("score")?"Submitted · awaiting assessment":"Result: "+w.optDouble("score")+" / 100",16,true));
+            c.addView(txt(q!=null?"Quiz result: "+q.optInt("score")+" / "+q.optInt("max_score",1):w==null?"Not submitted":w.isNull("score")?"Submitted · awaiting assessment":"Result: "+w.optDouble("score")+" / 100",16,true));
             if(w!=null){c.addView(txt(w.optString("feedback").isEmpty()?"No feedback yet":w.optString("feedback"),15,false));c.addView(button("View my submission",false,v->showText("My output",w.optString("output"))));}body.addView(c);gap();
         }
         body.addView(button("Back to learning items",true,v->{screen="subjects";render();}));

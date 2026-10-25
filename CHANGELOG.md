@@ -78,3 +78,10 @@
 - Owner-authorized subject QR preview/SVG export in the Android-compatible format, with clear shared-server and eligibility requirements.
 - Preserve activity grading position and prevent stale resubmission after an acknowledged save/failed refresh.
 - Verify QR decode, non-first answer scoring, activity grading and Excel results in native Windows workflows.
+
+## PC 0.5.0-rc.1 — 2026-10-25
+
+- Add 1–50 question quiz editor with expandable cards, editable choices and clickable correct-answer keys.
+- Confirm student readiness, preserve answers when minimized, and collapse completed quizzes with correct / total results.
+- Grade and commit all answers on the server; preserve replay/revision/privacy checks and show totals in reports.
+- Migrate schema 8 to 9 while preserving legacy quizzes and attempts; add Android compatibility notice and denominator display.

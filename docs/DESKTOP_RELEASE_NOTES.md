@@ -1,17 +1,17 @@
-# Aeronautical Open Academy for Windows — 0.4.0-rc.1
+# Aeronautical Open Academy for Windows — 0.5.0-rc.1
 
-25 October 2026 · Quiz answer selection and enrollment QR
+25 October 2026 · Multiple-question quizzes
 
-Create a quiz inside a material, enter 2–6 choices and select the correct answer directly beside its text. No answer is selected by default. Editing the choices clears the selection so the instructor must confirm it again. Switching entry types preserves the draft and an unchanged selection. The existing server grades student answers automatically; answer keys remain restricted to the instructor/administrator. Existing quiz answers remain immutable to preserve recorded results.
+Instructors can now create one quiz containing 1–50 multiple-choice questions. Set the question count and select Apply, type each question, enter 2–6 options, and click the circle beside its correct answer. Each question card can be minimized or expanded. Editing choices clears that question’s answer selection. Reducing the question count asks before removing populated questions. Changing entry types preserves the question draft. Quizzes are immutable after creation; create a replacement to change questions or keys.
 
-Enrollment now offers Generate QR code and Save QR image (SVG). Codes use the existing Android `aoa://subject/<UUID>` format. Generation and saving reauthorize the subject and instructor, and no account data, credentials or answer keys enter the image. The desktop also accepts a pasted Academy QR value. Mobile enrollment requires both clients to use the same organization server and still checks sign-in and student eligibility. PC-local demonstration subjects do not synchronize to a phone.
+Students select Start quiz, confirm readiness, and answer every question. Minimizing and expanding preserves answers in the current view. Final submission confirms the one allowed attempt and grades all questions on the server. The quiz then collapses, shows Done, and displays correct answers / total items, for example 8 / 10 correct. Expand the submitted quiz to review its questions without changing the submission. Results, instructor work views and Excel use the same score and maximum. Answer keys are never included in student question data.
 
-In Students & progress, View work allows activity/examination rating out of 100 and feedback. Saving a grade retains the visible item position. An acknowledged grade whose refresh fails cannot be accidentally resubmitted from the stale form. Export Excel includes current quiz and activity results for the current roster page (up to 100 students). The existing service defines one question per quiz and no weighted course grade.
+Existing one-question quizzes remain supported. QR enrollment, activity grading, material collapse, left-grip dragging, ordering and subject deletion are retained.
 
-Material grouping/collapse, left-grip dragging, keyboard ordering, subject deletion, IDs, learner records and schema 8 are retained. No database migration is introduced.
+## Installation and compatibility
 
-## Install and verify
+Extract the entire ZIP and launch Academy.exe. Default synthetic local accounts remain admin/admin, instructor/instructor and student/student. This version upgrades the workspace database from schema 8 to 9 and preserves existing IDs and learner records. Close and back up the local-test-workspace folder before the first launch. Rollback requires the previous app and its matching pre-upgrade backup; do not open a schema-9 database with the old version.
 
-Extract the entire ZIP, then open Academy.exe. Default local accounts are admin/admin, instructor/instructor, student/student. Close the previous app before upgrading; back up its local-test-workspace folder first. Local data remains in the existing user-data directory. The previous 0.3.2 candidate uses the same schema; retain its package and a matching backup for rollback.
+Organization servers must be upgraded separately. An older server limits the editor to one question. The existing Android companion does not attempt multiple-question quizzes; updated Android source shows the PC requirement and reads the correct score total. No APK is included in this Windows delivery.
 
-This is an unsigned Windows x64 release candidate. Exact automated Windows UI/startup/package results are in windows-verification.json inside the verified CI archive. Physical Windows accessibility/scaling, real provider access, organization deployment, cross-device enrollment and signed upgrades remain unverified. Android source and binary behavior are unchanged; Android build/lint remains a compatibility gate.
+This is an unsigned Windows x64 release candidate. Native Windows workflows, scoring/privacy/replay tests, legacy-data migrations, Excel totals, packaged startup and hashes are the automated delivery gates; exact results are in the packaged windows-verification.json. Physical Windows accessibility, real organization deployment and cross-device use remain unverified. There is no timer, proctoring, retake policy or weighted course grade; in-memory draft answers do not survive a crash or app exit.
