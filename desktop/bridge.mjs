@@ -147,7 +147,7 @@ export function validateOrigin(raw) {
 function validateRequest(path, options) {
   if (
     typeof path !== "string" ||
-    !/^\/v1\/[a-z0-9/-]+(?:\?offset=\d{1,6})?$/.test(path) ||
+    (!/^\/v1\/[a-z0-9/-]+(?:\?offset=\d{1,6})?$/.test(path) && !/^\/v1\/subjects\/[a-f0-9-]{36}\/export\?offset=\d{1,6}&timezone=[A-Za-z0-9_%+.-]{1,100}$/.test(path)) ||
     path.includes("//") ||
     path.length > 250
   )
@@ -246,8 +246,8 @@ export class AcademyBridge {
     }
     if (
       path.startsWith("/v1/auth/login") ||
-      path.endsWith("/export") ||
-      path.endsWith("/content")
+      path.split("?")[0].endsWith("/export") ||
+      path.split("?")[0].endsWith("/content")
     )
       throw new Error("Use the dedicated sign-in or export action.");
     const result = await this.fetch(path, options);
@@ -302,6 +302,7 @@ export class AcademyBridge {
       offset > 100000
     )
       throw new Error("Choose a subject and report page.");
-    return this.fetch(`/v1/subjects/${id}/export?offset=${offset}`, {}, true);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return this.fetch(`/v1/subjects/${id}/export?offset=${offset}&timezone=${encodeURIComponent(timeZone)}`, {}, true);
   }
 }

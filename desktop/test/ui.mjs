@@ -445,7 +445,7 @@ try {
   await action("export");
   const reportDir = join(directory,"report");
   await extract(join(directory,"test-report.xlsx"), {dir:reportDir});
-  const assessments = await readFile(join(reportDir,"xl/worksheets/sheet2.xml"),"utf8");
+  const assessments = await readFile(join(reportDir,"xl/worksheets/sheet3.xml"),"utf8");
   assert.match(assessments, /<v>95<\/v>/);
   const quizRow=assessments.match(/<row[^>]*>(?:(?!<\/row>)[\s\S])*Practice quiz(?:(?!<\/row>)[\s\S])*<\/row>/)?.[0];
   assert.ok(quizRow);

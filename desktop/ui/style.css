@@ -1173,3 +1173,13 @@ h3,
 .quiz-question legend {font-weight:600; line-height:1.6; overflow-wrap:anywhere;}
 .quiz-intro {margin-top:16px;}
 .result strong,.result span {display:block;}
+
+/* Keep each entry's actions alongside its type; wrap only on narrow panes. */
+.entry-topbar { display:flex; align-items:center; justify-content:space-between; gap:4px 12px; flex-wrap:wrap; margin-bottom:6px; }
+.entry-topbar .material-type { margin:0; align-items:center; flex-wrap:wrap; gap:6px; }
+.entry-actions { display:flex; align-items:center; gap:2px; margin-left:auto; flex-shrink:0; }
+.entry-actions button { min-height:30px; padding:4px 7px; font-size:11px; white-space:nowrap; }
+.entry-actions button svg { width:14px; height:14px; }
+.grade-status { color:#61738a; }
+.work-instructions { margin:12px 0; }
+.work-instructions summary { cursor:pointer; color:#61738a; font-size:12px; }

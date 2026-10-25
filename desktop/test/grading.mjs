@@ -1,0 +1,86 @@
+import { _electron } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+const directory=await mkdtemp(join(tmpdir(),'academy-grading-'));
+let app,page;
+try {
+ app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_DATA:directory}});
+ page=await app.firstWindow();page.setDefaultTimeout(15000);
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ const wait=()=>page.waitForFunction(()=>!state.busy);
+ const action=async(name)=>{await page.locator(`[data-action="${name}"]`).first().click();await wait();};
+ const login=async(role)=>{await page.locator(`[data-demo="${role}"]`).click();await page.locator('#login-form button[type=submit]').click();await page.waitForSelector('#app:not([hidden]) #center');await wait();};
+ await login('instructor');
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1480,960));
+ assert.equal(await page.locator('[data-action=edit-subject]').innerText(),'Edit');
+ await action('edit-subject');
+ assert.equal(await page.locator('[data-action=delete-subject]').count(),1);
+ await page.locator('#subject-form [name=title]').fill('Aeronautics reviewed');
+ await page.locator('#subject-form button.primary').click();await wait();
+ assert.equal(await page.locator('.subject-hero h1').innerText(),'Aeronautics reviewed');
+ const ids=await page.evaluate(async()=>{
+  const parent=state.items.find(item=>item.kind==='material').id;
+  const activities=[];
+  for(let n=0;n<8;n++)activities.push((await post(`/v1/subjects/${state.active.id}/items`,{kind:'activity',title:`Practice ${n+1}`,body:'Explain the four forces.',published:true,parent_id:parent})).id);
+  await post(`/v1/subjects/${state.active.id}/items`,{kind:'examination',title:'Written examination',body:'Discuss aircraft structures.',published:true});
+  await post(`/v1/subjects/${state.active.id}/items`,{kind:'quiz',title:'Quiz',body:'Choose one.',options:['A','B'],correct_index:1,published:true,parent_id:parent});
+  await reloadActive();return activities;
+ });
+ assert.equal(await page.locator('.entry-actions').count(),12);
+ assert.equal(await page.locator('.material-tools [data-action=edit]').count(),0);
+ assert.equal(await page.locator('.entry-actions [data-action=delete]').count(),12);
+ for(const width of [1480,1060]){
+  await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setContentSize(width,960),width);
+  assert.equal(await page.locator('#center').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  assert.equal(await page.locator('.entry-actions').evaluateAll(groups=>groups.every(group=>{const a=group.getBoundingClientRect(),b=group.closest('.material').getBoundingClientRect();return a.left>=b.left&&a.right<=b.right+1;})),true);
+ }
+ await mkdir(resolve('out/desktop-qa'),{recursive:true});
+ await page.screenshot({path:resolve('out/desktop-qa/compact-controls.png'),fullPage:true});
+ await action('logout');await login('student');
+ assert.equal(await page.locator('.entry-actions,[data-action=edit-subject]').count(),0);
+ await page.evaluate(async ids=>{for(const id of ids)await post(`/v1/items/${id}/submission`,{output:'Lift balances weight; thrust balances drag.'},crypto.randomUUID());},ids);
+ await action('logout');await login('instructor');await action('learners');await action('learner');
+ const form=id=>page.locator(`[data-item="${id}"] [data-form=grade]`);
+ const first=form(ids[0]),last=form(ids.at(-1));
+ await last.locator('[name=score]').fill('84.5');await last.locator('[name=feedback]').fill('Keep this draft.');
+ await first.locator('[name=score]').fill('0');await first.locator('[name=feedback]').fill('  Review instructions.  ');
+ await first.scrollIntoViewIfNeeded();
+ const top=await page.locator('#center').evaluate(el=>el.scrollTop);
+ await page.evaluate(()=>{window.originalCenter=document.querySelector('#center');window.originalForms=[...document.querySelectorAll('[data-form=grade]')];window.realRequest=desktopApi.request;desktopApi.request=async(path,...args)=>{if(path.endsWith('/grade'))throw Object.assign(new Error('Synthetic grading conflict'),{status:409});return realRequest(path,...args);};});
+ await first.locator('button').click();await wait();
+ assert.match(await page.locator('#toast').innerText(),/Synthetic grading conflict/);
+ assert.equal(await first.locator('[name=score]').inputValue(),'0');
+ assert.equal(await last.locator('[name=feedback]').inputValue(),'Keep this draft.');
+ await page.evaluate(()=>desktopApi.request=realRequest);
+ await first.locator('button').click();await wait();
+ assert.equal(await first.locator('[name=score]').inputValue(),'0');
+ assert.equal(await first.locator('[name=feedback]').inputValue(),'Review instructions.');
+ assert.equal(await first.locator('button').isDisabled(),true);
+ assert.match(await first.locator('.grade-status').innerText(),/^Saved/);
+ assert.equal(await last.locator('[name=score]').inputValue(),'84.5');
+ assert.equal(await last.locator('[name=feedback]').inputValue(),'Keep this draft.');
+ assert.equal(await page.evaluate(()=>state.dirty),true);
+ assert.equal(await page.evaluate(()=>originalCenter===document.querySelector('#center')&&originalForms.every((form,index)=>form===document.querySelectorAll('[data-form=grade]')[index])),true);
+ assert.ok(Math.abs(await page.locator('#center').evaluate(el=>el.scrollTop)-top)<2,'Saving retains scroll position');
+ const stamp=Number(await first.getAttribute('data-graded'));
+ await first.locator('[name=score]').fill('91');await first.locator('button').click();await wait();
+ assert.ok(Number(await first.getAttribute('data-graded'))>stamp,'Regrading uses acknowledged version');
+ await page.locator('[data-action=learners]').first().click();await page.waitForSelector('#confirm[open]');await page.locator('#confirm-no').click();await wait();
+ assert.equal(await last.locator('[name=score]').inputValue(),'84.5');
+ // An older service acknowledges the grade, then its read fails. Never offer stale resubmission.
+ await page.evaluate(()=>{desktopApi.request=async(path,...args)=>{if(path.includes('/learners/'))throw new Error('Synthetic refresh outage');const result=await realRequest(path,...args);return path.endsWith('/grade')?{graded:true}:result;};});
+ await last.locator('button').click();await wait();
+ assert.equal(await last.locator('button').isDisabled(),true);
+ assert.match(await last.locator('.grade-status').innerText(),/Saved · reopen/);
+ assert.equal(await page.evaluate(()=>state.dirty),false);
+ await page.evaluate(()=>desktopApi.request=realRequest);
+ await action('learners');await action('learner');
+ assert.equal(await form(ids.at(-1)).locator('[name=score]').inputValue(),'84.5');
+ assert.deepEqual(errors,[]);
+ console.log('PASS: visible subject editing; all four entry kinds have compact top actions; narrow layout; zero/regrades; other drafts and scroll preserved; failed saves retained; acknowledged old-service saves cannot replay stale grades.');
+} finally {
+ if(page)await page.evaluate(()=>state.dirty=false).catch(()=>{});
+ if(app)await app.close();await rm(directory,{recursive:true,force:true});
+}

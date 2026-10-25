@@ -231,12 +231,12 @@ test('Excel export is a real, scoped workbook with literal strings, numeric resu
   const checked=spawnSync('python3',['-c',`import sys,io,zipfile,xml.etree.ElementTree as E
 z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None
 n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
-w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Summary','Assessments','Report notes']
+w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Quiz scores','Summary','Assessments','Report notes']
 for f in z.namelist():
  if f.endswith('.xml'):
   x=E.fromstring(z.read(f)); assert not x.findall('.//s:f',n)
-s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
-assert 'Total enrolled students' in z.read('xl/worksheets/sheet3.xml').decode()
+s=E.fromstring(z.read('xl/worksheets/sheet2.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
+assert 'Total enrolled students' in z.read('xl/worksheets/sheet4.xml').decode()
 print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`],{input:result.body});
   assert.equal(checked.status,0,checked.stderr?.toString());
   const empty=await f.call('/v1/subjects/'+id+'/learners?offset=100',{token:i.token});assert.equal(empty.body.learners.length,0);assert.equal(empty.body.total,1);assert.equal(empty.body.next_offset,null);
@@ -602,5 +602,58 @@ test('multi-question quiz scores all answers atomically, hides keys, validates r
   f.app.db.exec("CREATE TRIGGER quiz_audit_failure BEFORE INSERT ON audit WHEN NEW.action='quiz-submit' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;");
   assert.equal((await f.call(`/v1/items/${other}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers:[0,1,2],expected_revision:1}})).status,500);
   assert.equal(f.app.db.prepare('SELECT COUNT(*) n FROM attempts WHERE item_id=?').get(other).n,0);
+ }finally{await f.close();}
+});
+
+
+test('activity grades commit atomically, return the saved version and reject stale regrading',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('atomic-grade-i@example.test','instructor'),s=await f.account('atomic-grade-s@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Atomic grading',description:'Synthetic'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id}});
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'activity',title:'Activity',body:'Explain your answer',published:true}})).body.id;
+  await f.call(`/v1/items/${item}/submission`,{method:'POST',token:s.token,key:randomUUID(),body:{output:'Student response'}});
+  const submission=f.app.db.prepare('SELECT * FROM submissions WHERE item_id=?').get(item);
+  const grade=body=>f.call(`/v1/submissions/${submission.id}/grade`,{method:'POST',token:i.token,body});
+  f.app.db.exec("CREATE TRIGGER grade_audit_failure BEFORE INSERT ON audit WHEN NEW.action='work-grade' BEGIN SELECT RAISE(ABORT,'synthetic audit outage'); END;");
+  assert.equal((await grade({score:85,feedback:'Not committed',expected_graded_at:null})).status,500);
+  assert.equal(f.app.db.prepare('SELECT score FROM submissions WHERE id=?').get(submission.id).score,null);
+  f.app.db.exec('DROP TRIGGER grade_audit_failure');
+  const saved=await grade({score:0,feedback:'  Review the instructions.  ',expected_graded_at:null});
+  assert.equal(saved.status,200);assert.equal(saved.body.submission.score,0);assert.equal(saved.body.submission.feedback,'Review the instructions.');
+  const stamp=saved.body.submission.graded_at;assert.ok(stamp);
+  assert.equal((await grade({score:100,feedback:'Stale',expected_graded_at:null})).status,409);
+  const updated=await grade({score:92.5,feedback:'Improved',expected_graded_at:stamp});
+  assert.equal(updated.status,200);assert.ok(updated.body.submission.graded_at>stamp);
+  const student=(await f.call(`/v1/items/${item}`,{token:s.token})).body.item;
+  assert.equal(student.submission.score,92.5);assert.equal(student.submission.feedback,'Improved');
+ }finally{await f.close();}
+});
+
+test('quiz score sheet uses dated columns, numeric counts, blank missing scores and current visible revisions',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('matrix-i@example.test','instructor'),s=await f.account('matrix-s@example.test','student','2026-001'),o=await f.account('matrix-o@example.test','student','2026-002');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Score matrix',description:'Synthetic'}})).body.id;
+  for(const student of [s,o])await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const add=async(title,published=true)=>(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'quiz',title,body:'Instructions',published,questions:[0,1,2].map(n=>({prompt:`Question ${n+1}`,options:['A','B','C'],correct_index:n}))}})).body.id;
+  const first=await add('Flight quiz'),zero=await add('Flight quiz'),missing=await add('Pending quiz'),hidden=await add('Hidden quiz',false),revised=await add('Revised quiz');
+  f.app.db.prepare('UPDATE items SET created_at=? WHERE subject_id=?').run(Date.parse('2026-10-25T17:00:00Z'),subject);
+  for(const [item,answers]of [[first,[0,1,0]],[zero,[1,2,0]],[revised,[0,1,2]]])assert.equal((await f.call(`/v1/items/${item}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers,expected_revision:1}})).status,201);
+  await f.call(`/v1/items/${revised}`,{method:'PATCH',token:i.token,body:{body:'New instructions require new work'}});
+  const report=await f.call(`/v1/subjects/${subject}/export?timezone=Asia%2FManila`,{token:i.token});assert.equal(report.status,200);
+  const {spawnSync}=await import('node:child_process');
+  const decoded=spawnSync('python3',['-c',`import sys,io,zipfile,json,xml.etree.ElementTree as E
+z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+x=E.fromstring(z.read('xl/worksheets/sheet1.xml'))
+def value(c):
+ v=c.find('s:v',n)
+ return float(v.text) if v is not None else ''.join(c.itertext())
+print(json.dumps([[value(c) for c in r] for r in x.findall('s:sheetData/s:row',n)]))`],{input:report.body});
+  assert.equal(decoded.status,0,decoded.stderr?.toString());const rows=JSON.parse(decoded.stdout);
+  assert.deepEqual(rows[0],['Student ID number','Name','2026-10-26 · Flight quiz','2026-10-26 · Flight quiz (2)','2026-10-26 · Pending quiz','2026-10-26 · Revised quiz']);
+  assert.deepEqual(rows.find(row=>row[0]==='2026-001').slice(2),[2,0,'','']);
+  assert.deepEqual(rows.find(row=>row[0]==='2026-002').slice(2),['','','','']);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export?timezone=invalid-zone`,{token:i.token})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export`,{token:s.token})).status,404);
  }finally{await f.close();}
 });

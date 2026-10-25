@@ -249,11 +249,23 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const subject=subjectFor(a,match[1],true),offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(subject.id,offset);
     const summary=[['Account ID','Name','Email','Account status','Read','Reading items','Read percent (self-reported)','Submitted','Required assessments','Compliance percent','Graded','Awaiting assessment','Completed items','Total items','Completion percent','Student ID number']];
     const details=[['Account ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC','Student ID number']];
+    const timeZone=url.searchParams.get('timezone')||'UTC';
+    let dateFormat;
+    try{dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'});}catch{requireThat(false,400,'Choose a valid report time zone.');}
+    const quizzes=page.items.filter(item=>item.kind==='quiz'),usedHeaders=new Map();
+    const quizHeaders=quizzes.map(item=>{
+     const parts=Object.fromEntries(dateFormat.formatToParts(new Date(item.created_at)).map(part=>[part.type,part.value]));
+     const label=`${parts.year}-${parts.month}-${parts.day} · ${item.title}`,count=(usedHeaders.get(label)||0)+1;
+     usedHeaders.set(label,count);return count===1?label:label+` (${count})`;
+    });
+    const quizScores=[['Student ID number','Name',...quizHeaders]];
     for(const student of page.students){const view=learnerView(student,subject.id,page.items,true),m=view.summary;
      summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent,student.student_number||'']);
+     const scores=new Map(view.items.filter(item=>item.kind==='quiz').map(item=>[item.id,item.score]));
+     quizScores.push([student.student_number||'',student.name,...quizzes.map(item=>scores.get(item.id)??'')]);
      for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'']);
     }
-    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz: correct answers / total questions; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
+    const bytes=workbook([{name:'Quiz scores',rows:quizScores},{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Quiz column dates', 'Quiz creation dates in '+timeZone+'; title identifies each quiz. Submission times are in Assessments.'],['Quiz scores','Numeric correct-answer counts only. Zero is a submitted score; blank means not submitted for the current revision.'],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz: correct answers / total questions; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
     audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/submission$/))&&method==='POST'){
@@ -272,7 +284,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const feedback=d.feedback===''?'':text(d.feedback,'feedback',1000);
     requireThat((d.expected_graded_at??null)===submission.graded_at,409,'The assessment changed. Refresh before saving.');
     const gradedAt=Math.max(now(),(submission.graded_at||0)+1);
-    run('UPDATE submissions SET score=?,feedback=?,grader_id=?,graded_at=? WHERE id=?',d.score,feedback,a.id,gradedAt,submission.id);audit(a.id,'work-grade',submission.id);return send(200,{graded:true});
+    transaction(()=>{run('UPDATE submissions SET score=?,feedback=?,grader_id=?,graded_at=? WHERE id=?',d.score,feedback,a.id,gradedAt,submission.id);audit(a.id,'work-grade',submission.id);});return send(200,{graded:true,submission:{id:submission.id,score:d.score,feedback,graded_at:gradedAt}});
    }
    if(path==='/v1/subjects'&&method==='GET'){
     const rows=a.role==='admin'?all('SELECT * FROM subjects WHERE archived=0 ORDER BY title LIMIT 200'):a.role==='instructor'?all('SELECT * FROM subjects WHERE archived=0 AND owner_id=? ORDER BY title LIMIT 200',a.id):all('SELECT s.* FROM subjects s JOIN enrolments e ON e.subject_id=s.id WHERE e.student_id=? AND s.archived=0 ORDER BY s.title LIMIT 200',a.id);

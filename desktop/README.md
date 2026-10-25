@@ -1,6 +1,6 @@
-# Aeronautical Open Academy for PC — 0.5.0
+# Aeronautical Open Academy for PC — 0.6.0-rc.1
 
-Windows 10/11 x64 desktop **stable distribution release**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
+Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
 ## Open the Windows application
 
@@ -55,11 +55,11 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.5.0-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.6.0-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
-See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows stable-channel release. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
+See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows release candidate. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
 
 The focused PC workflow does not yet include camera QR scanning, protected uploaded-PDF viewing/upload, account deletion/ID correction/password reset screens, administrator enrollment overrides, audit browsing, per-user subject-list dragging, or file attachments to submissions. Those existing Android/backend capabilities are preserved. Links are the desktop material path; no hosted content is copied into the app. Image references open at the original host in the browser, without an in-app gallery. Tasks derive from incomplete entries/drafts and have no due dates, notifications or calendar integration. Subject/item lists retain existing backend limits (200); discovery, rosters and admin accounts page in groups of 100. Remote providers, real Windows accessibility/font scaling, institution sign-in and real upgrade/rollback need device validation.
 
@@ -94,3 +94,14 @@ Schema 9 preserves existing one-question quizzes, IDs, attempts, links, grades a
 ## Stable distribution scope (0.5.0)
 
 Version 0.5.0 is published on GitHub’s stable release channel at the owner’s request. It promotes the verified 0.5.0-rc.1 feature set without behavior or schema changes. The stable-channel label identifies the distributed version; it does not turn unperformed physical-device, accessibility, provider, organization deployment or signed-upgrade checks into passes. The portable executable remains unsigned. Use the local synthetic workspace for evaluation; real organization deployment requires its own validated service and individually assigned accounts. All automated Windows/Android, startup, package integrity, security-audit and regression gates remain required on the exact final source.
+
+
+## Compact controls, grading and score exports (0.6.0-rc.1)
+
+Materials, examinations, quizzes and activities place Edit, Publish/Unpublish and Delete in their top bar. Controls wrap within narrow panes. The subject header has a labeled Edit button for title/description changes and confirmed deletion.
+
+In Students & progress → View work, read the response and expandable instructions, enter a score out of 100 and optional feedback, then Save grade. Only that form updates; other unsaved grades and the scroll position remain. Saved timestamps support conflict checks when regrading. A rejected write retains inputs. If an older server acknowledges a save but cannot refresh its saved timestamp, that form stays saved and cannot resubmit until reopened. Grades and audit records commit together on the updated backend.
+
+Export Excel opens with Quiz scores: one row per student and one column per published quiz. Headers use the quiz creation date (YYYY-MM-DD) in this PC’s time zone and the quiz title. Same-date duplicate titles receive a numbered suffix. Cells contain numeric correct-answer counts only; zero is an actual score and blank means not submitted for the current revision. Summary, Assessments (including totals, submitted times and activity grades), and Report notes follow. Exports cover the current roster page, up to 100 students. The backend must be updated for this workbook layout; older servers keep their previous export format.
+
+This candidate builds on stable pc-v0.5.0; schema 9 and existing records are unchanged. The earlier stable distribution decision applies to 0.5.0 only. Candidate automation does not claim physical Windows accessibility or live organization acceptance. Close and back up the workspace before replacing the app; keep a matching app/database backup for rollback.
