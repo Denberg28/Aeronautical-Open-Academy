@@ -1129,6 +1129,7 @@ document.addEventListener("submit", (event) => {
       if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(code))
         throw new Error("Enter the full subject code or Academy QR value.");
       await post(`/v1/subjects/${code}/enrol`, { source: "qr" });
+      state.dirty = false;
       await refreshData();
       await navigate("subject", code);
       toast("You’re enrolled.");

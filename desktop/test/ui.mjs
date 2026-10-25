@@ -498,7 +498,6 @@ try {
   await action("logout");
   await login("student");
   await action("discover");
-  const newSubjectId = await page.evaluate(() => state.active?.id);
   const discoveredId = await page.locator('[data-action="enrol"]').first().getAttribute('data-id');
   await page.locator('#join-code [name=code]').fill(`aoa://subject/${discoveredId}`);
   await submit('#join-code');
