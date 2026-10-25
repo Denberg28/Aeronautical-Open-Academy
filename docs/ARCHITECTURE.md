@@ -86,3 +86,10 @@ Canonical reads flatten each material followed by its children, preserving their
 Students must satisfy publication of both child and parent, and an active parent, on list/read/link/file/assessment routes. Published-item progress/report denominators use the same effective visibility. Removing a group archives all active children in one transaction only after explicit confirmation, matching order revision and authority over every child. Existing records are retained.
 
 Subject responses advertise tree_version:1; /v1/me adds capabilities.subject_tree:1. Older desktop/Android organization clients can consume the flattened compatible item shape, while current desktop disables nested controls against an older service. Schema 5 → 6 migration leaves old parents null; operator backup is mandatory before upgrading and old software must not silently downgrade the data.
+
+
+## Desktop subsections and schema 7
+
+Schema 7 replaces the parent constraints to permit a material subsection directly under a root material, with activities/quizzes under either level. Examinations stay at the root. Parent ownership and same-subject checks remain enforced; SQL rejects self-parenting and excess material depth. Material parent reassignment is not exposed by the API. Recursive canonical reads, publication checks and confirmed archive cover every descendant. Moving an assessment preserves revisions and learner records. Responses advertise tree_version/capabilities.subject_tree 2; capability-1 backends retain the former controls.
+
+The renderer keeps its scroll containers mounted on data refresh and restores the first surviving visible entry's offset (prefer the moved entry or drop target). Missing/deleted anchors fall back to another visible entry or a clamped scroll offset. Short FLIP motion uses current viewport geometry and honors reduced motion. Scroll restoration is immediate; intentional composer/new-entry reveal scrolls only as far as needed. No animation changes persisted data.

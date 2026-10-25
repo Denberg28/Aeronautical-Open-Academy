@@ -75,22 +75,28 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  function visibleToStudent(item){
   if(!item.published||item.archived)return false;
   if(!item.parent_id)return true;
-  const parent=get("SELECT published,archived,kind,subject_id FROM items WHERE id=?",item.parent_id);
-  return !!parent&&!!parent.published&&!parent.archived&&parent.kind==='material'&&parent.subject_id===item.subject_id;
+  const parent=get("SELECT * FROM items WHERE id=?",item.parent_id);
+  return !!parent&&parent.kind==='material'&&parent.subject_id===item.subject_id&&visibleToStudent(parent);
  }
  function orderedItems(subjectId){
   const rows=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id',subjectId);
   const children=new Map();
   for(const item of rows)if(item.parent_id){if(!children.has(item.parent_id))children.set(item.parent_id,[]);children.get(item.parent_id).push(item);}
-  return rows.filter(i=>!i.parent_id).flatMap(i=>[i,...(children.get(i.id)||[])]);
+  const visit=item=>[item,...(children.get(item.id)||[]).flatMap(visit)];
+  return rows.filter(i=>!i.parent_id).flatMap(visit);
+ }
+ function descendants(id){
+  return all(`WITH RECURSIVE tree AS (SELECT * FROM items WHERE parent_id=? AND archived=0 UNION ALL SELECT i.* FROM items i JOIN tree t ON i.parent_id=t.id WHERE i.archived=0) SELECT * FROM tree`,id);
  }
  function validateParent(a,parentId,subjectId,kind,examination){
   requireThat(parentId===null||typeof parentId==='string',400,'Choose a material in this subject.');
   if(parentId===null)return;
-  requireThat(['activity','quiz'].includes(kind)&&!examination,400,'Only activities and quizzes belong inside a material. Examinations stay at subject level.');
+  requireThat(!examination,400,'Examinations stay at subject level.');
   const parent=itemFor(a,parentId,true);
-  requireThat(parent.subject_id===subjectId&&parent.kind==='material'&&!parent.parent_id,400,'Choose a material in this subject.');
+  requireThat(parent.subject_id===subjectId&&parent.kind==='material',400,'Choose a material in this subject.');
+  requireThat(kind!=='material'||!parent.parent_id,400,'Add subsections directly inside a material.');
  }
+
  function itemFor(a,id,write=false){
   const item=get('SELECT * FROM items WHERE id=? AND archived=0',id);requireThat(item,404,'Material or activity unavailable.');subjectFor(a,item.subject_id);
   if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
@@ -156,7 +162,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:1,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:2,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -276,7 +282,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
     const subject=subjectFor(a,match[1]);const items=orderedItems(subject.id).slice(0,200).filter(i=>a.role!=='student'||visibleToStudent(i)).map(i=>presentItem(a,i));
-    return send(200,{subject,items,tree_version:1,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
+    return send(200,{subject,items,tree_version:2,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
@@ -325,16 +331,16 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      requireThat(parentId!==null,400,'Choose a material for this activity or quiz.');
      validateParent(a,parentId,item.subject_id,item.kind,false);
     }
-    const children=item.kind==='material'&&d.archived===true?all('SELECT * FROM items WHERE parent_id=? AND archived=0',item.id):[];
+    const children=item.kind==='material'&&d.archived===true?descendants(item.id):[];
     if(children.length){
-     requireThat(d.archive_children===true,409,'This material contains activities or quizzes. Confirm removing the whole material group.');
+     requireThat(d.archive_children===true,409,'This material contains subsections, activities or quizzes. Confirm removing the whole material group.');
      requireThat(d.expected_order_revision===subjectFor(a,item.subject_id,true).order_revision,409,'The material contents changed. Refresh before removing them.');
      requireThat(children.every(child=>canManage(a,child.owner_id)),403,'An administrator must remove entries created by another owner.');
     }
     transaction(()=>{
      run('UPDATE items SET title=?,body=?,published=?,archived=?,parent_id=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,parentId,changed?1:0,item.id);
      if(moving)run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=?) WHERE id=?',item.subject_id,item.id);
-     if(children.length)run('UPDATE items SET archived=1,edit_version=edit_version+1 WHERE parent_id=? AND archived=0',item.id);
+     for(const child of children)run('UPDATE items SET archived=1,edit_version=edit_version+1 WHERE id=?',child.id);
      if(d.archived===true||moving)run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',item.subject_id);
      audit(a.id,'item-edit',item.id);
     });return send(200,{saved:true});

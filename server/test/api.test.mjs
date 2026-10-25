@@ -389,7 +389,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:2,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -470,7 +470,7 @@ test('subject tree groups activities and quizzes, retains root examinations and 
   const first=await create('material','First material'),second=await create('material','Second material'),exam=await create('examination','Subject examination');
   const activity=await create('activity','Practice',{parent_id:first}),quiz=await create('quiz','Check understanding',{parent_id:first,options:['A','B'],correct_index:1});
   const view=async(token=owner.token)=>(await f.call(`/v1/subjects/${subject}`,{token})).body;
-  let detail=await view();assert.equal(detail.tree_version,1);assert.deepEqual(detail.items.map(i=>i.id),[first,activity,quiz,second,exam]);
+  let detail=await view();assert.equal(detail.tree_version,2);assert.deepEqual(detail.items.map(i=>i.id),[first,activity,quiz,second,exam]);
   assert.equal(detail.items.find(i=>i.id===exam).parent_id,null);assert.equal(detail.items.find(i=>i.id===activity).parent_id,first);
   assert.equal((await f.call(`/v1/items/${quiz}/quiz`,{method:'POST',token:student.token,key:randomUUID(),body:{choice:1}})).status,201);
   const oldRevision=detail.subject.order_revision;
@@ -481,7 +481,7 @@ test('subject tree groups activities and quizzes, retains root examinations and 
   assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,400);
   const other=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Other',description:'Other'}})).body.id;
   assert.equal((await f.call(`/v1/subjects/${other}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Wrong parent',body:'Wrong',parent_id:first}})).status,400);
-  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Nested material',body:'Wrong',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Nested material',body:'Subsection',parent_id:first}})).status,201);
   assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'examination',title:'Nested examination',body:'Wrong',parent_id:first}})).status,400);
   assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:student.token,body:{kind:'activity',title:'Forbidden',body:'Wrong',parent_id:first}})).status,404);
  }finally{await f.close();}
@@ -508,5 +508,31 @@ test('draft and archived material groups hide children from students, direct acc
   detail=(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body;assert.equal(detail.items.length,0);assert.equal(detail.summary.total,0);
   assert.equal(f.app.db.prepare('SELECT output FROM submissions WHERE item_id=?').get(child).output,'Saved work');
   assert.equal(f.app.db.prepare('SELECT archived FROM items WHERE id=?').get(child).archived,1);
+ }finally{await f.close();}
+});
+
+test('subsections inherit ancestor access and archive atomically while retaining nested learning records',async()=>{
+ const f=await fixture({materials:null});try{
+  const teacher=await f.account('subsection-teacher@example.test','instructor'),student=await f.account('subsection-student@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Subsections',description:'Nested learning'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const create=async(kind,title,parent_id)=>{const r=await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title,body:'Reference https://www.nasa.gov/',published:true,...(parent_id?{parent_id}:{}),...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}});assert.equal(r.status,201,JSON.stringify(r.body));return r.body.id;};
+  const root=await create('material','Chapter'),section=await create('material','Section',root),quiz=await create('quiz','Review',section);
+  const view=async(token=teacher.token)=>(await f.call(`/v1/subjects/${subject}`,{token})).body;
+  assert.deepEqual((await view()).items.map(i=>i.id),[root,section,quiz]);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Too deep',body:'No',parent_id:section}})).status,400);
+  assert.equal((await f.call(`/v1/items/${quiz}/quiz`,{method:'POST',token:student.token,key:randomUUID(),body:{choice:0,expected_revision:1}})).status,201);
+  await f.call(`/v1/items/${root}`,{method:'PATCH',token:teacher.token,body:{published:false,expected_edit_version:1}});
+  assert.equal((await view(student.token)).items.length,0);
+  for(const id of [section,quiz])assert.equal((await f.call(`/v1/items/${id}`,{token:student.token})).status,404);
+  assert.equal((await f.call(`/v1/items/${quiz}/open-link`,{method:'POST',token:student.token,body:{expected_revision:1,url:'https://www.nasa.gov/'}})).status,404);
+  await f.call(`/v1/items/${root}`,{method:'PATCH',token:teacher.token,body:{published:true,expected_edit_version:2}});
+  assert.equal((await view(student.token)).items.find(i=>i.id===quiz).attempt.score,1);
+  const revision=(await view()).subject.order_revision;
+  assert.equal((await f.call(`/v1/items/${root}`,{method:'PATCH',token:teacher.token,body:{archived:true,expected_edit_version:3}})).status,409);
+  assert.equal((await f.call(`/v1/items/${root}`,{method:'PATCH',token:teacher.token,body:{archived:true,archive_children:true,expected_edit_version:3,expected_order_revision:revision}})).status,200);
+  assert.equal((await view()).items.length,0);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM attempts WHERE item_id=?').get(quiz).n,1);
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM items WHERE subject_id=? AND archived=1').get(subject).n,3);
  }finally{await f.close();}
 });

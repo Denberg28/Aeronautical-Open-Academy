@@ -5,7 +5,7 @@ export function openDatabase(path){
   if(path!==':memory:')mkdirSync(dirname(path),{recursive:true,mode:0o700});
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>6){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>7){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
   if(version<2){
@@ -75,6 +75,24 @@ export function openDatabase(path){
           OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND p.parent_id IS NULL);
       END;
       PRAGMA user_version=6;
+      COMMIT;`);
+  }
+  if(version<7){
+    db.exec(`BEGIN IMMEDIATE;
+      DROP TRIGGER items_tree_insert;
+      DROP TRIGGER items_tree_update;
+      CREATE TRIGGER items_tree_insert BEFORE INSERT ON items WHEN NEW.parent_id IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.assessment_type='examination' OR NEW.id=NEW.parent_id
+          OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND (NEW.kind<>'material' OR p.parent_id IS NULL));
+      END;
+      CREATE TRIGGER items_tree_update BEFORE UPDATE OF parent_id,subject_id,kind,assessment_type ON items WHEN NEW.parent_id IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.assessment_type='examination' OR NEW.id=NEW.parent_id
+          OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND (NEW.kind<>'material' OR p.parent_id IS NULL))
+          OR (NEW.kind='material' AND EXISTS(SELECT 1 FROM items c WHERE c.parent_id=NEW.id AND c.kind='material' AND c.archived=0));
+      END;
+      PRAGMA user_version=7;
       COMMIT;`);
   }
   db.exec('PRAGMA busy_timeout=5000;');

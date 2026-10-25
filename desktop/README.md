@@ -1,4 +1,4 @@
-# Aeronautical Open Academy for PC — 0.2.0-rc.2
+# Aeronautical Open Academy for PC — 0.3.0-rc.1
 
 Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
@@ -38,7 +38,7 @@ Admins create accounts, suspend/reactivate access and publish/delete announcemen
 
 Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v6, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
 
-The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the updated schema-6 organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
+The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the updated schema-7 organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
 
 ## Development
 
@@ -55,7 +55,7 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.2.0-rc.2-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.3.0-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
@@ -68,3 +68,5 @@ The focused PC workflow does not yet include camera QR scanning, protected uploa
 Back up the closed local workspace or stopped organization backend before first launch/upgrade. This candidate adds nullable item parent IDs with validation and migration from schema 5 to 6. Existing IDs, ordering, links, learner work and grades are preserved; old standalone assessments are not automatically assigned to a material. The local demonstration on a fresh installation starts with a material and a child activity.
 
 An organization service must run this updated server to enable grouping. Android’s existing organization client can still read the canonical flattened order and perform its legacy flows; the Android UI and its independent local test workspace remain flat. Children hidden by their parent are denied by the server on every client, including direct link/submission routes. Reverting to schema-5 software requires restoring its matching database backup; do not open the upgraded database with the old server.
+
+Materials include **+ Subsection** for optional text/link subsections with activities and quizzes. Use the title chevron to minimize them. Dragging, saving and refresh preserve the center pane position and respect reduced-motion preferences. Back up the workspace before its schema-7 migration; rollback requires the prior app and matching database backup.

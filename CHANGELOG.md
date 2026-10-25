@@ -1,5 +1,12 @@
 # Changelog
 
+## PC 0.3.0-rc.1
+
+- Preserve the subject viewport after reorder, save and refresh; smooth movement feedback honors reduced motion.
+- Add optional collapsible material subsections with text/links, activities and quizzes.
+- Migrate to schema 7 with recursive visibility, ordering and confirmed subtree archive, preserving learner records.
+
+
 ## PC desktop 0.1.0-alpha.1 — 24 October 2026
 
 - Add a Windows desktop application with a spacious three-pane, single-page LMS workspace.
