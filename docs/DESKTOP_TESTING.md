@@ -1,6 +1,6 @@
-# Desktop verification — 0.2.0-rc.1
+# Desktop verification — 0.2.0-rc.2
 
-Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server adds schema-6 grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `cbd9286`. Date: 25 October 2026 (Asia/Manila).
+Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server adds schema-6 grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `3991aa3` (0.2.0-rc.1). Date: 25 October 2026 (Asia/Manila).
 
 ## Acceptance criteria
 
@@ -60,6 +60,13 @@ Extract the entire package and launch Academy.exe on Windows 10/11 x64. Test def
 Security audit: the unmaintained `extract-zip` packaging dependency was removed in favor of Electron's existing `@electron-internal/extract-zip` package, pinned at 1.0.6. No new runtime dependency is shipped. Run the current locked dependency audit again in Windows CI.
 
 API errors now cross the isolated desktop bridge as explicit data envelopes, preserving HTTP status. The renderer reconstructs errors locally, so a 401 reliably opens sign-in and same-account drafts can resume. The native UI test invalidates its underlying session and verifies this behavior.
+
+## Compact tree acceptance (0.2.0-rc.2)
+
+- Minimize/expand material children for instructor and student; counts and aria-expanded remain accurate. Refresh/order retain the preference during the sign-in; search reveals matching children and clearing it restores collapse. Task links reveal the target.
+- A nested editor cannot be minimized, and toggling an unrelated material preserves draft text. Student drafts stay in the DOM when minimized. Collapse does not call the backend or change publication.
+- Only left-rail grips reorder; no bottom drag handle or arrow controls remain. Native pointer drag supports before/after placement and Alt+Up/Down provides keyboard ordering. Material moves preserve children; child moves stay among siblings.
+- Compact cards and collapse controls remain within the center pane at normal/1060px layouts and 125/150/200% Chromium zoom.
 
 ## Subject tree acceptance (0.2)
 

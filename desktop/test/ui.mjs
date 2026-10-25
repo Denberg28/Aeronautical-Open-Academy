@@ -148,7 +148,8 @@ try {
     })
     .waitFor();
   newCard = page.locator(`[data-item="${materialId}"]`);
-  await action("move", '[data-direction="-1"]:not([disabled])');
+  await newCard.locator("[data-drag]").press("Alt+ArrowUp");
+  await page.waitForFunction(() => !state.busy);
   await action("add");
   await page.locator("#composer textarea").fill("Keep this draft");
   console.log("Cancel quit check");
@@ -229,7 +230,7 @@ try {
   const quizGroup = page.locator(`[data-group="${materialId}"]`);
   assert.equal(await quizGroup.locator(".tree-children").getByRole("heading",{name:"Practice quiz",exact:true}).count(),1);
   assert.equal(await quizGroup.locator("[data-add-parent]").last().getAttribute("data-add-parent"), materialId);
-  await newCard.locator('[data-action="move"][data-direction="1"]').click();
+  await newCard.locator("[data-drag]").press("Alt+ArrowDown");
   await page.waitForFunction(() => !state.busy);
   assert.equal(await page.locator(`[data-group="${materialId}"] .tree-children`).getByRole("heading",{name:"Practice quiz",exact:true}).count(),1);
   // Existing flat entries keep their IDs and can be explicitly assigned to a material.
@@ -247,10 +248,68 @@ try {
   assert.equal(retained.title,"Previous standalone activity");
   assert.equal(retained.body,"x".repeat(12000));
   assert.equal(retained.revision,1);
+  const childRegion = page.locator(`[data-children="${materialId}"]`);
+  const minimize = page.locator(`[data-action="toggle-material"][data-id="${materialId}"]`);
+  assert.equal(await page.locator('[data-action="move"]').count(),0);
+  assert.equal(await page.locator('.material-tools [data-drag]').count(),0);
+  assert.equal(await newCard.locator('.entry-rail [data-drag]').count(),1);
+  await minimize.click();
+  assert.equal(await childRegion.isVisible(),false);
+  assert.equal(await minimize.getAttribute("aria-expanded"),"false");
+  assert.equal(await page.locator(`[data-add-parent="${materialId}"]`).isVisible(),false);
+  assert.equal(await newCard.getByRole("heading").isVisible(),true);
+  await action("refresh");
+  assert.equal(await childRegion.isVisible(),false);
+  // Search temporarily opens matching children and restores the viewing preference.
   await page.locator("#search").fill("Previous standalone activity");
   assert.equal(await page.locator(`[data-group="${materialId}"]`).isVisible(),true);
   assert.equal(await page.locator(`[data-item="${legacyId}"]`).isVisible(),true);
+  assert.equal(await minimize.getAttribute("aria-expanded"),"true");
   await page.locator("#search").fill("");
+  assert.equal(await childRegion.isVisible(),false);
+  // Keyboard reorder retains collapsed groups, children and focused grip.
+  await newCard.locator("[data-drag]").press("Alt+ArrowDown");
+  await page.waitForFunction(() => !state.busy);
+  assert.equal(await childRegion.isVisible(),false);
+  assert.equal(await newCard.locator("[data-drag]").evaluate((el) => document.activeElement === el),true);
+  await minimize.click();
+  const quizId = await childRegion.locator('[data-item]').filter({has:page.getByRole("heading",{name:"Practice quiz",exact:true})}).getAttribute("data-item");
+  const quizCard = page.locator(`[data-item="${quizId}"]`);
+  // Keep the 12,000-character migration fixture, but use adjacent compact cards for pointer drags.
+  await action('add',`[data-parent="${materialId}"]`);
+  await page.locator('#composer textarea[name=text]').fill('Short drag activity');
+  await page.locator('#composer button[type=submit]').click();
+  await page.waitForFunction(() => !state.busy);
+  const dragCard = childRegion.locator('[data-item]').filter({has:page.getByRole('heading',{name:'Short drag activity',exact:true})});
+  const dragChildId = await dragCard.getAttribute('data-item');
+  await dragCard.locator('[data-drag]').press('Alt+ArrowUp');
+  await page.waitForFunction(() => !state.busy);
+  await quizCard.scrollIntoViewIfNeeded();
+  // Native drag from the left grip supports both before and after insertion.
+  await dragCard.locator('[data-drag]').dragTo(quizCard,{targetPosition:{x:80,y:8}});
+  await page.waitForFunction(() => !state.busy);
+  assert.deepEqual(await childRegion.locator('[data-item]').evaluateAll((cards) => cards.map((c) => c.dataset.item)),[dragChildId,quizId,legacyId]);
+  const bounds = await quizCard.boundingBox();
+  await dragCard.locator('[data-drag]').dragTo(quizCard,{targetPosition:{x:80,y:bounds.height-8}});
+  await page.waitForFunction(() => !state.busy);
+  assert.deepEqual(await childRegion.locator('[data-item]').evaluateAll((cards) => cards.map((c) => c.dataset.item)),[quizId,dragChildId,legacyId]);
+  // Remove the synthetic drag fixture so student workflows still exercise one quiz/activity pair.
+  await dragCard.locator('[data-action=delete]').click();
+  await page.locator('#confirm-yes').click();
+  await page.waitForFunction(() => !state.busy);
+  // Collapsing another section never rebuilds or clears the active draft.
+  await quizCard.locator('[data-action=edit]').click();
+  await page.locator('#composer textarea[name=text]').fill('Retain this nested draft');
+  assert.equal(await minimize.isDisabled(),true);
+  // Pick by ID rather than relying on section order.
+  const anotherId = await page.evaluate((id) => state.items.find((i) => i.kind==='material' && i.id!==id).id,materialId);
+  await action('toggle-material',`[data-id="${anotherId}"]`);
+  assert.equal(await page.locator('#composer textarea[name=text]').inputValue(),'Retain this nested draft');
+  await page.locator('[data-action=cancel-compose]').click();
+  await page.locator('#confirm-yes').click();
+  await page.waitForFunction(() => !state.busy);
+  assert.equal(await minimize.isDisabled(),false);
+  await action('toggle-material',`[data-id="${anotherId}"]`);
   await page.evaluate(() => {state.treeSupported=false;renderSubject();});
   assert.equal(await page.locator('[data-action=add][data-parent]:not([data-parent=""])').count(),0);
   await page.evaluate(() => {state.treeSupported=true;renderSubject();});
@@ -279,11 +338,24 @@ try {
     0,
   );
   assert.equal(await page.locator("[data-action=add]").count(), 0);
+  assert.equal(await page.locator('[data-drag]').count(),0);
+  const studentToggle = page.locator('[data-action=toggle-material]').first();
+  const studentRegion = page.locator('#'+await studentToggle.getAttribute('aria-controls'));
+  await studentToggle.click();
+  assert.equal(await studentRegion.isVisible(),false);
+  await studentToggle.click();
+  assert.equal(await studentRegion.isVisible(),true);
   await action("complete");
   const written = page.locator("article.material").filter({has:page.getByRole("heading",{name:"Reflect on the four forces",exact:true})}).locator("form[data-form=submission]");
   await written
     .locator("textarea")
     .fill("Lift balances weight. Thrust balances drag.");
+  const writtenParent = await written.evaluate((form) => form.closest('[data-item]').dataset.parent);
+  const writtenToggle = page.locator(`[data-action="toggle-material"][data-id="${writtenParent}"]`);
+  await writtenToggle.click();
+  assert.equal(await written.isVisible(),false);
+  await writtenToggle.click();
+  assert.equal(await written.locator('textarea').inputValue(),'Lift balances weight. Thrust balances drag.');
   await written.locator("button[type=submit]").click();
   await page.locator("#confirm-yes").click();
   await page.waitForFunction(
@@ -398,7 +470,7 @@ try {
     .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: contextual subject/material + controls, nested quiz creation/type switching, root examinations, material group moves; instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
+    "PASS: contextual subject/material + controls, collapsed sections/search/draft preservation, left-grip native drag before/after and keyboard reordering, nested quiz creation/type switching, root examinations, material group moves; instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
   );
 } catch (error) {
   console.error(error);

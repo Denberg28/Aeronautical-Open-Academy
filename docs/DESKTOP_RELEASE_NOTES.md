@@ -1,6 +1,10 @@
-# Aeronautical Open Academy for Windows — 0.2.0-rc.1
+# Aeronautical Open Academy for Windows — 0.2.0-rc.2
 
-25 October 2026 · Subject tree and contextual creation controls
+25 October 2026 · Compact subject tree and collapsible materials
+
+Material titles now have a chevron and child count to minimize or expand their activities and quizzes. Collapsed sections survive refresh/reorder for the current sign-in; search reveals matching children and clearing search restores the preference. Opening a task reveals its parent. A nested editor keeps its section open.
+
+Drag grips now sit in the left rail beside the content. Drop in the upper or lower half of a sibling to place an entry before or after it. Focus the grip and use Alt+Up / Alt+Down for keyboard reordering. The bottom drag handle and arrows are removed, with reduced card padding and spacing.
 
 Materials now contain their own activities and quizzes. Examinations stay at the subject level, alongside materials. Both instructor editing and student viewing show the same grouping.
 
@@ -11,7 +15,7 @@ Materials now contain their own activities and quizzes. Examinations stay at the
 
 The editor opens in place. Done saves the entry and restores the + at that same level. Editing appears next to the selected entry. Existing standalone activities and quizzes retain their IDs and learning history; choose Edit → Material to assign them explicitly.
 
-Moving a material carries its children. Child drag handles and arrows move within their own material; Edit → Material changes the parent. Structure changes preserve content revisions, submitted work and grades. Search keeps a matching child’s material context visible.
+Moving a material carries its children. Child grips move within their own material; Edit → Material changes the parent. Structure changes preserve content revisions, submitted work and grades. Search keeps a matching child’s material context visible.
 
 Unpublishing a material hides its children from student lists, tasks, results, reports and direct read/link/submission routes. Republishing restores their individual publication states. Removing a nonempty material confirms removal of the whole group with a current tree revision; archived learning records remain retained.
 

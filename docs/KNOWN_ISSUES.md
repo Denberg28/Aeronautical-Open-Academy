@@ -54,6 +54,8 @@ The first Windows candidate adds service labels and multiple references per mate
 
 Windows CI checks the native UI and packaged executable on Windows Server 2025; its delivered `windows-verification.json` records final results. This does not substitute for Windows 10/11 physical-device accessibility, provider sign-in, an institution deployment or signed upgrade validation. The package is unsigned, has no automatic updater, and remains a release candidate. Local test workspaces are per-PC, synthetic, and do not sync. An ambiguous write timeout can have committed remotely: refresh/check before recreating; automatic retries are intentionally absent. In-memory drafts do not survive application exit/crash.
 
-## PC subject tree candidate — 0.2.0-rc.1
+## PC subject tree candidate — 0.2.0-rc.2
 
 The tree requires the schema-6 backend bundled with the PC app. Organization servers must be upgraded separately; older services keep flat content and cannot create nested entries through the desktop. Existing standalone activities/quizzes are preserved and need explicit Edit → Material assignment. Android’s existing organization UI remains flat, and its independent local test data is unchanged. No physical-device tree validation or signed upgrade validation is claimed. Back up data before schema migration; rollback requires the matching pre-upgrade database.
+
+Material collapse preferences are local to the current sign-in and reset after logout/app restart. Search temporarily expands sections, and a nested editor prevents minimizing its section until saved/cancelled. Ordering uses left grips (or Alt+Up/Down on a focused grip), with children remaining in their material. No database migration beyond schema 6 is introduced by rc.2.
