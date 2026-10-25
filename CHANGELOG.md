@@ -1,5 +1,12 @@
 # Changelog
 
+## PC 0.3.1-rc.1
+
+- Remove subsection creation; retain Activity and Quiz inside materials.
+- Promote saved subsections to regular materials without losing content or learner records.
+- Move existing cards after acknowledged reorder, with stable drop markers, whole-group animation, precise before/after placement and bounded edge scrolling.
+
+
 ## PC 0.3.0-rc.1
 
 - Preserve the subject viewport after reorder, save and refresh; smooth movement feedback honors reduced motion.

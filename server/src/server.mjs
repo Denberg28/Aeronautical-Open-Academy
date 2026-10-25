@@ -91,10 +91,9 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  function validateParent(a,parentId,subjectId,kind,examination){
   requireThat(parentId===null||typeof parentId==='string',400,'Choose a material in this subject.');
   if(parentId===null)return;
-  requireThat(!examination,400,'Examinations stay at subject level.');
+  requireThat(['activity','quiz'].includes(kind)&&!examination,400,'Only activities and quizzes belong inside a material. Examinations stay at subject level.');
   const parent=itemFor(a,parentId,true);
-  requireThat(parent.subject_id===subjectId&&parent.kind==='material',400,'Choose a material in this subject.');
-  requireThat(kind!=='material'||!parent.parent_id,400,'Add subsections directly inside a material.');
+  requireThat(parent.subject_id===subjectId&&parent.kind==='material'&&!parent.parent_id,400,'Choose a material in this subject.');
  }
 
  function itemFor(a,id,write=false){
@@ -162,7 +161,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:2,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{subject_tree:1,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -282,7 +281,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
     const subject=subjectFor(a,match[1]);const items=orderedItems(subject.id).slice(0,200).filter(i=>a.role!=='student'||visibleToStudent(i)).map(i=>presentItem(a,i));
-    return send(200,{subject,items,tree_version:2,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
+    return send(200,{subject,items,tree_version:1,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
@@ -333,7 +332,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     }
     const children=item.kind==='material'&&d.archived===true?descendants(item.id):[];
     if(children.length){
-     requireThat(d.archive_children===true,409,'This material contains subsections, activities or quizzes. Confirm removing the whole material group.');
+     requireThat(d.archive_children===true,409,'This material contains activities or quizzes. Confirm removing the whole material group.');
      requireThat(d.expected_order_revision===subjectFor(a,item.subject_id,true).order_revision,409,'The material contents changed. Refresh before removing them.');
      requireThat(children.every(child=>canManage(a,child.owner_id)),403,'An administrator must remove entries created by another owner.');
     }

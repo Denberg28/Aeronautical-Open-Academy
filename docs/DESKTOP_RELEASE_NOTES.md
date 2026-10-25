@@ -1,21 +1,23 @@
-# Aeronautical Open Academy for Windows — 0.3.0-rc.1
+# Aeronautical Open Academy for Windows — 0.3.1-rc.1
 
-25 October 2026 · Smooth subject updates and optional subsections
+25 October 2026 · Simple material contents and smoother dragging
 
-Dragging, saving and refreshing retain the center pane and a visible entry anchor. The sidebar stays mounted. A short movement animation and saved-entry highlight provide feedback; reduced-motion preferences disable animation. Keyboard focus returns to the grip without scrolling the view to the top.
+Materials have one **+ Add activity or quiz** control. Subsection creation is removed. Subject-level creation remains Material or Examination; the chevron still minimizes a material's activities and quizzes.
 
-Each material includes **+ Subsection**, alongside **+ Add activity or quiz**. Subsections support text, multiple original sharing links, activities and quizzes. Their title chevron minimizes the body and nested work. Search temporarily reveals matching descendants; clearing search restores the minimized state. No empty subsection is created automatically. Examinations remain at subject level.
+Drag a left-side grip. One stable insertion line shows before/after placement without flickering as the pointer crosses text, links or buttons. Material groups move with their children. Only siblings can be reordered; Edit → Material remains the explicit way to assign an activity/quiz to another material.
 
-Root materials move with their entire subtree. Activities and quizzes can be assigned to a material or subsection with Edit → Material, retaining submissions and grades. Hiding a material hides every descendant from student access; removing a whole material confirms and archives all descendants atomically.
+After the server confirms the order, existing cards move in place rather than rebuilding the subject. A short animation moves whole groups, respecting reduced motion. Drops keep the moved header near the chosen destination. Keyboard focus returns without scrolling to the top. Failed/stale saves leave the prior view intact; no-op drops make no request. Bounded edge scrolling stops when the drag ends or is cancelled. Save or cancel a draft before pointer dragging.
 
-## Compatibility and upgrade
+## Existing data and upgrade
 
-The bundled local backend migrates schema 6 to 7 without changing existing IDs, content, grouping, submissions or grades. **Close Academy and back up the local workspace before upgrading.** Older app/backend versions cannot reopen schema-7 data; rollback requires the previous app and its matching database backup. Organization subsections require deploying this updated server (tree capability 2); older backends retain their supported controls. Android organization clients consume the flattened item list; the Android local test workspace is separate.
+Schema 8 converts saved subsections from 0.3.0 into regular materials, preserving IDs, text/links, activities/quizzes, reading records, submitted work and grades. A subsection hidden by its parent remains unpublished after conversion. Existing regular materials and assessments keep their grouping. No content is deleted.
+
+**Close Academy and back up the workspace before upgrading.** Earlier applications cannot reopen schema-8 data. Rollback needs the prior app and matching database backup. Organization deployments must update the backend. The Android local test workspace is separate.
 
 ## Verification and installation
 
-The Windows CI archive includes windows-verification.json, package-manifest.json and source-commit.txt. Required gates cover backend migration/permissions, desktop bridge and native UI workflows, long-subject scroll retention, subsection editing/collapse/search, native dragging, reduced motion, dependency audit, package integrity and packaged executable launch. Android compatibility must pass for this source. Consult per-commit evidence; source review alone is not a native Windows test.
+The CI-built ZIP includes source-commit.txt, windows-verification.json and package-manifest.json. Required checks cover 37 backend tests, four desktop bridge/link tests, native LMS and dragging suites, migration/reopen, failed saves, exact order persistence, marker cleanup, reduced motion, enlarged layouts, dependency audit, package hashes and packaged EXE startup. Android compatibility must pass on the same source tree. Per-commit CI evidence records the actual result.
 
-Extract the entire ZIP and open Academy.exe. Test accounts: admin/admin, instructor/instructor and student/student. Local test data stays on each PC.
+Extract the entire ZIP and open Academy.exe. Test logins: admin/admin, instructor/instructor, student/student. Local data stays on this PC.
 
-Unsigned release candidate. Physical Windows accessibility, real Google sharing/sign-in, organization deployment and signed upgrades remain unverified.
+Unsigned release candidate. Physical Windows accessibility, real Google/provider sign-in/sharing, organization deployment and signed upgrades remain unverified.

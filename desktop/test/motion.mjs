@@ -12,70 +12,105 @@ try {
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1480,960));
  await page.locator('[data-demo=instructor]').click();await page.locator('#login-form button[type=submit]').click();await page.waitForSelector('#app:not([hidden]) #center');await page.waitForFunction(()=>!state.busy);
  const ids=await page.evaluate(async()=>{
-  const subject=await post('/v1/subjects',{title:'Long subject',description:'Scroll retention test'});await loadSubject(subject.id);
-  const created=[];for(let n=0;n<16;n++)created.push((await post(`/v1/subjects/${subject.id}/items`,{kind:'material',title:`Lesson ${n+1}`,body:`Lesson ${n+1}\nDiscussion notes.`,published:true,material_mode:'text'})).id);
+  const subject=await post('/v1/subjects',{title:'Long subject',description:'Drag stability'});await loadSubject(subject.id);
+  const roots=[];for(let n=0;n<24;n++)roots.push((await post(`/v1/subjects/${subject.id}/items`,{kind:'material',title:`Lesson ${n+1}`,body:`Lesson ${n+1}\nDiscussion notes.`,published:true,material_mode:'text'})).id);
+  const first=(await post(`/v1/subjects/${subject.id}/items`,{kind:'activity',title:'First practice',body:'Write your response',published:true,parent_id:roots[12]})).id;
+  const second=(await post(`/v1/subjects/${subject.id}/items`,{kind:'activity',title:'Second practice',body:'Write your response',published:true,parent_id:roots[12]})).id;
+  const otherChild=(await post(`/v1/subjects/${subject.id}/items`,{kind:'activity',title:'Other material practice',body:'Write your response',published:true,parent_id:roots[13]})).id;
   await reloadActive();window.originalCenter=document.querySelector('#center');window.originalSidebar=document.querySelector('.sidebar');
-  return {root:created[12],last:created[15]};
+  return {root:roots[12],other:roots[13],first,second,otherChild};
  });
  const wait=()=>page.waitForFunction(()=>!state.busy);
  const action=async(name,id)=>{await page.locator(`[data-action="${name}"]${id?`[data-id="${id}"]`:''}`).first().click();await wait();};
- await page.locator(`[data-action=add-subsection][data-parent="${ids.root}"]`).click();await wait();
- assert.equal(await page.locator('#entry-kind').inputValue(),'material');
- await page.locator('#composer textarea[name=text]').fill('Subsection A\nInspect this aircraft structure reference.');
- await action('attach');await page.locator('#composer input[name=link]').fill('https://docs.google.com/document/d/synthetic/edit');
- await page.locator('#composer button[type=submit]').click();await wait();
- ids.section=await page.evaluate(()=>state.items.find(i=>i.title==='Subsection A').id);
- assert.equal(await page.locator(`[data-group="${ids.root}"] [data-item="${ids.section}"]`).count(),1);
- await page.locator(`[data-action=add][data-parent="${ids.section}"]`).click();await wait();
+ const card=id=>page.locator(`[data-item="${id}"]`);
+ assert.equal(await page.locator('[data-action=add-subsection]').count(),0);
+ await page.locator(`[data-action=add][data-parent="${ids.root}"]`).click();await wait();
  assert.deepEqual(await page.locator('#entry-kind option').evaluateAll(options=>options.map(o=>o.value)),['activity','quiz']);
- await page.locator('#composer textarea[name=text]').fill('Section exercise');await page.locator('#composer button[type=submit]').click();await wait();
- ids.child=await page.evaluate(()=>state.items.find(i=>i.title==='Section exercise').id);
- await action('toggle-material',ids.section);
- assert.equal(await page.locator(`[data-subsection-body="${ids.section}"]`).isVisible(),false);
- assert.equal(await page.locator(`[data-item="${ids.child}"]`).isVisible(),false);
- await page.locator('#search').fill('Section exercise');
- assert.equal(await page.locator(`[data-item="${ids.child}"]`).isVisible(),true);
- await page.locator('#search').fill('');assert.equal(await page.locator(`[data-item="${ids.child}"]`).isVisible(),false);
- // Capture actual viewport geometry well below the first screen.
- await page.locator(`[data-item="${ids.root}"]`).evaluate(el=>{document.querySelector('#center').scrollTop+=el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top-100;});
- const offset=()=>page.locator(`[data-item="${ids.root}"]`).evaluate(el=>el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top);
- await page.waitForTimeout(250);
- const original=await offset();assert.ok(await page.locator('#center').evaluate(el=>el.scrollTop)>1000);
+ await action('cancel-compose');
+ await action('toggle-material',ids.root);assert.equal(await card(ids.first).isVisible(),false);
+ await page.locator('#search').fill('First practice');assert.equal(await card(ids.first).isVisible(),true);
+ await page.locator('#search').fill('');assert.equal(await card(ids.first).isVisible(),false);
+ await card(ids.root).evaluate(el=>{document.querySelector('#center').scrollTop+=el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top-100;});
+ const offset=id=>card(id).evaluate(el=>el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top);
+ const original=await offset(ids.root);assert.ok(await page.locator('#center').evaluate(el=>el.scrollTop)>1000);
  await page.evaluate(()=>act(()=>reloadActive()));await wait();await page.waitForTimeout(250);
- assert.ok(Math.abs((await offset())-original)<3,`Refresh retains visible anchor within 3px: ${original} -> ${await offset()}`);
- assert.equal(await page.evaluate(()=>originalCenter===document.querySelector('#center')&&originalSidebar===document.querySelector('.sidebar')),true);
- // Keyboard movement keeps the moved item in place, including minimized descendants.
+ assert.ok(Math.abs((await offset(ids.root))-original)<3,'Refresh retains position');
+ await page.evaluate(({root,first})=>{window.heldGroup=groupFor(root);window.heldChild=groupFor(first);window.orderWrites=0;window.realRequest=desktopApi.request;desktopApi.request=async(path,...args)=>{if(path.endsWith('/order'))window.orderWrites++;return window.realRequest(path,...args);};},ids);
+ // Keyboard ordering moves the whole group without replacing any cards.
  await page.locator(`[data-drag="${ids.root}"]`).press('Alt+ArrowDown');await wait();await page.waitForTimeout(250);
- assert.ok(Math.abs((await offset())-original)<3,'Keyboard reorder keeps moved item near its previous viewport location');
- assert.equal(await page.locator(`[data-action=toggle-material][data-id="${ids.section}"]`).getAttribute('aria-expanded'),'false');
- // Native drag retains the drop destination, rather than resetting to the subject header.
- const sibling=await page.evaluate(id=>siblingsOf(state.items.find(i=>i.id===id)).find((i,index,all)=>all[index+1]?.id===id)?.id,ids.root);
- const destination=page.locator(`[data-item="${sibling}"]`);
- await destination.scrollIntoViewIfNeeded();
- const beforeDrop=await destination.evaluate(el=>el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top);
- await page.locator(`[data-drag="${ids.root}"]`).dragTo(destination,{targetPosition:{x:80,y:8}});await wait();await page.waitForTimeout(250);
- const afterDrop=await destination.evaluate(el=>el.getBoundingClientRect().top-document.querySelector('#center').getBoundingClientRect().top);
- assert.ok(Math.abs(afterDrop-beforeDrop)<3,`Drop destination retained within 3px: ${beforeDrop} -> ${afterDrop}`);
- await action('edit',ids.root);await page.locator('#composer textarea[name=text]').fill('Updated lesson\nDiscussion notes.');
- const beforeSave=await page.locator('#center').evaluate(el=>el.scrollTop);
- await page.locator('#composer button[type=submit]').click();await wait();await page.waitForTimeout(250);
- assert.ok(Math.abs(await page.locator('#center').evaluate(el=>el.scrollTop)-beforeSave)<500,'Save stays near the edited lesson');
- assert.ok(await page.locator('#center').evaluate(el=>el.scrollTop)>1000);
- // Reduced-motion users get the same anchored result without animation.
+ assert.ok(Math.abs((await offset(ids.root))-original)<3,`Keyboard retains moved header position: ${original} -> ${await offset(ids.root)}; ${JSON.stringify(await page.locator('#center').evaluate(el=>({top:el.scrollTop,height:el.clientHeight,scrollHeight:el.scrollHeight})))}`);
+ assert.equal(await page.evaluate(({root,first})=>heldGroup===groupFor(root)&&heldChild===groupFor(first),ids),true);
+ assert.equal(await page.locator(`[data-action=toggle-material][data-id="${ids.root}"]`).getAttribute('aria-expanded'),'false');
+ // Native drop keeps the moved header at its chosen boundary, not at the subject top.
+ await card(ids.other).scrollIntoViewIfNeeded();
+ const dropOffset=await offset(ids.other);
+ await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.other),{targetPosition:{x:80,y:8}});await wait();await page.waitForTimeout(250);
+ assert.ok(Math.abs((await offset(ids.root))-Math.max(24,dropOffset))<3,'Moved material lands at its drop location');
+ assert.equal(await page.evaluate(({root,first})=>heldGroup===groupFor(root)&&heldChild===groupFor(first),ids),true);
+ // A material dropped on another material's child resolves to that whole material.
+ const otherChildBounds=await card(ids.otherChild).boundingBox();
+ await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.otherChild),{targetPosition:{x:80,y:otherChildBounds.height-8}});await wait();await page.waitForTimeout(220);
+ assert.equal(await page.evaluate(({root,other})=>{const roots=rootsOf().map(i=>i.id);return roots.indexOf(root)===roots.indexOf(other)+1;},ids),true);
+ await action('toggle-material',ids.root);
+ // Before/after child placement and repeated moves persist the exact sibling order.
+ for(const after of [false,true,false]){
+  const target=card(ids.first);await target.scrollIntoViewIfNeeded();const box=await target.boundingBox();
+  await page.locator(`[data-drag="${ids.second}"]`).dragTo(target,{targetPosition:{x:80,y:after?box.height-8:8}});await wait();await page.waitForTimeout(220);
+  assert.deepEqual(await page.evaluate(id=>childrenOf(id).map(i=>i.id),ids.root),after?[ids.first,ids.second]:[ids.second,ids.first]);
+ }
+ // Gaps/add-slot space resolve to the last sibling boundary.
+ await page.locator(`[data-drag="${ids.first}"]`).dragTo(page.locator(`[data-add-parent="${ids.root}"]`),{targetPosition:{x:80,y:20}});await wait();await page.waitForTimeout(220);
+ assert.deepEqual(await page.evaluate(id=>childrenOf(id).map(i=>i.id),ids.root),[ids.second,ids.first]);
+ const beforeInvalid=await page.evaluate(()=>({order:state.items.map(i=>i.id),writes:window.orderWrites}));
+ await page.locator(`[data-drag="${ids.first}"]`).dragTo(card(ids.other),{targetPosition:{x:80,y:8}});await wait();
+ assert.deepEqual(await page.evaluate(()=>({order:state.items.map(i=>i.id),writes:window.orderWrites})),beforeInvalid,'Cross-parent drag is rejected without a write');
+ const persisted=await page.evaluate(async()=> (await api(`/v1/subjects/${state.active.id}`)).items.map(i=>i.id));
+ assert.deepEqual(persisted,await page.evaluate(()=>state.items.map(i=>i.id)));
+ assert.equal(await page.evaluate(()=>originalCenter===document.querySelector('#center')&&originalSidebar===document.querySelector('.sidebar')),true);
+ // Reordering has no refresh dependency, and a no-op produces no request.
+ const writesBeforeNoop=await page.evaluate(()=>window.orderWrites);
+ await page.evaluate(async({root})=>{const saved=reloadActive;reloadActive=async()=>{throw new Error('Unexpected reorder refresh');};try{await act(()=>reorder(flattenTree(rootsOf()),root));}finally{reloadActive=saved;}},ids);
+ assert.equal(await page.evaluate(()=>window.orderWrites),writesBeforeNoop);
+ const failed=await page.evaluate(async({root})=>{
+  const before=state.items.map(i=>i.id),revision=state.active.order_revision,nodes=[...document.querySelectorAll('[data-group]')];
+  const real=desktopApi.request;desktopApi.request=async(path,...args)=>{if(path.endsWith('/order'))throw Object.assign(new Error('Synthetic stale order'),{status:409});return real(path,...args);};
+  try{const roots=rootsOf();[roots[0],roots[1]]=[roots[1],roots[0]];await act(()=>reorder(flattenTree(roots),root));}finally{desktopApi.request=real;}
+  return {sameOrder:JSON.stringify(before)===JSON.stringify(state.items.map(i=>i.id)),sameNodes:nodes.every((node,index)=>node===document.querySelectorAll('[data-group]')[index]),sameRevision:revision===state.active.order_revision};
+ },ids);
+ assert.deepEqual(failed,{sameOrder:true,sameNodes:true,sameRevision:true});
+ // Moving across elements inside one target must not flicker the insertion marker.
+ await card(ids.first).scrollIntoViewIfNeeded();
+ const marker=await page.evaluate(({first,second})=>{
+  const grip=document.querySelector(`[data-drag="${second}"]`),target=groupFor(first),rect=target.getBoundingClientRect(),dataTransfer=new DataTransfer();
+  grip.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer,clientX:rect.left+30,clientY:rect.top+20}));
+  let changes=0;const observer=new MutationObserver(records=>changes+=records.length);observer.observe(target,{attributes:true,attributeFilter:['class']});
+  for(const element of [target.querySelector('h3'),target.querySelector('p'),target.querySelector('button')].filter(Boolean)){
+   element.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer,clientX:rect.left+80,clientY:rect.top+12}));
+   element.dispatchEvent(new DragEvent('dragleave',{bubbles:true,relatedTarget:target.querySelector('h3'),clientX:rect.left+80,clientY:rect.top+12}));
+  }
+  changes+=observer.takeRecords().length;observer.disconnect();
+  const result={markers:document.querySelectorAll('.drop-before,.drop-after').length,changes};
+  grip.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer}));return {...result,remaining:document.querySelectorAll('.drop-before,.drop-after,.is-dragging,.drag-preview').length};
+ },ids);
+ assert.equal(marker.markers,1);assert.ok(marker.changes<=1,`One stable marker: ${JSON.stringify(marker)}`);assert.equal(marker.remaining,0);
+ // Edge scrolling is bounded to the center and stops on cancellation.
+ await page.evaluate(({second})=>{const grip=document.querySelector(`[data-drag="${second}"]`),rect=document.querySelector('#center').getBoundingClientRect(),dataTransfer=new DataTransfer();grip.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer,clientX:rect.left+60,clientY:rect.bottom-10}));dragSession.x=rect.left+60;dragSession.y=rect.bottom-10;},ids);
+ const beforeEdge=await page.locator('#center').evaluate(el=>el.scrollTop);await page.waitForTimeout(180);
+ const afterEdge=await page.locator('#center').evaluate(el=>el.scrollTop);assert.ok(afterEdge>beforeEdge&&afterEdge-beforeEdge<100,'Bounded edge scrolling');
+ await page.evaluate(()=>document.dispatchEvent(new DragEvent('dragleave',{bubbles:true,clientX:0,clientY:0})));
+ const left=await page.locator('#center').evaluate(el=>el.scrollTop);await page.waitForTimeout(100);assert.equal(await page.locator('#center').evaluate(el=>el.scrollTop),left,'Leaving the pane stops auto-scroll');
+ await page.evaluate(()=>endDrag());const stopped=await page.locator('#center').evaluate(el=>el.scrollTop);await page.waitForTimeout(100);assert.equal(await page.locator('#center').evaluate(el=>el.scrollTop),stopped);
  await page.emulateMedia({reducedMotion:'reduce'});
- await page.evaluate(()=>act(()=>reloadActive()));await wait();
+ await page.locator(`[data-drag="${ids.root}"]`).press('Alt+ArrowDown');await wait();
  assert.equal(await page.locator('#center').evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);
- await action('toggle-material',ids.section);
- await action('edit',ids.child);await page.locator('#composer textarea[name=text]').fill('Retained nested draft');
- assert.equal(await page.locator(`[data-action=toggle-material][data-id="${ids.root}"]`).isDisabled(),true);
- assert.equal(await page.locator(`[data-action=toggle-material][data-id="${ids.section}"]`).isDisabled(),true);
- await page.locator('[data-action=cancel-compose]').click();await page.locator('#confirm-yes').click();await wait();
- // Explicit hide/unhide of the root never leaks nested items into student views.
- await action('publish',ids.root);
- await action('logout');await page.locator('[data-demo=student]').click();await page.locator('#login-form button[type=submit]').click();await wait();
+ await action('edit',ids.root);await page.locator('#composer textarea[name=text]').fill('Updated lesson\nDiscussion notes.');
+ const beforeSave=await page.locator('#center').evaluate(el=>el.scrollTop);await page.locator('#composer button[type=submit]').click();await wait();
+ assert.ok(Math.abs(await page.locator('#center').evaluate(el=>el.scrollTop)-beforeSave)<500,'Save stays near the update');
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1060,720));
+ for(const zoom of [1,1.25,1.5,2]){await app.evaluate(({BrowserWindow},value)=>BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(value),zoom);assert.ok(await page.locator('#center').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`Fits at zoom ${zoom}`);}
  assert.deepEqual(errors,[]);
- console.log('PASS: subsection link/create/nested activity/search/collapse; long-subject refresh, keyboard and native drag anchors within 3px; save continuity, retained pane nodes, reduced-motion and nested draft guards.');
+ console.log('PASS: Activity/Quiz-only creation; stable pane/card identities; refresh/keyboard/drop anchors; repeated native before/after drops; exact persisted order; stale-save recovery; marker stability/cancellation; bounded edge scroll; reduced motion; save continuity and enlarged layouts.');
 } finally {
- if(page)await page.evaluate(()=>state.dirty=false).catch(()=>{});
+ if(page)await page.evaluate(()=>{endDrag();state.dirty=false;}).catch(()=>{});
  if(app)await app.close();await rm(directory,{recursive:true,force:true});
 }

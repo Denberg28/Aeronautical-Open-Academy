@@ -163,7 +163,7 @@ function nav(label, action, glyph, active = false, extra = "") {
 function shell() {
   const a = state.account;
   $("#app").innerHTML =
-    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.3.0-rc.1</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· 0.3.1-rc.1</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
@@ -188,7 +188,6 @@ async function loadSubject(id) {
   state.active = data.subject;
   state.items = data.items;
   state.treeSupported = data.tree_version >= 1;
-  state.subsectionsSupported = data.tree_version >= 2;
   state.summary = data.summary || null;
   state.compose = null;
   state.dirty = false;
@@ -257,10 +256,8 @@ function syncMaterialSections() {
     const editing = Boolean(region.querySelector("#composer")) || Boolean(document.querySelector(`[data-edit-slot="${id}"] #composer`));
     const expanded = !state.collapsedMaterials.has(id) || Boolean(state.search) || editing;
     region.hidden = !expanded;
-    const content = document.querySelector(`[data-subsection-body="${id}"]`);
-    if (content) content.hidden = !expanded;
     toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} ${content ? "subsection" : "activities and quizzes"}`);
+    toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} activities and quizzes`);
     toggle.disabled = Boolean(state.search) || editing;
     toggle.title = editing ? "Finish or cancel editing before minimizing" : state.search ? "Clear search to minimize" : expanded ? "Minimize section" : "Expand section";
   }
@@ -268,7 +265,7 @@ function syncMaterialSections() {
 function treeMarkup(items = rootsOf(), prefix = "") {
   return items.map((item, index) => {
     const number = prefix ? `${prefix}.${index+1}` : String(index+1).padStart(2,"0");
-    return `<section class="subject-group ${item.parent_id && item.kind === "material" ? "subsection-group" : ""} ${item.kind === "material" ? "material-group" : "assessment-group"}" data-group="${escape(item.id)}">${itemCard(item,index,number)}${item.kind === "material" ? `<div class="tree-children" id="children-${escape(item.id)}" data-children="${escape(item.id)}" role="region" aria-label="Contents for ${escape(item.title)}">${treeMarkup(childrenOf(item.id),number)}${manage() && owned(item) && state.treeSupported ? `<div class="composer-slot" data-add-parent="${escape(item.id)}"></div>` : ""}</div>` : ""}</section>`;
+    return `<section class="subject-group ${item.kind === "material" ? "material-group" : "assessment-group"}" data-group="${escape(item.id)}">${itemCard(item,index,number)}${item.kind === "material" ? `<div class="tree-children" id="children-${escape(item.id)}" data-children="${escape(item.id)}" role="region" aria-label="Contents for ${escape(item.title)}">${treeMarkup(childrenOf(item.id),number)}${manage() && owned(item) && state.treeSupported ? `<div class="composer-slot" data-add-parent="${escape(item.id)}"></div>` : ""}</div>` : ""}</section>`;
   }).join("");
 }
 function itemCard(item, index, number) {
@@ -280,7 +277,7 @@ function itemCard(item, index, number) {
         ? "Quiz"
         : item.kind === "activity"
           ? "Written activity"
-          : item.parent_id ? "Subsection" : "Material";
+          : "Material";
   let student = "";
   if (!manage()) {
     if (item.kind === "material")
@@ -294,7 +291,7 @@ function itemCard(item, index, number) {
         ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<p class="preserve">${escape(item.submission.feedback)}</p>` : ""}<details><summary>Your response</summary><p class="preserve">${escape(item.submission.output)}</p></details></div>`
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${item.kind === "material" && item.parent_id ? `<div data-subsection-body="${escape(item.id)}">` : ""}${bodyParts(item)}${student}${editable ? `<div class="material-tools">${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}${item.kind === "material" && item.parent_id ? "</div>" : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${bodyParts(item)}${student}${editable ? `<div class="material-tools">${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -350,8 +347,7 @@ function renderComposer() {
   document.querySelectorAll(".entry-editor").forEach((slot) => { slot.innerHTML = ""; });
   document.querySelectorAll("[data-add-parent]").forEach((slot) => {
     const parent = slot.dataset.addParent;
-    const material = state.items.find((entry) => entry.id === parent);
-    slot.innerHTML = (parent && !material?.parent_id && state.subsectionsSupported ? button(icon("plus") + " Subsection", "add-subsection", `data-parent="${escape(parent)}" aria-label="Add subsection to this material"`, "add-line") : "") + button(icon("plus") + (parent ? " Add activity or quiz" : " Add material or examination"), "add", `data-parent="${escape(parent)}" aria-label="${parent ? "Add activity or quiz to this material" : "Add material or examination to this subject"}"`, "add-line");
+    slot.innerHTML = button(icon("plus") + (parent ? " Add activity or quiz" : " Add material or examination"), "add", `data-parent="${escape(parent)}" aria-label="${parent ? "Add activity or quiz to this material" : "Add material or examination to this subject"}"`, "add-line");
   });
   if (!state.compose) { syncMaterialSections(); restorePosition(position); return; }
   const item = state.compose.item;
@@ -360,7 +356,7 @@ function renderComposer() {
   const slot = item ? document.querySelector(`[data-edit-slot="${item.id}"]`) : document.querySelector(`[data-add-parent="${parentId}"]`);
   if (!slot) return;
   const kind = item ? (item.assessment_type === "examination" ? "examination" : item.kind) : state.compose.kind || (parentId ? "activity" : "material");
-  const choices = parentId ? [...(!parent?.parent_id && state.subsectionsSupported ? [["material", "Subsection / links"]] : []), ["activity", "Activity"], ["quiz", "Quiz"]] : [["material", "Material / links"], ["examination", "Examination"]];
+  const choices = parentId ? [["activity", "Activity"], ["quiz", "Quiz"]] : [["material", "Material / links"], ["examination", "Examination"]];
   const parentChoices = item && ["activity", "quiz"].includes(item.kind) && item.assessment_type !== "examination" && state.treeSupported ? `<label>Material<select name="parent_id" aria-label="Parent material" required>${!item.parent_id ? '<option value="">Choose a material to group this entry</option>' : ""}${state.items.filter((entry) => entry.kind === "material" && (owned(entry) || entry.id === item.parent_id)).map((entry) => `<option value="${escape(entry.id)}" ${entry.id === item.parent_id ? "selected" : ""}>${escape((entry.parent_id ? "↳ " : "") + entry.title)}</option>`).join("")}</select></label>` : "";
   let text = item?.body || "";
   if (item && text.split("\n")[0].trim() !== item.title.trim()) text = item.title + "\n" + text;
@@ -569,7 +565,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in one workspace.") +
-    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Subsection and + Add activity or quiz below its last child. A subsection holds text, links, activities and quizzes; minimize it with the chevron beside its title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
+    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. Minimize its activities and quizzes with the chevron beside the material title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, unpublish or delete an entry using the controls beneath it.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Students join using Find a subject or a subject code. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes are one question per entry, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment uses codes rather than camera QR scanning.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -590,7 +586,7 @@ function capturePosition(preferredId) {
   const preferred = cards.find((el) => el.dataset.item === preferredId);
   const anchors = cards.filter((el) => { const rect = el.getBoundingClientRect(); return rect.bottom > top && rect.top < top + center.clientHeight; });
   if (preferred && anchors.includes(preferred)) anchors.unshift(preferred);
-  return { subject: state.active?.id, scroll: center.scrollTop, anchors: [...new Set(anchors)].map((el) => ({ id: el.dataset.item, offset: el.getBoundingClientRect().top - top })), rects: new Map(cards.map((el) => [el.dataset.item,el.getBoundingClientRect().top])) };
+  return { subject: state.active?.id, scroll: center.scrollTop, anchors: [...new Set(anchors)].map((el) => ({ id: el.dataset.item, offset: el.getBoundingClientRect().top - top })) };
 }
 function restorePosition(position, feedbackId, animate = false) {
   const center = $("#center");
@@ -603,13 +599,6 @@ function restorePosition(position, feedbackId, animate = false) {
     break;
   }
   if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    for (const card of center.querySelectorAll("[data-item]")) {
-      const rect = card.getBoundingClientRect();
-      const previous = position.rects.get(card.dataset.item);
-      const delta = previous - rect.top;
-      if (Number.isFinite(delta) && Math.abs(delta) > 1 && Math.abs(delta) < center.clientHeight && rect.bottom > center.getBoundingClientRect().top && rect.top < center.getBoundingClientRect().bottom)
-        card.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], { duration: 180, easing: "ease-out" });
-    }
     const changed = document.querySelector(`[data-item="${feedbackId}"]`);
     if (changed) changed.animate([{ backgroundColor: "#edf3fc" }, { backgroundColor: "#ffffff" }], { duration: 420 });
   }
@@ -632,13 +621,53 @@ async function reloadActive({position = capturePosition(), feedbackId} = {}) {
   restorePosition(position, feedbackId, true);
 }
 
-async function reorder(ids, anchorId) {
+const groupFor = (id) => document.querySelector(`[data-group="${id}"]`);
+function updateEntryNumbers(items = rootsOf(), prefix = "") {
+  items.forEach((item,index) => {
+    const number = prefix ? `${prefix}.${index+1}` : String(index+1).padStart(2,"0");
+    const rail = groupFor(item.id)?.querySelector(":scope > [data-item] > .entry-rail .number");
+    if (rail) rail.textContent = number;
+    updateEntryNumbers(childrenOf(item.id), number);
+  });
+}
+async function reorder(ids, anchorId, {movedId = anchorId, placement} = {}) {
+  if (ids.every((id,index) => id === state.items[index]?.id)) return;
   const position = capturePosition(anchorId);
-  await post(`/v1/subjects/${state.active.id}/order`, {
+  const moved = state.items.find((item) => item.id === movedId);
+  const siblings = siblingsOf(moved);
+  const oldTops = new Map(siblings.map((item) => [item.id, groupFor(item.id)?.getBoundingClientRect().top]));
+  if (placement) {
+    // Put the moved header at the chosen drop boundary, keeping it on screen.
+    const target = groupFor(placement.id);
+    const center = $("#center");
+    const boundary = placement.after ? target.getBoundingClientRect().bottom + 16 : target.querySelector(":scope > [data-item]").getBoundingClientRect().top;
+    position.anchors.unshift({id:movedId, offset:Math.max(24,Math.min(center.clientHeight-120,boundary-center.getBoundingClientRect().top))});
+  }
+  const result = await post(`/v1/subjects/${state.active.id}/order`, {
     item_ids: ids,
     expected_revision: state.active.order_revision,
   });
-  await reloadActive({position, feedbackId: anchorId});
+  // Apply only after acknowledgement. Failed/stale saves leave the current tree intact.
+  const byId = new Map(state.items.map((item) => [item.id,item]));
+  state.items = ids.map((id) => byId.get(id));
+  state.active.order_revision = result.revision;
+  const container = groupFor(movedId).parentElement;
+  const slot = [...container.children].find((el) => el.matches("[data-add-parent]"));
+  const fragment = document.createDocumentFragment();
+  for (const item of siblingsOf(moved)) fragment.append(groupFor(item.id));
+  container.insertBefore(fragment,slot || null);
+  updateEntryNumbers();
+  restorePosition(position);
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    for (const item of siblingsOf(moved)) {
+      const group = groupFor(item.id), rect = group.getBoundingClientRect();
+      const delta = oldTops.get(item.id)-rect.top;
+      if (Number.isFinite(delta) && Math.abs(delta)>1 && Math.abs(delta)<$("#center").clientHeight && rect.bottom>$("#center").getBoundingClientRect().top && rect.top<$("#center").getBoundingClientRect().bottom)
+        group.animate([{transform:`translateY(${delta}px)`},{transform:"translateY(0)"}],{duration:170,easing:"cubic-bezier(.2,.7,.2,1)"});
+    }
+  }
+  renderRight();
+  requestAnimationFrame(() => document.querySelector(`[data-drag="${movedId}"]`)?.focus({preventScroll:true}));
   toast("Order saved.");
 }
 
@@ -742,11 +771,11 @@ document.addEventListener("click", (event) => {
       showLogin();
       return;
     }
-    if (action === "add" || action === "add-subsection") {
+    if (action === "add") {
       if (!(await leaveDraft())) return;
       const parentId = target.dataset.parent || "";
       if (parentId && !state.treeSupported) throw new Error("Update the learning service to use the subject tree.");
-      state.compose = { parentId, kind: action === "add-subsection" ? "material" : parentId ? "activity" : "material" };
+      state.compose = { parentId, kind: parentId ? "activity" : "material" };
       renderComposer();
       revealNearby($("#composer"));
       $("#composer textarea").focus({preventScroll:true});
@@ -810,7 +839,7 @@ document.addEventListener("click", (event) => {
       if (
         !(await confirmAction(
           "Delete this entry?",
-          children.length ? `Remove this material and its ${children.length} subsections/activities/quizzes? Historical learning records are retained.` : "This removes it from the subject. Historical learning records are retained.",
+          children.length ? `Remove this material and its ${children.length} activities/quizzes? Historical learning records are retained.` : "This removes it from the subject. Historical learning records are retained.",
           "Delete entry",
         ))
       )
@@ -1145,56 +1174,119 @@ document.addEventListener("keydown", (event) => {
     await reorder(item.parent_id ? flattenTree(rootsOf(), new Map([[item.parent_id, siblings]])) : flattenTree(siblings), id);
   }).then(() => document.querySelector(`[data-drag="${id}"]`)?.focus({preventScroll:true}));
 });
-let dragId;
+let dragSession = null;
+function clearDropMarker() {
+  document.querySelectorAll(".drop-before,.drop-after").forEach((group) => group.classList.remove("drop-before","drop-after"));
+  if (dragSession) dragSession.placement = null;
+}
+function endDrag() {
+  if (dragSession?.frame) cancelAnimationFrame(dragSession.frame);
+  document.querySelectorAll(".is-dragging,.drag-preview").forEach((el) => el.matches(".drag-preview") ? el.remove() : el.classList.remove("is-dragging"));
+  clearDropMarker();
+  dragSession = null;
+}
+function updateDropPlacement(x,y) {
+  if (!dragSession) return null;
+  const source = state.items.find((item) => item.id === dragSession.id);
+  const element = document.elementFromPoint(x,y);
+  const center = $("#center"), bounds = center.getBoundingClientRect();
+  if (!element || x<bounds.left || x>bounds.right || y<bounds.top || y>bounds.bottom) { clearDropMarker(); return null; }
+  let group = element.closest("[data-group]");
+  while (group) {
+    const item = state.items.find((entry) => entry.id === group.dataset.group);
+    if ((item?.parent_id || null) === (source.parent_id || null)) break;
+    group = group.parentElement.closest("[data-group]");
+  }
+  if (!group) {
+    const container = groupFor(source.id).parentElement;
+    if (container.contains(element)) {
+      let nearest = Infinity;
+      for (const item of siblingsOf(source)) {
+        const candidate = groupFor(item.id);
+        if (item.id===source.id || !candidate?.getClientRects().length) continue;
+        const rect = candidate.getBoundingClientRect();
+        const distance = Math.max(rect.top-y, y-rect.bottom, 0);
+        if (distance<nearest) { nearest=distance; group=candidate; }
+      }
+    }
+  }
+  if (!group || group.dataset.group===source.id) { clearDropMarker(); return null; }
+  const rect = group.getBoundingClientRect(), midpoint = rect.top+rect.height/2;
+  const previous = dragSession.placement;
+  // A small deadband prevents a stationary pointer alternating around the midpoint.
+  const after = previous?.id===group.dataset.group && Math.abs(y-midpoint)<7 ? previous.after : y>=midpoint;
+  if (previous?.id!==group.dataset.group || previous.after!==after) {
+    clearDropMarker();
+    group.classList.add(after ? "drop-after" : "drop-before");
+    dragSession.placement = {id:group.dataset.group,after};
+  }
+  return dragSession.placement;
+}
+function dragAutoScroll(time) {
+  if (!dragSession) return;
+  const center = $("#center"), bounds = center.getBoundingClientRect();
+  const {x,y} = dragSession;
+  const step = Math.min(32,time-(dragSession.time || time));
+  dragSession.time = time;
+  if (x>=bounds.left && x<=bounds.right && y>=bounds.top && y<=bounds.bottom) {
+    const edge=52, distance=y<bounds.top+edge ? y-bounds.top-edge : y>bounds.bottom-edge ? y-bounds.bottom+edge : 0;
+    if (distance) {
+      const previous = center.scrollTop;
+      center.scrollTop += Math.max(-1,Math.min(1,distance/edge))*step*.42;
+      if (center.scrollTop!==previous) updateDropPlacement(x,y);
+    }
+  }
+  dragSession.frame = requestAnimationFrame(dragAutoScroll);
+}
 document.addEventListener("dragstart", (event) => {
   const handle = event.target.closest("[data-drag]");
   if (!handle) return;
-  dragId = handle.dataset.drag;
-  event.dataTransfer.setData("text/plain", dragId);
+  if (state.busy || state.dirty) { event.preventDefault(); if(state.dirty)toast("Save or cancel your draft before dragging."); return; }
+  endDrag();
+  capturePosition(); // Finish any prior movement before reading hit areas.
+  const item = state.items.find((entry) => entry.id===handle.dataset.drag);
+  dragSession = {id:item.id,x:event.clientX,y:event.clientY,placement:null};
+  event.dataTransfer.setData("text/plain",item.id);
   event.dataTransfer.effectAllowed = "move";
+  const preview = document.createElement("div");
+  preview.className = "drag-preview";
+  preview.textContent = item.title;
+  document.body.append(preview);
+  event.dataTransfer.setDragImage(preview,18,18);
+  groupFor(item.id).classList.add("is-dragging");
+  dragSession.frame = requestAnimationFrame(dragAutoScroll);
 });
 document.addEventListener("dragover", (event) => {
-  const card = event.target.closest("[data-item]");
-  if (dragId && card) {
-    event.preventDefault();
-    document.querySelectorAll(".drop-target").forEach((el) => el.classList.remove("drop-target", "drop-after"));
-    card.classList.add("drop-target");
-    const bounds = card.getBoundingClientRect();
-    card.classList.toggle("drop-after", event.clientY >= bounds.top + bounds.height / 2);
+  if (!dragSession) return;
+  dragSession.x=event.clientX;dragSession.y=event.clientY;
+  if (updateDropPlacement(event.clientX,event.clientY)) {
+    event.preventDefault();event.dataTransfer.dropEffect="move";
+  } else event.dataTransfer.dropEffect="none";
+});
+document.addEventListener("dragleave", (event) => {
+  if (!dragSession || event.relatedTarget) return;
+  const bounds = $("#center").getBoundingClientRect();
+  if(event.clientX<=bounds.left || event.clientX>=bounds.right || event.clientY<=bounds.top || event.clientY>=bounds.bottom) {
+    dragSession.x=event.clientX;dragSession.y=event.clientY;clearDropMarker();
   }
 });
-document.addEventListener("dragleave", (event) =>
-  event.target.closest("[data-item]")?.classList.remove("drop-target", "drop-after"),
-);
-document.addEventListener("dragend", () => {
-  dragId = null;
-  document
-    .querySelectorAll(".drop-target")
-    .forEach((el) => el.classList.remove("drop-target", "drop-after"));
-});
+document.addEventListener("dragend", endDrag);
+window.addEventListener("blur",endDrag);
 document.addEventListener("drop", (event) => {
-  const target = event.target.closest("[data-item]"),
-    source = dragId;
-  dragId = null;
-  if (!target || !source) return;
+  if (!dragSession) return;
+  const sourceId=dragSession.id;
+  const placement=updateDropPlacement(event.clientX,event.clientY);
   event.preventDefault();
-  document
-    .querySelectorAll(".drop-target")
-    .forEach((el) => el.classList.remove("drop-target", "drop-after"));
+  endDrag();
+  if (!placement) return;
   act(async () => {
-    if (!(await leaveDraft())) return;
-    const sourceItem = state.items.find((item) => item.id === source);
-    const targetItem = state.items.find((item) => item.id === target.dataset.item);
-    if (!sourceItem || !targetItem || source === targetItem.id) return;
-    if ((sourceItem.parent_id || null) !== (targetItem.parent_id || null)) {
-      toast("Drag within the same level. Use Edit → Material to move an activity or quiz to another material.");
-      return;
-    }
-    const siblings = siblingsOf(sourceItem).filter((item) => item.id !== source);
-    const bounds = target.getBoundingClientRect();
-    const after = event.clientY >= bounds.top + bounds.height / 2;
-    siblings.splice(siblings.findIndex((item) => item.id === targetItem.id) + Number(after), 0, sourceItem);
-    await reorder(sourceItem.parent_id ? flattenTree(rootsOf(), new Map([[sourceItem.parent_id,siblings]])) : flattenTree(siblings), targetItem.id);
+    const source=state.items.find((item) => item.id===sourceId);
+    const target=state.items.find((item) => item.id===placement.id);
+    if (!source || !target || (source.parent_id||null)!==(target.parent_id||null)) return;
+    const siblings=siblingsOf(source).filter((item) => item.id!==sourceId);
+    siblings.splice(siblings.findIndex((item) => item.id===target.id)+Number(placement.after),0,source);
+    const ids=source.parent_id ? flattenTree(rootsOf(),new Map([[source.parent_id,siblings]])) : flattenTree(siblings);
+    await reorder(ids,target.id,{movedId:sourceId,placement});
   });
 });
 window.addEventListener("beforeunload", (event) => {

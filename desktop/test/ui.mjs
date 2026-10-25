@@ -210,7 +210,7 @@ try {
   const examGroup = page.locator("[data-group]").filter({ has: page.getByRole("heading", {name:"Midterm examination",exact:true}) });
   assert.equal(await examGroup.locator(".tree-children").count(), 0);
   await action("add", `[data-parent="${materialId}"]`);
-  assert.deepEqual(await page.locator("#entry-kind option").evaluateAll((options) => options.map((option) => option.value)), ["material", "activity", "quiz"]);
+  assert.deepEqual(await page.locator("#entry-kind option").evaluateAll((options) => options.map((option) => option.value)), ["activity", "quiz"]);
   await page.selectOption("#entry-kind", "quiz");
   await page.locator("#composer [name=options]").fill("Lift\nDrag");
   await page.selectOption("#entry-kind", "activity");

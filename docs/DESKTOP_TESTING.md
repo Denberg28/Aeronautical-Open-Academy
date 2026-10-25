@@ -1,6 +1,6 @@
-# Desktop verification — 0.3.0-rc.1
+# Desktop verification — 0.3.1-rc.1
 
-Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server adds schema-7 grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `3991aa3` (0.2.0-rc.1). Date: 25 October 2026 (Asia/Manila).
+Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows desktop client, test workspace bootstrap, isolated IPC bridge, three-pane single-page UI, packaging and CI. The server uses schema-8 material grouping and inherited publication checks; Android source is unchanged. The delivered package includes its exact `source-commit.txt`; this document is part of that source. Previous verified desktop baseline: `3991aa3` (0.2.0-rc.1). Date: 25 October 2026 (Asia/Manila).
 
 ## Acceptance criteria
 
@@ -20,7 +20,7 @@ Baseline: Android/backend repository commit `62d81ae`. Scope: new Windows deskto
 | A — Windows package structure | PASS | `node desktop/tools/verify-package.mjs`: PE machine x64, runtime renderer/preload/backend/schema, README, no data/key files |
 | B — Desktop bridge integration | PASS | `npm test --prefix desktop`: 4 tests covering role boundaries, persisted reading/submission across restart, report ZIP, revision/link authorization, local API header, organization-origin/credential isolation |
 | B — Native desktop workflows | PASS | Playwright drives the actual Electron 45 window on Linux/Xvfb: instructor add/attach/save/edit/order/quiz/draft; student reading/submission/quiz/results/tasks; grading/export; admin announcements/accounts; escaped HTML; responsive width; Google link metadata; same-account session recovery; post-save refresh failure; simulated cancelled quit |
-| C — Shared backend regression | PASS | `npm test --prefix server`: 36 tests, including grouping, inherited visibility, structure moves, archive confirmation and schema migrations |
+| C — Shared backend regression | PASS | `npm test --prefix server`: 37 tests, including grouping, inherited visibility, structure moves, archive confirmation and schema migrations |
 | C — Existing project integrity | PASS | `python tools/project_checks.py`: catalog/assets/XML/wrapper/network/focused secret checks |
 | C — Android build compatibility | CI REQUIRED | Server changed; the existing Android build/lint/regression workflow must pass for this exact source. Physical Android behavior remains NOT TESTED. |
 | D — Native startup/IPC | PASS | Actual Electron Linux startup, custom scheme, sandboxed preload and instructor login via `--smoke-test` |
@@ -61,7 +61,7 @@ Security audit: the unmaintained `extract-zip` packaging dependency was removed 
 
 API errors now cross the isolated desktop bridge as explicit data envelopes, preserving HTTP status. The renderer reconstructs errors locally, so a 401 reliably opens sign-in and same-account drafts can resume. The native UI test invalidates its underlying session and verifies this behavior.
 
-## Compact tree acceptance (0.3.0-rc.1)
+## Compact tree acceptance (0.3.1-rc.1)
 
 - Minimize/expand material children for instructor and student; counts and aria-expanded remain accurate. Refresh/order retain the preference during the sign-in; search reveals matching children and clearing it restores collapse. Task links reveal the target.
 - A nested editor cannot be minimized, and toggling an unrelated material preserves draft text. Student drafts stay in the DOM when minimized. Collapse does not call the backend or change publication.
@@ -71,19 +71,19 @@ API errors now cross the isolated desktop bridge as explicit data envelopes, pre
 ## Subject tree acceptance (0.2)
 
 - Subject + offers material/examination only. Material + offers activity/quiz only and remains after the final child; the inline editor follows its context. Examinations cannot be nested.
-- Legacy standalone assessments remain visible and can be assigned through Edit → Material. Migration must preserve IDs, order, learner submissions and grades with parent IDs initially null. Reopen grouped schema-7 data without losing links.
+- Legacy standalone assessments remain visible and can be assigned through Edit → Material. Migration must preserve IDs, order, learner submissions and grades with parent IDs initially null. Reopen grouped schema-8 data without losing links.
 - Root moves carry children; child moves remain among siblings. Cross-material placement requires explicit parent selection and current item/tree versions. Membership/order changes invalidate stale tree snapshots without incrementing learning revisions.
 - Student lists, direct item/link/submission access, completion denominators, results and instructor reports all exclude children of a hidden parent. Group deletion requires explicit cascade confirmation and checks every child owner; archive retains historical work.
 - Older organization backends must not silently create a supposed child as a root. The UI detects tree_version and hides nested creation until an upgraded service is present. Existing Android organization flows continue through the flattened API; Android local mode is unchanged.
 
-Local evidence: 36 server tests and 4 desktop tests pass. Native Electron role/creation/recovery/zoom checks pass on Linux; the Windows CI JSON remains authoritative for native Windows and packaged EXE checks. Android compilation/lint must also pass on the final commit before candidate delivery. Physical device, provider sign-in and organization deployment remain NOT TESTED.
+Local evidence: 37 server tests and 4 desktop tests pass. Native Electron role/creation/recovery/zoom checks pass on Linux; the Windows CI JSON remains authoritative for native Windows and packaged EXE checks. Android compilation/lint must also pass on the final commit before candidate delivery. Physical device, provider sign-in and organization deployment remain NOT TESTED.
 
-## Subsections and position retention (0.3.0-rc.1)
+## Activity/Quiz-only materials and drag continuity (0.3.1-rc.1)
 
-Baseline source tree: `31a024e1664355b8a64b0017d298cc5f02173a35` (Windows 0.2.0-rc.2).
+Baseline: 0.3.0-rc.1, source tree b961be2ba69880378c00fa71df9401cf473a16c9. Scope: remove subsection creation, safely upgrade existing subsection data and improve pointer/keyboard reorder.
 
-- Material + Subsection defaults to a text/link subsection; each can contain activities/quizzes. One optional subsection level keeps the tree compact. Examination creation stays at subject level. A schema-6 upgrade and reopen preserves content and learner records.
-- Minimize a subsection body and descendants; search reveals matching nested work and restores collapse afterwards. Active nested drafts keep both ancestor controls disabled. No collapse operation writes learner/publication state.
-- `desktop/test/motion.mjs` creates a 16-material subject and measures viewport geometry more than 1,000px down. Refresh, keyboard reorder and actual native pointer drop must retain the visible/moved/destination anchor within 3px after the 180ms animation settles. Saving must stay within 500px of the edited lesson without jumping to the header. The same center/sidebar DOM nodes survive refresh. Reduced motion produces no running animations.
-- Schema-7 API checks hide a grandchild on root unpublish, deny direct item/link access, restore prior quiz results on republish, reject excessive nesting/examinations and archive the subtree atomically with retained work.
-- Run both UI suites on final Windows source, then package, verify all hashes and launch the packaged EXE. Android build/lint/regression remains mandatory. Physical Windows and live provider checks remain NOT TESTED.
+- Material + offers Activity and Quiz only. Backend/SQL reject nested materials and examinations. Former subsections become regular root materials without changing their content IDs, learning revisions, links, child activities/quizzes, reading or grades. Hidden former subsections remain unpublished after promotion. Migration is transactional and idempotent on reopen. Back up first; restore a matched app/database pair for downgrade.
+- Reorder saves the current complete-ID set and order revision before moving existing group nodes in place. No-op drops make no request. A stale/failed save leaves order, nodes and revision intact. Root moves carry children and child moves remain among siblings.
+- `desktop/test/motion.mjs` uses a 24-material subject more than 1,000px down. Refresh and keyboard movement retain a visible header within 3px where document bounds permit. A native pointer drop places the moved header at the chosen insertion boundary (clamped to the viewport). Repeated before/after drops must match the backend sequence. Center, sidebar, material and child node identities survive reorder.
+- The same insertion marker stays in place while the pointer crosses a target's text/buttons. Cancellation clears the marker, dimming and preview. Edge auto-scroll stays bounded to the center and stops on cancellation. Active drafts block pointer drag initiation. Reduced motion disables movement animation. Normal/1060px and 125/150/200% zoom must fit without horizontal overflow.
+- Both native Windows UI suites, packaged EXE startup/IPC, package hash verification and dependency audit are required on the final source. Android build/lint/regression remains required. Physical Windows accessibility, real provider access and organization deployment remain NOT TESTED.
