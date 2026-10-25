@@ -1112,6 +1112,7 @@ document.addEventListener("submit", (event) => {
       toast("Subject saved.");
     }
     if (form.dataset.form === "quiz" || form.dataset.form === "submission") {
+      const position = capturePosition(id);
       if (
         !(await confirmAction(
           "Submit your work?",
@@ -1132,7 +1133,7 @@ document.addEventListener("submit", (event) => {
       state.readyQuizzes.delete(id);
       // Acknowledged submission: prevent another write if the following refresh fails.
       form.replaceChildren(Object.assign(document.createElement("p"),{textContent:"Submitted. Refresh to view your result."}));
-      await reloadActive({position:capturePosition(id),feedbackId:id});
+      await reloadActive({position,feedbackId:id});
       toast("Work submitted.");
     }
     if (form.dataset.form === "grade") {
