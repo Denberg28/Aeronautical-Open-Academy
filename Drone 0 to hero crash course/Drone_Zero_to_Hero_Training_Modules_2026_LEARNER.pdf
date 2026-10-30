@@ -1,0 +1,4378 @@
+%PDF-1.4
+%ASCII
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 60 /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R 21 0 R 23 0 R 25 0 R 27 0 R 29 0 R 31 0 R 33 0 R 35 0 R 37 0 R 39 0 R 41 0 R 43 0 R 45 0 R 47 0 R 49 0 R 51 0 R 53 0 R 55 0 R 57 0 R 59 0 R 61 0 R 63 0 R 65 0 R 67 0 R 69 0 R 71 0 R 73 0 R 75 0 R 77 0 R 79 0 R 81 0 R 83 0 R 85 0 R 87 0 R 89 0 R 91 0 R 93 0 R 95 0 R 97 0 R 99 0 R 101 0 R 103 0 R 105 0 R 107 0 R 109 0 R 111 0 R 113 0 R 115 0 R 117 0 R 119 0 R 121 0 R 123 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 832 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (FIELD-READY TRAINING SYSTEM) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(FIELD-READY TRAINING SYSTEM) Tj
+0 -15.00 Td
+(DRONE) Tj
+0 -15.00 Td
+(ZERO TO HERO) Tj
+0 -15.00 Td
+(A practical UAV operator crash course) Tj
+0 -15.00 Td
+(PRESENTATION / FIELD ACTIVITIES / ASSESSMENTS) Tj
+0 -15.00 Td
+(10 40 05) Tj
+0 -15.00 Td
+(MODULES HOURS DAYS) Tj
+0 -15.00 Td
+(LEARNER EDITION) Tj
+0 -15.00 Td
+(Designed for competency-based introductory RPAS training) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (01 / 60) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 2002 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (COURSE GUIDE) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(COURSE GUIDE) Tj
+0 -15.00 Td
+(The operating philosophy) Tj
+0 -15.00 Td
+(SKILL FIRST. THEORY ONLY WHEN IT CHANGES A DECISION.) Tj
+0 -15.00 Td
+(Teach like an intensive practical discipline: show one action, rehearse it safely, challenge it under) Tj
+0 -15.00 Td
+(controlled conditions, assess it, then advance. Never add complexity before the previous safety gate is) Tj
+0 -15.00 Td
+(passed.) Tj
+0 -15.00 Td
+(DEMONSTRATE / PRACTICE / CHALLENGE / EVALUATE) Tj
+0 -15.00 Td
+(What trainees can do at completion) Tj
+0 -15.00 Td
+(Make a documented GO / NO-GO decision and conduct a crew brief.) Tj
+0 -15.00 Td
+(Inspect, prepare, take off, maneuver, land and log a training drone.) Tj
+0 -15.00 Td
+(Recognize common abnormal states and choose safe recovery.) Tj
+0 -15.00 Td
+(Collect usable aerial imagery and verify a basic mission/map output.) Tj
+0 -15.00 Td
+(Evaluate current AI, RTK and sensing tools without overstating their capabilities.) Tj
+0 -15.00 Td
+(Important regulatory boundary) Tj
+0 -15.00 Td
+(An institutional course completion record is NOT a CAAP-issued Controller Certificate, RPAS Operator) Tj
+0 -15.00 Td
+(Certificate, permission to conduct commercial operations, or authorization for BVLOS/night/restricted) Tj
+0 -15.00 Td
+(flights.) Tj
+0 -15.00 Td
+(Training organizations must check applicable CAAP provider requirements, including MC No. 064-2026, before) Tj
+0 -15.00 Td
+(delivery.) Tj
+0 -15.00 Td
+(Publication date: 30 October 2026 | Local context: Philippines | Review: before each cohort and when) Tj
+0 -15.00 Td
+(rules/software change.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (02 / 60) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 1415 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (COURSE GUIDE) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(COURSE GUIDE) Tj
+0 -15.00 Td
+(Five-day pathway) Tj
+0 -15.00 Td
+(DAY 01 Safety, aircraft, first flight) Tj
+0 -15.00 Td
+(M1 2h + M2 3h + M3 3h) Tj
+0 -15.00 Td
+(DAY 02 First flight and precision) Tj
+0 -15.00 Td
+(M3 2h + M4 6h) Tj
+0 -15.00 Td
+(DAY 03 Precision, emergency, camera) Tj
+0 -15.00 Td
+(M4 1h + M5 5h + M6 2h) Tj
+0 -15.00 Td
+(DAY 04 Camera, autonomy and AI) Tj
+0 -15.00 Td
+(M6 2h + M7 5h + M8 1h) Tj
+0 -15.00 Td
+(DAY 05 Future systems, mission, checkride) Tj
+0 -15.00 Td
+(M8 2h + M9 4h + M10 2h) Tj
+0 -15.00 Td
+(Delivery and training time) Tj
+0 -15.00 Td
+(Target blend: 75% applied activity, simulator, briefing, field work and data review; 25% essential) Tj
+0 -15.00 Td
+(teaching. Aim for at) Tj
+0 -15.00 Td
+(least 5 hours of individually logged supervised live-aircraft manipulation per trainee, separately from) Tj
+0 -15.00 Td
+(simulator time.) Tj
+0 -15.00 Td
+(Actual completion depends on weather, site permission, instructor ratio and fleet availability.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (03 / 60) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 1496 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (COURSE GUIDE) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(COURSE GUIDE) Tj
+0 -15.00 Td
+(Assessment and release-to-flight) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SAFETY GATE) Tj
+0 -15.00 Td
+(Critical hazards or checklist failures stop assessment, regardless of points.) Tj
+0 -15.00 Td
+(AIRCRAFT GATE) Tj
+0 -15.00 Td
+(Correct controls, battery, propellers, firmware/alerts and return settings.) Tj
+0 -15.00 Td
+(CONTROL GATE) Tj
+0 -15.00 Td
+(Smooth stable hover, translation, orientation, safe landing and communications.) Tj
+0 -15.00 Td
+(MISSION GATE) Tj
+0 -15.00 Td
+(Approved plan, safe supervision, usable data and limitations statement.) Tj
+0 -15.00 Td
+(Recommended overall weighting) Tj
+0 -15.00 Td
+(Safety & aircraft preparation 25%) Tj
+0 -15.00 Td
+(Manual flight proficiency 30%) Tj
+0 -15.00 Td
+(Emergency judgment 20%) Tj
+0 -15.00 Td
+(Mission execution and data quality 25%) Tj
+0 -15.00 Td
+(Pass: >=80% total plus PASS in every critical item. Reassess after targeted practice. The performance) Tj
+0 -15.00 Td
+(rubrics are instructional) Tj
+0 -15.00 Td
+(and do not substitute for official CAAP assessment rules.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (04 / 60) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 1439 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 01) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 01) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(DRONE SURVIVAL RULES) Tj
+0 -15.00 Td
+(Safety before flight) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Make a defensible GO / NO-GO decision for a proposed flight.) Tj
+0 -15.00 Td
+(2 HOURS CLASSROOM + FIELD) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Check operational purpose, aircraft weight and pilot/provider obligations.) Tj
+0 -15.00 Td
+(Identify airspace, people, structures, weather and manned-aircraft exposure.) Tj
+0 -15.00 Td
+(Brief pilot, observer, boundaries and emergency landing points.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Every launch is a decision What CAAP expects Airspace and other aircraft) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Weather is a flight control Build your safe flight box The one-minute brief) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(No unaddressed critical hazard; correct decision; clear roles and stop triggers.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (05 / 60) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 2085 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 01) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 01) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 01 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Safety before flight) Tj
+0 -15.00 Td
+(SLIDE 01 Every launch is a decision) Tj
+0 -15.00 Td
+0 -15.00 Td
+(A safe flight begins before motors start.) Tj
+0 -15.00 Td
+(Define the mission and its expected benefit.) Tj
+0 -15.00 Td
+(Check authority, aircraft, crew and site.) Tj
+0 -15.00 Td
+(Separate essential risk from optional convenience.) Tj
+0 -15.00 Td
+(DO: Ask: What could force a NO-GO right now?) Tj
+0 -15.00 Td
+(WATCH: A drone app saying Ready does not mean legal or safe.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 What CAAP expects) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Do not guess regulatory permission.) Tj
+0 -15.00 Td
+(Classify the operation: commercial or non-commercial.) Tj
+0 -15.00 Td
+(Check CAAP rules, local restrictions and required certificates/permits.) Tj
+0 -15.00 Td
+(Verify approvals for special operations before arriving.) Tj
+0 -15.00 Td
+(DO: Demonstrate finding CAAP Types of Operations and RPAS Regulations pages.) Tj
+0 -15.00 Td
+(WATCH: Recheck requirements for each site and mission.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Airspace and other aircraft) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Manned aircraft always take priority.) Tj
+0 -15.00 Td
+(Identify airports, helipads, approach routes and temporary restrictions.) Tj
+0 -15.00 Td
+(Watch for low-flying emergency, military or agricultural aircraft.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Yield, descend or land safely when conflict develops.) Tj
+0 -15.00 Td
+(DO: Mark hazards on a printed field map.) Tj
+0 -15.00 Td
+(WATCH: Map apps can lag changes in airspace restrictions.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (06 / 60) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 18 0 R >>
+endobj
+18 0 obj
+<< /Length 2044 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 01) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 01) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 01 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Safety before flight) Tj
+0 -15.00 Td
+(SLIDE 04 Weather is a flight control) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Wind and visibility change the risk envelope.) Tj
+0 -15.00 Td
+(Check surface wind, gusts, rain risk and visibility.) Tj
+0 -15.00 Td
+(Consider sun glare, terrain turbulence and changing conditions.) Tj
+0 -15.00 Td
+(Apply aircraft-specific operating limits with margin.) Tj
+0 -15.00 Td
+(DO: Use a GO / NO-GO board for two weather scenarios.) Tj
+0 -15.00 Td
+(WATCH: Never teach flying into unsafe winds for confidence.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Build your safe flight box) Tj
+0 -15.00 Td
+0 -15.00 Td
+(People, obstacles and separation matter.) Tj
+0 -15.00 Td
+(Define takeoff/landing area, flight limits and spectator zone.) Tj
+0 -15.00 Td
+(Assign pilot-in-command and observer duties.) Tj
+0 -15.00 Td
+(Choose emergency landing options and abort triggers.) Tj
+0 -15.00 Td
+(DO: Walk site perimeter and identify sterile zones.) Tj
+0 -15.00 Td
+(WATCH: Avoid flight over uninvolved people.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 The one-minute brief) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Communication prevents avoidable incidents.) Tj
+0 -15.00 Td
+(Mission and time limit; flight area and altitude plan.) Tj
+0 -15.00 Td
+(Who calls traffic, batteries, hazards and emergency landing.) Tj
+0 -15.00 Td
+(Clear verbal commands: HOLD, ABORT, LAND, CLEAR.) Tj
+0 -15.00 Td
+(DO: Role-play the briefing with pilot and spotter.) Tj
+0 -15.00 Td
+(WATCH: Everyone should know who can call STOP.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (07 / 60) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 20 0 R >>
+endobj
+20 0 obj
+<< /Length 1663 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 01) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 01) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Site GO / NO-GO reconnaissance) Tj
+0 -15.00 Td
+(Module 01 | Est. 35 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Make a defensible GO / NO-GO decision for a proposed flight.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Field map, weather app, CAAP guidance, cones and risk card.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Receive a site scenario with one hidden hazard.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Mark boundary, obstacles, people, airspace questions and emergency landing options.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Write GO, CONDITIONAL GO, or NO-GO with three reasons.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Deliver a 60-second crew brief and defend the decision.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Completed risk card, annotated site map and signed go/no-go record.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(No unaddressed critical hazard; correct decision; clear roles and stop triggers.) Tj
+0 -15.00 Td
+(DEBRIEF: Which single new fact would reverse your decision?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Do not treat a classroom exercise as actual operational clearance.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (08 / 60) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 22 0 R >>
+endobj
+22 0 obj
+<< /Length 2095 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 01) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 01) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 01 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 A map shows a nearby airfield but the drone displays Ready. What next?) Tj
+0 -15.00 Td
+(A. Launch at low altitude B. Verify airspace restrictions and permissions) Tj
+0 -15.00 Td
+(C. Fly only for five minutes D. Ask a spectator) Tj
+0 -15.00 Td
+(2 When manned aircraft approaches the operating area, the pilot should:) Tj
+0 -15.00 Td
+(A. Hold altitude and continue B. Climb above it) Tj
+0 -15.00 Td
+(C. Yield and take safe avoidance/landing action D. Use auto-follow) Tj
+0 -15.00 Td
+(3 Who should be authorized to call STOP during the brief?) Tj
+0 -15.00 Td
+(A. Only the photographer B. Any designated crew member identifying danger) Tj
+0 -15.00 Td
+(C. Only the client D. Only the trainee) Tj
+0 -15.00 Td
+(4 A strong gust exceeds the aircraft limit. The correct decision is:) Tj
+0 -15.00 Td
+(A. Use sport mode B. Reduce camera resolution) Tj
+0 -15.00 Td
+(C. Postpone or cancel the flight D. Fly behind a tree) Tj
+0 -15.00 Td
+(5 A GO / NO-GO review is complete when:) Tj
+0 -15.00 Td
+(A. The app connects B. Battery reaches 100%) Tj
+0 -15.00 Td
+(C. Risks, authority, site and crew are checked D. The weather is sunny) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (09 / 60) Tj ET
+endstream
+endobj
+23 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 24 0 R >>
+endobj
+24 0 obj
+<< /Length 1421 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 02) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 02) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(KNOW YOUR MACHINE) Tj
+0 -15.00 Td
+(Setup and inspection) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Prepare, inspect and safely configure a training drone without prompting.) Tj
+0 -15.00 Td
+(3 HOURS BENCH + FIELD) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Recognize critical aircraft, power, navigation and communication components.) Tj
+0 -15.00 Td
+(Perform an aircraft-specific inspection and battery check.) Tj
+0 -15.00 Td
+(Verify home point, flight modes, geofence and loss-link behavior.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(The flight system Power is an operating limit Inspect before arming) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(The home point trap Know the flight mode Ready means cross-checked) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Detect every critical simulated defect and complete the approved checklist in order.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (10 / 60) Tj ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 26 0 R >>
+endobj
+26 0 obj
+<< /Length 2035 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 02) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 02) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 02 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Setup and inspection) Tj
+0 -15.00 Td
+(SLIDE 01 The flight system) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Know what each part is responsible for.) Tj
+0 -15.00 Td
+(Airframe, motors, props and power deliver thrust.) Tj
+0 -15.00 Td
+(Flight controller and IMU stabilize attitude.) Tj
+0 -15.00 Td
+(GNSS, compass, vision sensors and radios support navigation.) Tj
+0 -15.00 Td
+(DO: Point to each component on the actual aircraft.) Tj
+0 -15.00 Td
+(WATCH: A GNSS receiver does not guarantee perfect position.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Power is an operating limit) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Batteries require discipline, not guesswork.) Tj
+0 -15.00 Td
+(Inspect housing, swelling, contacts and temperature.) Tj
+0 -15.00 Td
+(Use the correct charger and manufacturer procedures.) Tj
+0 -15.00 Td
+(Plan landing reserve from conditions and mission length.) Tj
+0 -15.00 Td
+(DO: Show examples of safe/unsafe battery findings.) Tj
+0 -15.00 Td
+(WATCH: Do not use damaged or swollen packs.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Inspect before arming) Tj
+0 -15.00 Td
+0 -15.00 Td
+(A repeatable checklist beats memory.) Tj
+0 -15.00 Td
+(Check propellers, mounts, arms and payload security.) Tj
+0 -15.00 Td
+(Confirm controller link, firmware compatibility and warnings.) Tj
+0 -15.00 Td
+(Verify takeoff site and nearby people are clear.) Tj
+0 -15.00 Td
+(DO: Instructor demonstrates a deliberate missing-propeller defect.) Tj
+0 -15.00 Td
+(WATCH: Never spin unguarded propellers on a workbench.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (11 / 60) Tj ET
+endstream
+endobj
+27 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 28 0 R >>
+endobj
+28 0 obj
+<< /Length 2071 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 02) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 02) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 02 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Setup and inspection) Tj
+0 -15.00 Td
+(SLIDE 04 The home point trap) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Return-to-Home only helps when configured well.) Tj
+0 -15.00 Td
+(Verify recorded home point and position quality.) Tj
+0 -15.00 Td
+(Set safe return altitude for obstacles and terrain.) Tj
+0 -15.00 Td
+(Know what happens on low battery, lost link and manual cancel.) Tj
+0 -15.00 Td
+(DO: Compare poor and good RTH plans on a site sketch.) Tj
+0 -15.00 Td
+(WATCH: RTH is not collision-proof or universally available.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Know the flight mode) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Automation changes pilot workload.) Tj
+0 -15.00 Td
+(Distinguish position-hold, altitude-hold and manual-assist behavior.) Tj
+0 -15.00 Td
+(Know which modes depend on GNSS/vision sensors.) Tj
+0 -15.00 Td
+(Practice identifying current mode, battery and signal.) Tj
+0 -15.00 Td
+(DO: Use the controller screen to read three status fields.) Tj
+0 -15.00 Td
+(WATCH: Switching modes without understanding behavior increases risk.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Ready means cross-checked) Tj
+0 -15.00 Td
+0 -15.00 Td
+(The pilot accepts the final decision.) Tj
+0 -15.00 Td
+(Read manufacturer warnings and respond to each.) Tj
+0 -15.00 Td
+(Confirm observer, crew brief, battery, area and mode.) Tj
+0 -15.00 Td
+(Use a spoken READY / CLEAR / TAKEOFF call.) Tj
+0 -15.00 Td
+(DO: Run the complete checklist with a second trainee watching.) Tj
+0 -15.00 Td
+(WATCH: Do not dismiss unexplained calibration or sensor errors.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (12 / 60) Tj ET
+endstream
+endobj
+29 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 30 0 R >>
+endobj
+30 0 obj
+<< /Length 1802 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 02) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 02) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Aircraft turnaround challenge) Tj
+0 -15.00 Td
+(Module 02 | Est. 55 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Prepare, inspect and safely configure a training drone without prompting.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Training drone, controller, battery, propeller set, checklist, defect cards.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Identify ten major aircraft and controller parts.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Inspect a grounded aircraft containing instructor-inserted nonhazardous defect cards.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Demonstrate safe battery installation and status verification.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Record home-point, RTH/flight limits and failsafe checks.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Brief release-to-flight or reject with reasons.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Signed turnaround sheet with defects and corrective actions.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Detect every critical simulated defect and complete the approved checklist in order.) Tj
+0 -15.00 Td
+(DEBRIEF: What is the most dangerous warning to ignore?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: All faults are staged as tags or non-powered mockups; no unsafe flight configurations.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (13 / 60) Tj ET
+endstream
+endobj
+31 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 32 0 R >>
+endobj
+32 0 obj
+<< /Length 2087 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 02) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 02) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 02 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 The principal job of the flight controller is to:) Tj
+0 -15.00 Td
+(A. Store videos B. Control stabilization and flight behavior) Tj
+0 -15.00 Td
+(C. Charge batteries D. Replace visual observation) Tj
+0 -15.00 Td
+(2 A battery has visible swelling. Best action?) Tj
+0 -15.00 Td
+(A. Fly a short sortie B. Discharge it in flight) Tj
+0 -15.00 Td
+(C. Remove from service and follow battery safety procedure D. Freeze it) Tj
+0 -15.00 Td
+(3 Why confirm the home point?) Tj
+0 -15.00 Td
+(A. It improves camera color B. Autonomous return may use it) Tj
+0 -15.00 Td
+(C. It boosts radio power D. It increases battery capacity) Tj
+0 -15.00 Td
+(4 Which is a valid pre-arm observation?) Tj
+0 -15.00 Td
+(A. All propellers are undamaged and correctly installed B. A missing propeller is harmless) Tj
+0 -15.00 Td
+(C. Spectators can stand anywhere D. Ignore all alerts) Tj
+0 -15.00 Td
+(5 A mode relying on GNSS should be used when:) Tj
+0 -15.00 Td
+(A. The display says any mode is okay B. Required positioning sensors are valid) Tj
+0 -15.00 Td
+(C. The drone is indoors with no navigation support D. The propellers are removed) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (14 / 60) Tj ET
+endstream
+endobj
+33 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 34 0 R >>
+endobj
+34 0 obj
+<< /Length 1404 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 03) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 03) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(FIRST FLIGHT: MASTER THE CONTROLS) Tj
+0 -15.00 Td
+(Launch, hover, land) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Safely take off, hold position, translate and land under supervision.) Tj
+0 -15.00 Td
+(5 HOURS SIMULATOR + LIVE) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Identify yaw, throttle, pitch and roll on the configured control scheme.) Tj
+0 -15.00 Td
+(Control hover and basic translation using smooth inputs.) Tj
+0 -15.00 Td
+(Land safely and disarm using the aircraft procedure.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(The four control axes Eyes outside, data inside Takeoff sequence) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Hover is a skill Translate, stop, repeat Land and secure) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(No safety intervention; stable 30-second hover; controlled landing; correct commands.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (15 / 60) Tj ET
+endstream
+endobj
+35 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 36 0 R >>
+endobj
+36 0 obj
+<< /Length 2070 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 03) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 03) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 03 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Launch, hover, land) Tj
+0 -15.00 Td
+(SLIDE 01 The four control axes) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Understand movement before moving sticks.) Tj
+0 -15.00 Td
+(Throttle changes lift/height depending on flight mode.) Tj
+0 -15.00 Td
+(Yaw rotates heading; pitch moves fore/aft; roll moves sideways.) Tj
+0 -15.00 Td
+(Practice with the exact transmitter mode used in training.) Tj
+0 -15.00 Td
+(DO: Map stick inputs on a simulator with props removed from live aircraft.) Tj
+0 -15.00 Td
+(WATCH: Do not assume stick layouts are identical across equipment.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Eyes outside, data inside) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Scan the aircraft and reference points.) Tj
+0 -15.00 Td
+(Keep visual orientation and separation.) Tj
+0 -15.00 Td
+(Use telemetry for battery, mode, altitude and warnings.) Tj
+0 -15.00 Td
+(Take short, deliberate looks at the screen.) Tj
+0 -15.00 Td
+(DO: Alternate 5-second external scan and status confirmation.) Tj
+0 -15.00 Td
+(WATCH: Do not fly by the screen alone for VLOS training.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Takeoff sequence) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Small, confident and controlled.) Tj
+0 -15.00 Td
+(Confirm CLEAR command and stable system status.) Tj
+0 -15.00 Td
+(Lift steadily to a safe supervised training hover.) Tj
+0 -15.00 Td
+(Hold position and assess drift, vibration and control response.) Tj
+0 -15.00 Td
+(DO: Instructor shows one correct and one aborted simulated launch.) Tj
+0 -15.00 Td
+(WATCH: Never take off when the area is not clear.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (16 / 60) Tj ET
+endstream
+endobj
+37 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 38 0 R >>
+endobj
+38 0 obj
+<< /Length 1973 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 03) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 03) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 03 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Launch, hover, land) Tj
+0 -15.00 Td
+(SLIDE 04 Hover is a skill) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Stability needs constant awareness.) Tj
+0 -15.00 Td
+(Use small inputs; neutralize to stop drift when appropriate.) Tj
+0 -15.00 Td
+(Keep orientation known and a safe horizontal margin.) Tj
+0 -15.00 Td
+(Respond to wind within approved operating limits.) Tj
+0 -15.00 Td
+(DO: Use a ground reference marker without flying directly over observers.) Tj
+0 -15.00 Td
+(WATCH: Do not chase errors with large, abrupt stick movements.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Translate, stop, repeat) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Build dependable movement patterns.) Tj
+0 -15.00 Td
+(Move forward and backward in a defined flight box.) Tj
+0 -15.00 Td
+(Move left and right while maintaining heading.) Tj
+0 -15.00 Td
+(Return to center and stop with smooth control.) Tj
+0 -15.00 Td
+(DO: Trainees call intention before each movement.) Tj
+0 -15.00 Td
+(WATCH: Maintain separation from other operating aircraft.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Land and secure) Tj
+0 -15.00 Td
+0 -15.00 Td
+(The sortie ends after post-flight checks.) Tj
+0 -15.00 Td
+(Confirm landing site and approach path.) Tj
+0 -15.00 Td
+(Descend steadily and verify touchdown/disarm.) Tj
+0 -15.00 Td
+(Check battery, airframe and log anomalies.) Tj
+0 -15.00 Td
+(DO: Practice positive verbal landing callouts.) Tj
+0 -15.00 Td
+(WATCH: Never approach moving propellers.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (17 / 60) Tj ET
+endstream
+endobj
+39 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 40 0 R >>
+endobj
+40 0 obj
+<< /Length 1844 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 03) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 03) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Takeoff - hover - box - land) Tj
+0 -15.00 Td
+(Module 03 | Est. 120 min including rotation) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Safely take off, hold position, translate and land under supervision.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Simulator, approved training drone, marked open field, spotter, log sheet.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Pass control-axis familiarization in simulator.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Complete preflight and call CLEAR / TAKEOFF.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Maintain supervised hover for 30 seconds.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Fly 4 controlled translations, returning to center after each.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Land inside the designated safe zone and complete postflight.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Instructor flight card: simulator result, hover time and individual live-aircraft log.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(No safety intervention; stable 30-second hover; controlled landing; correct commands.) Tj
+0 -15.00 Td
+(DEBRIEF: Which control direction caused your largest correction?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Instructors select heights, weather limits and separation based on aircraft, location and) Tj
+0 -15.00 Td
+(trainee ability.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (18 / 60) Tj ET
+endstream
+endobj
+41 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 42 0 R >>
+endobj
+42 0 obj
+<< /Length 1970 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 03) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 03) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 03 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 Yaw changes the aircraft's:) Tj
+0 -15.00 Td
+(A. Heading B. Battery temperature) Tj
+0 -15.00 Td
+(C. Camera resolution D. GPS coordinates directly) Tj
+0 -15.00 Td
+(2 A good correction to mild drift is usually:) Tj
+0 -15.00 Td
+(A. A large stick snap B. A small measured control input) Tj
+0 -15.00 Td
+(C. Immediate sport mode D. Stop observing) Tj
+0 -15.00 Td
+(3 What should be confirmed before live takeoff?) Tj
+0 -15.00 Td
+(A. Video quality only B. Clear area, approved flight mode and readiness) Tj
+0 -15.00 Td
+(C. High-speed mode D. Maximum height) Tj
+0 -15.00 Td
+(4 During VLOS training the trainee should:) Tj
+0 -15.00 Td
+(A. Watch only the screen B. Keep the aircraft visually observed) Tj
+0 -15.00 Td
+(C. Ignore observer calls D. Follow the aircraft on foot) Tj
+0 -15.00 Td
+(5 After touchdown, the next action is:) Tj
+0 -15.00 Td
+(A. Reach toward spinning propellers B. Verify disarm and secure aircraft) Tj
+0 -15.00 Td
+(C. Remove battery while motors run D. Immediately launch again) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (19 / 60) Tj ET
+endstream
+endobj
+43 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 44 0 R >>
+endobj
+44 0 obj
+<< /Length 1408 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 04) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 04) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(PRECISION FLIGHT) Tj
+0 -15.00 Td
+(Orientation and maneuvers) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Fly defined patterns and manage nose-in orientation with precision.) Tj
+0 -15.00 Td
+(7 HOURS SIMULATOR + LIVE) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Use controlled stick inputs through changing orientation.) Tj
+0 -15.00 Td
+(Fly square, figure-eight and precision-landing patterns.) Tj
+0 -15.00 Td
+(Respect defined boundaries and demonstrated wind limits.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Orientation changes everything Build the square Figure-eight coordination) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Nose-in confidence Precision landing Flight discipline) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Route remains inside approved flight box; no critical correction; controlled landing within 1 m when safe.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (20 / 60) Tj ET
+endstream
+endobj
+45 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 46 0 R >>
+endobj
+46 0 obj
+<< /Length 2048 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 04) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 04) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 04 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Orientation and maneuvers) Tj
+0 -15.00 Td
+(SLIDE 01 Orientation changes everything) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Aircraft-relative commands can feel reversed.) Tj
+0 -15.00 Td
+(Nose-out feels intuitive; nose-in often reverses lateral perception.) Tj
+0 -15.00 Td
+(Use tiny inputs and keep a visual reference.) Tj
+0 -15.00 Td
+(Train nose-in in simulator before the live-aircraft gate.) Tj
+0 -15.00 Td
+(DO: Show two identical roll inputs at opposite headings.) Tj
+0 -15.00 Td
+(WATCH: Panic corrections are often larger than the original drift.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Build the square) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Edges teach planning and discipline.) Tj
+0 -15.00 Td
+(Select safe corner references in an open area.) Tj
+0 -15.00 Td
+(Fly straight legs, pause and rotate deliberately.) Tj
+0 -15.00 Td
+(Prioritize control over speed.) Tj
+0 -15.00 Td
+(DO: Trace route on the field diagram before flight.) Tj
+0 -15.00 Td
+(WATCH: Never use public roads or crowds as training corner markers.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Figure-eight coordination) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Turn while controlling speed and spacing.) Tj
+0 -15.00 Td
+(Plan two loops and a central crossing reference.) Tj
+0 -15.00 Td
+(Maintain visible clearance across the entire pattern.) Tj
+0 -15.00 Td
+(Slow down before turns instead of correcting too late.) Tj
+0 -15.00 Td
+(DO: Instructor demonstrates in simulation first.) Tj
+0 -15.00 Td
+(WATCH: Do not force a figure-eight beyond safe visual range.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (21 / 60) Tj ET
+endstream
+endobj
+47 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 48 0 R >>
+endobj
+48 0 obj
+<< /Length 1980 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 04) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 04) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 04 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Orientation and maneuvers) Tj
+0 -15.00 Td
+(SLIDE 04 Nose-in confidence) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Recover orientation without guessing.) Tj
+0 -15.00 Td
+(Stop translation and stabilize before making a correction.) Tj
+0 -15.00 Td
+(Use familiar reference points and known heading.) Tj
+0 -15.00 Td
+(If confused, call HOLD and request assistance early.) Tj
+0 -15.00 Td
+(DO: Practice 20-second nose-in hover in simulator.) Tj
+0 -15.00 Td
+(WATCH: Disorientation is not a reason to accelerate.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Precision landing) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Arrival geometry matters more than speed.) Tj
+0 -15.00 Td
+(Choose a clear, repeatable approach path.) Tj
+0 -15.00 Td
+(Reduce drift, align and descend with margins.) Tj
+0 -15.00 Td
+(Judge accuracy only after safe touchdown.) Tj
+0 -15.00 Td
+(DO: Compare hard fast arrivals with smooth controlled arrivals.) Tj
+0 -15.00 Td
+(WATCH: Landing inside the target must never override safety.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Flight discipline) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Quality is repeatable, not dramatic.) Tj
+0 -15.00 Td
+(State next movement before executing.) Tj
+0 -15.00 Td
+(Monitor battery and time against the plan.) Tj
+0 -15.00 Td
+(Stop and reset after any unstable maneuver.) Tj
+0 -15.00 Td
+(DO: Coach provides verbal prompts rather than stick intervention when safe.) Tj
+0 -15.00 Td
+(WATCH: Clean control comes before advanced speed.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (22 / 60) Tj ET
+endstream
+endobj
+49 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 50 0 R >>
+endobj
+50 0 obj
+<< /Length 1801 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 04) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 04) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Three-pattern precision circuit) Tj
+0 -15.00 Td
+(Module 04 | Est. 145 min including rotation) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Fly defined patterns and manage nose-in orientation with precision.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Marked square, target landing pad, simulator and training log.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Complete nose-in recovery scenario in simulator.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Fly square route with controlled pauses at four corners.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Fly a smooth figure-eight within the flight box.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Return to center, hold heading and land on target.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Repeat once focusing on smoothness and checklist adherence.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Observed precision scorecard and two flight tracks or observer records.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Route remains inside approved flight box; no critical correction; controlled landing within 1 m when safe.) Tj
+0 -15.00 Td
+(DEBRIEF: Which maneuver most affected your spatial awareness?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Use a larger landing tolerance when wind or safety conditions make 1 m unsuitable.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (23 / 60) Tj ET
+endstream
+endobj
+51 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 52 0 R >>
+endobj
+52 0 obj
+<< /Length 2012 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 04) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 04) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 04 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 Why is nose-in flight harder for beginners?) Tj
+0 -15.00 Td
+(A. Battery decreases faster B. Perceived left/right controls may reverse) Tj
+0 -15.00 Td
+(C. The drone loses GPS D. Motors reverse physically) Tj
+0 -15.00 Td
+(2 When disoriented, the best first response is:) Tj
+0 -15.00 Td
+(A. Speed up B. Stabilize/hold and identify orientation) Tj
+0 -15.00 Td
+(C. Disable sensors D. Turn off the transmitter) Tj
+0 -15.00 Td
+(3 A precision circuit measures:) Tj
+0 -15.00 Td
+(A. Only top speed B. Controlled maneuvering and safety) Tj
+0 -15.00 Td
+(C. Camera zoom level D. Longest radio range) Tj
+0 -15.00 Td
+(4 Before a turn in a figure-eight, the pilot should:) Tj
+0 -15.00 Td
+(A. Increase speed sharply B. Manage speed and space) Tj
+0 -15.00 Td
+(C. Ignore the boundary D. Close eyes to feel controls) Tj
+0 -15.00 Td
+(5 If a target landing conflicts with safety, you should:) Tj
+0 -15.00 Td
+(A. Force touchdown on target B. Prioritize a safe landing elsewhere) Tj
+0 -15.00 Td
+(C. Keep hovering indefinitely D. Land beyond the boundary) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (24 / 60) Tj ET
+endstream
+endobj
+53 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 54 0 R >>
+endobj
+54 0 obj
+<< /Length 1370 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 05) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 05) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(WHEN THINGS GO WRONG) Tj
+0 -15.00 Td
+(Emergency response) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Recognize, stabilize, decide and safely recover from common UAV faults.) Tj
+0 -15.00 Td
+(5 HOURS SIMULATOR + BRIEF) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Respond to simulated low battery and control-link issues.) Tj
+0 -15.00 Td
+(Distinguish RTH limitations from pilot-controlled recovery.) Tj
+0 -15.00 Td
+(Execute abort procedures and clear communications.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Emergency priorities Low battery Link loss) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Position and sensor faults The abort ladder After the incident) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Correctly resolve all critical safety decisions; no mission continuation after unsafe state.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (25 / 60) Tj ET
+endstream
+endobj
+55 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 56 0 R >>
+endobj
+56 0 obj
+<< /Length 2028 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 05) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 05) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 05 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Emergency response) Tj
+0 -15.00 Td
+(SLIDE 01 Emergency priorities) Tj
+0 -15.00 Td
+0 -15.00 Td
+(People first. Aircraft second. Mission last.) Tj
+0 -15.00 Td
+(Prevent injury and preserve safe separation.) Tj
+0 -15.00 Td
+(Identify the actual state: position, battery, link and mode.) Tj
+0 -15.00 Td
+(Choose the safest available recovery option.) Tj
+0 -15.00 Td
+(DO: Use a fast verbal scenario: mission vs people vs aircraft.) Tj
+0 -15.00 Td
+(WATCH: Do not save the mission at the expense of safety.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Low battery) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Landing reserve is not optional.) Tj
+0 -15.00 Td
+(Identify first and critical warnings early.) Tj
+0 -15.00 Td
+(Decide whether home, a safe nearby landing or immediate landing is appropriate.) Tj
+0 -15.00 Td
+(Account for wind and transit energy.) Tj
+0 -15.00 Td
+(DO: Rehearse a decision tree from battery trend data.) Tj
+0 -15.00 Td
+(WATCH: An automated warning may arrive too late for poor planning.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Link loss) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Configured behavior determines the outcome.) Tj
+0 -15.00 Td
+(Know exact aircraft and receiver loss-link settings.) Tj
+0 -15.00 Td
+(Maintain observer watch and avoid panic commands.) Tj
+0 -15.00 Td
+(Apply manufacturer-specific procedure if link returns.) Tj
+0 -15.00 Td
+(DO: Simulate lost control link in approved software only.) Tj
+0 -15.00 Td
+(WATCH: Never deliberately disconnect controls on a live sortie.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (26 / 60) Tj ET
+endstream
+endobj
+57 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 58 0 R >>
+endobj
+58 0 obj
+<< /Length 1991 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 05) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 05) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 05 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Emergency response) Tj
+0 -15.00 Td
+(SLIDE 04 Position and sensor faults) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Automation can degrade without notice.) Tj
+0 -15.00 Td
+(Recognize GNSS or vision-system warnings.) Tj
+0 -15.00 Td
+(Avoid mode changes that require invalid sensors.) Tj
+0 -15.00 Td
+(Reduce workload and recover only within demonstrated pilot capability.) Tj
+0 -15.00 Td
+(DO: Practice sensor degradation in simulator.) Tj
+0 -15.00 Td
+(WATCH: RTH may not function with unreliable position.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 The abort ladder) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Know your exit before launch.) Tj
+0 -15.00 Td
+(Cancel tasking, regain stable control, select safe route, land.) Tj
+0 -15.00 Td
+(Call ABORT / HOLD / LAND with observer confirmation.) Tj
+0 -15.00 Td
+(Record event after the aircraft is secure.) Tj
+0 -15.00 Td
+(DO: Rehearse radio-style call-and-response.) Tj
+0 -15.00 Td
+(WATCH: Do not improvise a new flight profile mid-emergency.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 After the incident) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Learning is part of safety.) Tj
+0 -15.00 Td
+(Account for all people and any damage.) Tj
+0 -15.00 Td
+(Secure aircraft and batteries before troubleshooting.) Tj
+0 -15.00 Td
+(Document event and follow mandatory reporting rules if applicable.) Tj
+0 -15.00 Td
+(DO: Complete a mock near-miss report in three sentences.) Tj
+0 -15.00 Td
+(WATCH: Avoid restarting before fault cause is understood.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (27 / 60) Tj ET
+endstream
+endobj
+59 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 60 0 R >>
+endobj
+60 0 obj
+<< /Length 1757 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 05) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 05) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Emergency decision simulator circuit) Tj
+0 -15.00 Td
+(Module 05 | Est. 90 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Recognize, stabilize, decide and safely recover from common UAV faults.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Flight simulator, event cards, crew radio/callout sheet.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Start from a stable simulated mission with known settings.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Run three randomized scenarios: low battery, link loss, navigation fault.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(For each: announce state; identify options; execute appropriate simulated recovery.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Brief the crew and complete a short incident/near-miss record.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Simulator event log, instructor observation card and incident record.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Correctly resolve all critical safety decisions; no mission continuation after unsafe state.) Tj
+0 -15.00 Td
+(DEBRIEF: What information was essential within the first ten seconds?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Never induce loss link, disable GNSS or defeat failsafes on a live training aircraft.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (28 / 60) Tj ET
+endstream
+endobj
+61 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 62 0 R >>
+endobj
+62 0 obj
+<< /Length 2010 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 05) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 05) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 05 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 An automatic RTH is safest when:) Tj
+0 -15.00 Td
+(A. Its prerequisites and path are valid B. Every sensor is failed) Tj
+0 -15.00 Td
+(C. Home was never recorded D. The pilot has not checked altitude) Tj
+0 -15.00 Td
+(2 Low battery during a distant mission means:) Tj
+0 -15.00 Td
+(A. Continue until auto landing B. Reassess reserve and use safest landing plan) Tj
+0 -15.00 Td
+(C. Increase speed regardless of wind D. Stop monitoring battery) Tj
+0 -15.00 Td
+(3 A GNSS warning may affect:) Tj
+0 -15.00 Td
+(A. Only audio recording B. Position-dependent modes and RTH) Tj
+0 -15.00 Td
+(C. Propeller color D. File names) Tj
+0 -15.00 Td
+(4 Safe training for lost link is:) Tj
+0 -15.00 Td
+(A. Switch off transmitter during live flight B. Use an approved simulator scenario) Tj
+0 -15.00 Td
+(C. Unplug the receiver airborne D. Remove antenna during flight) Tj
+0 -15.00 Td
+(5 Which priority is correct?) Tj
+0 -15.00 Td
+(A. Mission, drone, people B. Drone, data, people) Tj
+0 -15.00 Td
+(C. People, aircraft, mission D. Camera, mission, people) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (29 / 60) Tj ET
+endstream
+endobj
+63 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 64 0 R >>
+endobj
+64 0 obj
+<< /Length 1383 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 06) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 06) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(CAMERA AND AERIAL DATA) Tj
+0 -15.00 Td
+(Useful imagery) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Capture an organized and interpretable aerial documentation set.) Tj
+0 -15.00 Td
+(4 HOURS FIELD + REVIEW) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Choose nadir vs oblique framing for a specific information need.) Tj
+0 -15.00 Td
+(Control exposure, image sharpness and gimbal orientation.) Tj
+0 -15.00 Td
+(Label, inspect and protect geotagged mission data.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Collect evidence, not scenery Nadir and oblique Avoid image failure) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Gimbal and flight path Metadata and chain of custody Quality gate) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Images answer the objective, are legible, correctly labeled and ethically collected.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (30 / 60) Tj ET
+endstream
+endobj
+65 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 66 0 R >>
+endobj
+66 0 obj
+<< /Length 1989 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 06) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 06) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 06 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Useful imagery) Tj
+0 -15.00 Td
+(SLIDE 01 Collect evidence, not scenery) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Every image should answer a question.) Tj
+0 -15.00 Td
+(Define subject, required detail and final deliverable.) Tj
+0 -15.00 Td
+(Plan viewpoint, time of day and glare risk.) Tj
+0 -15.00 Td
+(Use overlap where continuity or mapping is needed.) Tj
+0 -15.00 Td
+(DO: Compare a scenic frame against an inspection-ready frame.) Tj
+0 -15.00 Td
+(WATCH: Attractive footage is not necessarily useful evidence.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Nadir and oblique) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Two views support different tasks.) Tj
+0 -15.00 Td
+(Nadir: ground area, roofs and map coverage.) Tj
+0 -15.00 Td
+(Oblique: facades, damage evidence and feature context.) Tj
+0 -15.00 Td
+(Capture orientation/scale references when practical.) Tj
+0 -15.00 Td
+(DO: Match six sample features to best view type.) Tj
+0 -15.00 Td
+(WATCH: Do not imply oblique stills are survey-grade maps.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Avoid image failure) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Fix quality at capture time.) Tj
+0 -15.00 Td
+(Prevent motion blur; hold stable before exposure.) Tj
+0 -15.00 Td
+(Check focus, exposure and shadow detail.) Tj
+0 -15.00 Td
+(Avoid aggressive digital zoom for evidence detail.) Tj
+0 -15.00 Td
+(DO: Repeat a test scene with wrong then corrected exposure.) Tj
+0 -15.00 Td
+(WATCH: Unrecoverable blur cannot be fixed reliably later.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (31 / 60) Tj ET
+endstream
+endobj
+67 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 68 0 R >>
+endobj
+68 0 obj
+<< /Length 1984 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 06) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 06) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 06 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Useful imagery) Tj
+0 -15.00 Td
+(SLIDE 04 Gimbal and flight path) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Keep capture consistent.) Tj
+0 -15.00 Td
+(Choose safe height and route for subject coverage.) Tj
+0 -15.00 Td
+(Use repeatable angle and heading for comparisons.) Tj
+0 -15.00 Td
+(Maintain visual observer and terrain clearance.) Tj
+0 -15.00 Td
+(DO: Sketch a four-shot capture plan.) Tj
+0 -15.00 Td
+(WATCH: Camera attention must not replace aircraft observation.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Metadata and chain of custody) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Good files remain traceable.) Tj
+0 -15.00 Td
+(Record time, operator, site and mission purpose.) Tj
+0 -15.00 Td
+(Preserve originals and separate edited copies.) Tj
+0 -15.00 Td
+(Check geotags; do not assume they are always accurate.) Tj
+0 -15.00 Td
+(DO: Rename files by mission, date, location and sequence.) Tj
+0 -15.00 Td
+(WATCH: Do not share images containing private details without authorization.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Quality gate) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Review before leaving the site.) Tj
+0 -15.00 Td
+(Confirm complete coverage and no missing areas.) Tj
+0 -15.00 Td
+(Inspect representative images for sharpness and exposure.) Tj
+0 -15.00 Td
+(Back up the dataset and note limitations.) Tj
+0 -15.00 Td
+(DO: Perform a five-image quality review with a partner.) Tj
+0 -15.00 Td
+(WATCH: Missing evidence is harder to recover after demobilization.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (32 / 60) Tj ET
+endstream
+endobj
+69 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 70 0 R >>
+endobj
+70 0 obj
+<< /Length 1753 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 06) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 06) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Five-image evidence set) Tj
+0 -15.00 Td
+(Module 06 | Est. 70 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Capture an organized and interpretable aerial documentation set.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Camera drone or supplied image set, mission brief, review laptop.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Choose inspection or site-observation objective.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Plan three oblique and two nadir captures \(adapt to subject\).) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Acquire images in a permitted site or use instructor dataset.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Create a short contact sheet and annotate two findings.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Name and back up the source files.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Five-image contact sheet, labeled originals, two useful observations and one limitation.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Images answer the objective, are legible, correctly labeled and ethically collected.) Tj
+0 -15.00 Td
+(DEBRIEF: Which photo carries the most decision-useful information?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Respect privacy, restricted sites and minimum safe separation.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (33 / 60) Tj ET
+endstream
+endobj
+71 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 72 0 R >>
+endobj
+72 0 obj
+<< /Length 1943 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 06) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 06) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 06 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 A nadir image is primarily viewed:) Tj
+0 -15.00 Td
+(A. Toward the horizon B. Straight downward) Tj
+0 -15.00 Td
+(C. Through thermal only D. From inside the aircraft) Tj
+0 -15.00 Td
+(2 For repeated facade inspection, prioritize:) Tj
+0 -15.00 Td
+(A. Random angles B. Consistent oblique framing) Tj
+0 -15.00 Td
+(C. Maximum digital zoom D. No image labels) Tj
+0 -15.00 Td
+(3 The best way to handle blurred evidence is:) Tj
+0 -15.00 Td
+(A. Claim it is sharp B. Retake when safe) Tj
+0 -15.00 Td
+(C. Delete all metadata D. Sharpen until details appear) Tj
+0 -15.00 Td
+(4 What should be preserved?) Tj
+0 -15.00 Td
+(A. Only heavily edited images B. Original source images with context) Tj
+0 -15.00 Td
+(C. Only thumbnail previews D. Nothing after delivery) Tj
+0 -15.00 Td
+(5 Before leaving the site, the team should:) Tj
+0 -15.00 Td
+(A. Assume all shots worked B. Check image quality and coverage) Tj
+0 -15.00 Td
+(C. Format both memory cards D. Publish raw imagery online) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (34 / 60) Tj ET
+endstream
+endobj
+73 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 74 0 R >>
+endobj
+74 0 obj
+<< /Length 1518 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 07) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 07) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(AUTONOMOUS FLIGHT AND MAPPING) Tj
+0 -15.00 Td
+(Waypoints and outputs) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Plan and supervise a safe waypoint/survey mission and inspect map) Tj
+0 -15.00 Td
+(outputs.) Tj
+0 -15.00 Td
+(5 HOURS GCS + DATA LAB) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Prepare a mission with safe route, altitude, terrain and abort options.) Tj
+0 -15.00 Td
+(Verify mission upload and aircraft configuration before autonomous flight.) Tj
+0 -15.00 Td
+(Understand overlap, GCP/RTK and basic orthomosaic limitations.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Automation is supervised flight Waypoint logic Survey coverage) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Mission verify From photos to map Deliver evidence with limitations) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Safe route and failsafe plan; independently verified upload where supported; usable map output or) Tj
+0 -15.00 Td
+(documented processing attempt.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (35 / 60) Tj ET
+endstream
+endobj
+75 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 76 0 R >>
+endobj
+76 0 obj
+<< /Length 2058 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 07) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 07) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 07 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Waypoints and outputs) Tj
+0 -15.00 Td
+(SLIDE 01 Automation is supervised flight) Tj
+0 -15.00 Td
+0 -15.00 Td
+(The pilot remains responsible.) Tj
+0 -15.00 Td
+(Route planning reduces stick workload but adds planning hazards.) Tj
+0 -15.00 Td
+(Check obstacles, terrain, people, battery and permission.) Tj
+0 -15.00 Td
+(Define safe pause, abort and return procedure.) Tj
+0 -15.00 Td
+(DO: Show a route that looks good on screen but intersects a tower.) Tj
+0 -15.00 Td
+(WATCH: Uploading a route is not the same as verifying it.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Waypoint logic) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Every point changes aircraft behavior.) Tj
+0 -15.00 Td
+(Create takeoff, navigation and return/landing sequence.) Tj
+0 -15.00 Td
+(Set flight mode, altitude frame, speed and expected action.) Tj
+0 -15.00 Td
+(Check route continuity and safe starting position.) Tj
+0 -15.00 Td
+(DO: Create a four-point route in QGroundControl.) Tj
+0 -15.00 Td
+(WATCH: Planned Home may differ from aircraft actual Home.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Survey coverage) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Image geometry determines map quality.) Tj
+0 -15.00 Td
+(Draw area polygon and grid.) Tj
+0 -15.00 Td
+(Specify front/side overlap appropriate to imagery and terrain.) Tj
+0 -15.00 Td
+(Check camera triggering, mission time and terrain following.) Tj
+0 -15.00 Td
+(DO: Use QGroundControl Survey pattern on a sample rectangle.) Tj
+0 -15.00 Td
+(WATCH: Terrain elevation variation can invalidate overlap assumptions.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (36 / 60) Tj ET
+endstream
+endobj
+77 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 78 0 R >>
+endobj
+78 0 obj
+<< /Length 1979 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 07) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 07) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 07 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Waypoints and outputs) Tj
+0 -15.00 Td
+(SLIDE 04 Mission verify) Tj
+0 -15.00 Td
+0 -15.00 Td
+(The vehicle must match the plan.) Tj
+0 -15.00 Td
+(Save versioned plan; upload to correct vehicle.) Tj
+0 -15.00 Td
+(Read back/confirm mission if supported.) Tj
+0 -15.00 Td
+(Review altitude, return action, geofence and battery margin.) Tj
+0 -15.00 Td
+(DO: Have a partner perform a blind mission checklist.) Tj
+0 -15.00 Td
+(WATCH: Do not launch an unverified or stale plan.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 From photos to map) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Photogrammetry needs quality input.) Tj
+0 -15.00 Td
+(Inspect blur, geotags and coverage.) Tj
+0 -15.00 Td
+(Process images to orthomosaic and optional surface/point cloud.) Tj
+0 -15.00 Td
+(Use GCPs/RTK for accuracy requirements when appropriate.) Tj
+0 -15.00 Td
+(DO: Review a sample WebODM output and missing-coverage artifact.) Tj
+0 -15.00 Td
+(WATCH: A pretty map is not proof of survey accuracy.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Deliver evidence with limitations) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Quality includes honesty.) Tj
+0 -15.00 Td
+(Export map with coordinate system and date.) Tj
+0 -15.00 Td
+(Note coverage gaps, georeferencing method and accuracy limits.) Tj
+0 -15.00 Td
+(Attach a concise mission log and QA checklist.) Tj
+0 -15.00 Td
+(DO: Inspect map distortion around edges.) Tj
+0 -15.00 Td
+(WATCH: Do not claim centimeter accuracy without validation.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (37 / 60) Tj ET
+endstream
+endobj
+79 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 80 0 R >>
+endobj
+80 0 obj
+<< /Length 1963 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 07) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 07) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Plan - verify - map mini mission) Tj
+0 -15.00 Td
+(Module 07 | Est. 110 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Plan and supervise a safe waypoint/survey mission and inspect map outputs.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(QGroundControl or Mission Planner, simulator/aircraft, sample dataset, WebODM/QGIS.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Create a fenced 4-waypoint route and identify terrain/obstacle hazards.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Create a survey grid over a sample plot and estimate mission time.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Save the plan; verify route, altitude frame and intended vehicle.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Execute in simulator or supervised authorized flight.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Process sample/collected photos to an orthomosaic and mark two quality issues.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Versioned mission file, verification checklist, map screenshot/export and limitations note.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Safe route and failsafe plan; independently verified upload where supported; usable map output or) Tj
+0 -15.00 Td
+(documented) Tj
+0 -15.00 Td
+(processing attempt.) Tj
+0 -15.00 Td
+(DEBRIEF: What breaks when planned altitude ignores terrain?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Do not fly automated routes until platform-specific checks and trainee gates are passed.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (38 / 60) Tj ET
+endstream
+endobj
+81 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 82 0 R >>
+endobj
+82 0 obj
+<< /Length 1975 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 07) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 07) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 07 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 A survey grid is mainly used to:) Tj
+0 -15.00 Td
+(A. Increase radio power B. Create systematic image coverage) Tj
+0 -15.00 Td
+(C. Calibrate motors D. Hide obstacles) Tj
+0 -15.00 Td
+(2 A planned home marker in GCS is:) Tj
+0 -15.00 Td
+(A. Always the armed home B. A planning reference that must be checked) Tj
+0 -15.00 Td
+(C. The only safe landing point D. Proof of permission) Tj
+0 -15.00 Td
+(3 Terrain following is important because:) Tj
+0 -15.00 Td
+(A. It makes drones silent B. Ground elevation varies below flight path) Tj
+0 -15.00 Td
+(C. It adds battery capacity D. It removes all obstacles) Tj
+0 -15.00 Td
+(4 An orthomosaic can be described as:) Tj
+0 -15.00 Td
+(A. A stitched, georeferenced image product B. A battery log) Tj
+0 -15.00 Td
+(C. An FPV radio system D. A live collision sensor) Tj
+0 -15.00 Td
+(5 An accurate map claim requires:) Tj
+0 -15.00 Td
+(A. A good-looking image B. Appropriate ground checks and documented accuracy) Tj
+0 -15.00 Td
+(C. Maximum brightness D. No metadata) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (39 / 60) Tj ET
+endstream
+endobj
+83 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 84 0 R >>
+endobj
+84 0 obj
+<< /Length 1508 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 08) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 08) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(NEXT-GENERATION UAV TECHNOLOGY) Tj
+0 -15.00 Td
+(AI, RTK, sensors and autonomy) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Select modern UAV technologies for an application and articulate) Tj
+0 -15.00 Td
+(limitations.) Tj
+0 -15.00 Td
+(3 HOURS DEMO + DATA LAB) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Explain where AI-assisted perception helps and fails.) Tj
+0 -15.00 Td
+(Distinguish RTK, GNSS, thermal, LiDAR and standard RGB data.) Tj
+0 -15.00 Td
+(Identify additional safety and authorization issues for remote/autonomous systems.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(2026 capability map AI in the loop Navigation beyond basic GNSS) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Different sensors, different Connected autonomous systems Practical technology decision) Tj
+0 -15.00 Td
+(answers) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(All selections are mission-relevant, limitations honest, no unsupported autonomy claims.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (40 / 60) Tj ET
+endstream
+endobj
+85 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 86 0 R >>
+endobj
+86 0 obj
+<< /Length 2088 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 08) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 08) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 08 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(AI, RTK, sensors and autonomy) Tj
+0 -15.00 Td
+(SLIDE 01 2026 capability map) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Buy outcomes, not buzzwords.) Tj
+0 -15.00 Td
+(AI vision can assist search, tracking and inspection review.) Tj
+0 -15.00 Td
+(RTK improves positioning when corrections and setup are valid.) Tj
+0 -15.00 Td
+(Thermal and LiDAR answer different sensing questions.) Tj
+0 -15.00 Td
+(DO: Choose the right sensor for a roof, field and utility pole.) Tj
+0 -15.00 Td
+(WATCH: AI confidence is not verified truth.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 AI in the loop) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Human verification remains essential.) Tj
+0 -15.00 Td
+(Object detectors produce candidate detections, not proof.) Tj
+0 -15.00 Td
+(Evaluate false positives, false negatives and image conditions.) Tj
+0 -15.00 Td
+(Keep human authority over flight and safety decisions.) Tj
+0 -15.00 Td
+(DO: Audit ten sample frames and mark missed detections.) Tj
+0 -15.00 Td
+(WATCH: No automatic pursuit of people in training exercises.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Navigation beyond basic GNSS) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Redundancy brings complexity.) Tj
+0 -15.00 Td
+(GNSS positioning may degrade near structures or canopy.) Tj
+0 -15.00 Td
+(Visual/inertial aiding can help when fitted and validated.) Tj
+0 -15.00 Td
+(RTK needs adequate correction, geometry and data workflow.) Tj
+0 -15.00 Td
+(DO: Compare sample position traces: GNSS vs corrected survey.) Tj
+0 -15.00 Td
+(WATCH: Do not promise reliable GNSS-denied navigation on every drone.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (41 / 60) Tj ET
+endstream
+endobj
+87 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 88 0 R >>
+endobj
+88 0 obj
+<< /Length 2089 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 08) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 08) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 08 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(AI, RTK, sensors and autonomy) Tj
+0 -15.00 Td
+(SLIDE 04 Different sensors, different answers) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Know what the dataset actually measures.) Tj
+0 -15.00 Td
+(RGB captures appearance and texture.) Tj
+0 -15.00 Td
+(Thermal measures radiance/temperature patterns with caveats.) Tj
+0 -15.00 Td
+(LiDAR estimates 3D range and geometry.) Tj
+0 -15.00 Td
+(DO: Match sample data to an inspection question.) Tj
+0 -15.00 Td
+(WATCH: Thermal imagery is not an x-ray or definitive defect diagnosis.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Connected autonomous systems) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Remote operations require greater assurance.) Tj
+0 -15.00 Td
+(Drone docks and remote dispatch change oversight needs.) Tj
+0 -15.00 Td
+(Multi-drone/relay links add coordination and failure modes.) Tj
+0 -15.00 Td
+(BVLOS and remote operations may require special permissions.) Tj
+0 -15.00 Td
+(DO: Map actors in a drone-in-a-box service workflow.) Tj
+0 -15.00 Td
+(WATCH: Autonomy never cancels airspace, privacy or risk duties.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Practical technology decision) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Match capability to hazard, cost and evidence.) Tj
+0 -15.00 Td
+(State mission need, sensor, software and validation method.) Tj
+0 -15.00 Td
+(Show a low-cost fallback and failure case.) Tj
+0 -15.00 Td
+(Separate proven workflows from experimental demonstrations.) Tj
+0 -15.00 Td
+(DO: Teams pitch one upgrade in 60 seconds.) Tj
+0 -15.00 Td
+(WATCH: Reject innovation that lacks an identifiable use case.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (42 / 60) Tj ET
+endstream
+endobj
+89 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 90 0 R >>
+endobj
+90 0 obj
+<< /Length 1773 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 08) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 08) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Technology-selection challenge) Tj
+0 -15.00 Td
+(Module 08 | Est. 45 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Select modern UAV technologies for an application and articulate limitations.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Sample RGB, thermal and LiDAR outputs; AI detection examples; decision matrix.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Receive three missions: missing person mock search, roof inspection and terrain mapping.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Select aircraft/payload/navigation/data-processing features for each.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Identify two limitations and one human verification step per mission.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Present an affordable baseline vs premium configuration.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Completed technology-selection matrix and brief rationale.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(All selections are mission-relevant, limitations honest, no unsupported autonomy claims.) Tj
+0 -15.00 Td
+(DEBRIEF: Which technology offers the most value per peso for your mission?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Special permissions and risk management apply to non-standard or remote operations.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (43 / 60) Tj ET
+endstream
+endobj
+91 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 92 0 R >>
+endobj
+92 0 obj
+<< /Length 1982 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 08) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 08) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 08 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 AI object detection output should be treated as:) Tj
+0 -15.00 Td
+(A. A verified fact B. A hypothesis requiring checking) Tj
+0 -15.00 Td
+(C. Proof of legal permission D. A substitute for a spotter) Tj
+0 -15.00 Td
+(2 RTK primarily helps improve:) Tj
+0 -15.00 Td
+(A. Positioning under valid corrections B. Motor temperature) Tj
+0 -15.00 Td
+(C. Image compression D. Camera aperture) Tj
+0 -15.00 Td
+(3 Thermal imagery is most suitable for:) Tj
+0 -15.00 Td
+(A. Measuring spectral appearance/heat patterns B. Recording sound) Tj
+0 -15.00 Td
+(C. Measuring exact ground distance directly D. Controlling propeller pitch) Tj
+0 -15.00 Td
+(4 LiDAR principally provides:) Tj
+0 -15.00 Td
+(A. Radio frequencies B. 3D distance/geometry information) Tj
+0 -15.00 Td
+(C. Battery charging D. Audio transcription) Tj
+0 -15.00 Td
+(5 A remote drone dock automatically makes BVLOS legal:) Tj
+0 -15.00 Td
+(A. Always B. Only for small drones) Tj
+0 -15.00 Td
+(C. No, operational authorization still applies D. Only after sunset) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (44 / 60) Tj ET
+endstream
+endobj
+93 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 94 0 R >>
+endobj
+94 0 obj
+<< /Length 1402 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 09) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 09) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(THE REAL-WORLD MISSION) Tj
+0 -15.00 Td
+(Plan, fly, deliver) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Complete a supervised mission from tasking through evidence-based) Tj
+0 -15.00 Td
+(reporting.) Tj
+0 -15.00 Td
+(4 HOURS TEAM FIELD MISSION) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Use a briefing, risk card and aircraft checklist as a team.) Tj
+0 -15.00 Td
+(Collect useful data within a defined mission boundary.) Tj
+0 -15.00 Td
+(Deliver findings, data files and a documented limitation statement.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(Mission brief to purpose Crew roles Mission card) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Fly and monitor Verify the data Debrief like an operator) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(Complete record, no critical hazard, two useful findings and transparent limitations.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (45 / 60) Tj ET
+endstream
+endobj
+95 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 96 0 R >>
+endobj
+96 0 obj
+<< /Length 1996 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 09) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 09) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 09 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Plan, fly, deliver) Tj
+0 -15.00 Td
+(SLIDE 01 Mission brief to purpose) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Translate an ask into a deliverable.) Tj
+0 -15.00 Td
+(Choose site survey, mock damage assessment, field observation or inspection.) Tj
+0 -15.00 Td
+(Define beneficiary, outputs, coverage and acceptance test.) Tj
+0 -15.00 Td
+(Set timeline, operating limits and risk constraints.) Tj
+0 -15.00 Td
+(DO: Turn a vague request into a two-line mission statement.) Tj
+0 -15.00 Td
+(WATCH: Do not fly before the information need is clear.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Crew roles) Tj
+0 -15.00 Td
+0 -15.00 Td
+(One mission, clear authority.) Tj
+0 -15.00 Td
+(Assign pilot, observer, data lead and safety lead \(as available\).) Tj
+0 -15.00 Td
+(Use closed-loop communications on hazards and commands.) Tj
+0 -15.00 Td
+(Clarify abort authority and changes in control.) Tj
+0 -15.00 Td
+(DO: Run a 90-second role brief.) Tj
+0 -15.00 Td
+(WATCH: No overlapping or conflicting pilot control.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Mission card) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Write the plan before the flight.) Tj
+0 -15.00 Td
+(Site, mission, flight box, times and weather.) Tj
+0 -15.00 Td
+(Aircraft, battery, planned route and contingencies.) Tj
+0 -15.00 Td
+(Evidence list and privacy/data-handling plan.) Tj
+0 -15.00 Td
+(DO: Fill one-page mission card and conduct peer challenge.) Tj
+0 -15.00 Td
+(WATCH: Unreviewed changes require a new GO / NO-GO.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (46 / 60) Tj ET
+endstream
+endobj
+97 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 98 0 R >>
+endobj
+98 0 obj
+<< /Length 1935 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 09) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 09) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 09 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Plan, fly, deliver) Tj
+0 -15.00 Td
+(SLIDE 04 Fly and monitor) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Observe the mission, not just the camera.) Tj
+0 -15.00 Td
+(Announce takeoff, checkpoints, warnings and landing.) Tj
+0 -15.00 Td
+(Monitor position, margins, battery, people and airspace.) Tj
+0 -15.00 Td
+(Abort if a critical assumption fails.) Tj
+0 -15.00 Td
+(DO: Instructor injects harmless verbal scenario change.) Tj
+0 -15.00 Td
+(WATCH: Do not force completion when conditions change.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Verify the data) Tj
+0 -15.00 Td
+0 -15.00 Td
+(A mission is unfinished without usable output.) Tj
+0 -15.00 Td
+(Check images/logs while still at site.) Tj
+0 -15.00 Td
+(Identify gaps, re-fly only if safe and authorized.) Tj
+0 -15.00 Td
+(Save originals and record data limitations.) Tj
+0 -15.00 Td
+(DO: Use a short QA checklist before demobilizing.) Tj
+0 -15.00 Td
+(WATCH: Do not invent observations from ambiguous imagery.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Debrief like an operator) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Close the loop.) Tj
+0 -15.00 Td
+(Compare planned objectives with delivered outputs.) Tj
+0 -15.00 Td
+(Record time, deviations, anomalies and lessons.) Tj
+0 -15.00 Td
+(Issue an actionable one-page mission summary.) Tj
+0 -15.00 Td
+(DO: Each crew member gives one improvement.) Tj
+0 -15.00 Td
+(WATCH: A clean report includes what you do not know.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (47 / 60) Tj ET
+endstream
+endobj
+99 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 100 0 R >>
+endobj
+100 0 obj
+<< /Length 1882 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 09) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 09) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Team mission: inspect, survey or assess) Tj
+0 -15.00 Td
+(Module 09 | Est. 135 min) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Complete a supervised mission from tasking through evidence-based reporting.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Aircraft or simulator, field site, mission card, image dataset, logs, laptop.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Receive a client-like brief and choose a permitted mission scenario.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Allocate crew, complete GO / NO-GO and flight briefing.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Execute supervised route or capture plan; monitor and call deviations.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Perform field data QA and create a one-page mission report.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Present two findings and one uncertainty during debrief.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Mission card, flight log, evidence folder, QA sheet and final 1-page report.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(Complete record, no critical hazard, two useful findings and transparent limitations.) Tj
+0 -15.00 Td
+(DEBRIEF: What decision could the client make using your output?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: Use mock disaster sites and obtain land/site permission; avoid actual hazardous response) Tj
+0 -15.00 Td
+(deployment.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (48 / 60) Tj ET
+endstream
+endobj
+101 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 102 0 R >>
+endobj
+102 0 obj
+<< /Length 1953 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 09) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 09) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 09 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 A good mission brief begins with:) Tj
+0 -15.00 Td
+(A. Desired deliverable and decision B. Maximum drone speed) Tj
+0 -15.00 Td
+(C. A logo D. Video music) Tj
+0 -15.00 Td
+(2 A safety observer primarily helps:) Tj
+0 -15.00 Td
+(A. Choose music B. Monitor hazards, traffic and aircraft) Tj
+0 -15.00 Td
+(C. Rewrite the map projection D. Charge a flying battery) Tj
+0 -15.00 Td
+(3 A newly identified critical hazard requires:) Tj
+0 -15.00 Td
+(A. Continue unchanged B. Reassess and potentially abort) Tj
+0 -15.00 Td
+(C. Ignore if images are good D. Fly higher immediately) Tj
+0 -15.00 Td
+(4 A final mission report must include:) Tj
+0 -15.00 Td
+(A. Only successes B. Evidence, limitations and deviations) Tj
+0 -15.00 Td
+(C. Only the drone serial number D. Only a map screenshot) Tj
+0 -15.00 Td
+(5 Good data handling means:) Tj
+0 -15.00 Td
+(A. Publicly share all imagery B. Maintain organized original files and permissions) Tj
+0 -15.00 Td
+(C. Delete flight logs D. Rename randomly) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (49 / 60) Tj ET
+endstream
+endobj
+103 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 104 0 R >>
+endobj
+104 0 obj
+<< /Length 1470 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 10) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 10) Tj
+0 -15.00 Td
+(LEARNING MODULE) Tj
+0 -15.00 Td
+(FINAL FLIGHT CHALLENGE) Tj
+0 -15.00 Td
+(Demonstrate competency) Tj
+0 -15.00 Td
+(END-OF-MODULE COMPETENCY) Tj
+0 -15.00 Td
+(Demonstrate entry-level competence with no critical safety error.) Tj
+0 -15.00 Td
+(2 HOURS INDEPENDENT CHECKRIDE) Tj
+0 -15.00 Td
+(Performance targets) Tj
+0 -15.00 Td
+(Brief and prepare an aircraft without instructor prompting.) Tj
+0 -15.00 Td
+(Fly a controlled practical sequence and respond to simulated faults.) Tj
+0 -15.00 Td
+(Produce a complete log and debrief against the rubric.) Tj
+0 -15.00 Td
+(Presentation sequence) Tj
+0 -15.00 Td
+(01 02 03) Tj
+0 -15.00 Td
+(The checkride standard Gate 1: safety Gate 2: control) Tj
+0 -15.00 Td
+(04 05 06) Tj
+0 -15.00 Td
+(Gate 3: judgment Gate 4: autonomy and data Close the loop) Tj
+0 -15.00 Td
+(ADVANCE ONLY WHEN) Tj
+0 -15.00 Td
+(At least 80% overall and PASS every safety-critical item; five hours of supervised live flight logged) Tj
+0 -15.00 Td
+(separately) Tj
+0 -15.00 Td
+(as a program target.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (50 / 60) Tj ET
+endstream
+endobj
+105 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 106 0 R >>
+endobj
+106 0 obj
+<< /Length 1922 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 10) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 10) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 10 / Slides 1-3) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Demonstrate competency) Tj
+0 -15.00 Td
+(SLIDE 01 The checkride standard) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Reliability matters more than showmanship.) Tj
+0 -15.00 Td
+(Know the mission, hazards, aircraft and pilot limits.) Tj
+0 -15.00 Td
+(Prioritize repeatability, safe margins and communication.) Tj
+0 -15.00 Td
+(Any unsafe condition means pause or abort.) Tj
+0 -15.00 Td
+(DO: Review assessed competencies before trainee begins.) Tj
+0 -15.00 Td
+(WATCH: The examiner never rewards unnecessary risk.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 02 Gate 1: safety) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Verify a real GO / NO-GO decision.) Tj
+0 -15.00 Td
+(Site and airspace review; weather and crew roles.) Tj
+0 -15.00 Td
+(Preflight, battery, RTH and modes.) Tj
+0 -15.00 Td
+(Correct reject/abort when a critical hazard exists.) Tj
+0 -15.00 Td
+(DO: Use one hidden defect card.) Tj
+0 -15.00 Td
+(WATCH: Critical misses override numeric scores.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 03 Gate 2: control) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Demonstrate essential flight skill.) Tj
+0 -15.00 Td
+(Safe takeoff, hover and four-direction translation.) Tj
+0 -15.00 Td
+(Controlled turn/precision element at trainee level.) Tj
+0 -15.00 Td
+(Safe return and landing.) Tj
+0 -15.00 Td
+(DO: Assessor observes without unnecessary prompting.) Tj
+0 -15.00 Td
+(WATCH: Flight difficulty is adjusted for safe conditions.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (51 / 60) Tj ET
+endstream
+endobj
+107 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 108 0 R >>
+endobj
+108 0 obj
+<< /Length 1964 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 10) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 10) Tj
+0 -15.00 Td
+(PRESENTATION) Tj
+0 -15.00 Td
+(Module 10 / Slides 4-6) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Demonstrate competency) Tj
+0 -15.00 Td
+(SLIDE 04 Gate 3: judgment) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Think while under controlled pressure.) Tj
+0 -15.00 Td
+(Respond verbally to two emergency scenarios.) Tj
+0 -15.00 Td
+(Choose a safe recovery or abort method.) Tj
+0 -15.00 Td
+(State when RTH cannot be trusted.) Tj
+0 -15.00 Td
+(DO: Use simulator or oral decision card after landing.) Tj
+0 -15.00 Td
+(WATCH: Never introduce faults in actual flight.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 05 Gate 4: autonomy and data) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Show a usable mission workflow.) Tj
+0 -15.00 Td
+(Inspect a waypoint plan and verify correct vehicle.) Tj
+0 -15.00 Td
+(Identify one route hazard and one QA concern.) Tj
+0 -15.00 Td
+(Deliver map/image example with limitations.) Tj
+0 -15.00 Td
+(DO: Short desktop GCS verification plus output review.) Tj
+0 -15.00 Td
+(WATCH: Tool familiarity does not imply unrestricted autonomy.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(SLIDE 06 Close the loop) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Assessment is evidence of current skill.) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Log the observed competency for each trainee.) Tj
+0 -15.00 Td
+(Reassess failed gates after targeted practice.) Tj
+0 -15.00 Td
+(Issue institutional completion only when requirements met.) Tj
+0 -15.00 Td
+(DO: Conduct individual strengths and gaps debrief.) Tj
+0 -15.00 Td
+(WATCH: Course completion is not a regulator-issued certificate.) Tj
+0 -15.00 Td
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (52 / 60) Tj ET
+endstream
+endobj
+109 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 110 0 R >>
+endobj
+110 0 obj
+<< /Length 1915 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 10) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 10) Tj
+0 -15.00 Td
+(PRACTICAL ACTIVITY) Tj
+0 -15.00 Td
+(Individual competency checkride) Tj
+0 -15.00 Td
+(Module 10 | Est. 100 min scheduled rotation) Tj
+0 -15.00 Td
+0 -15.00 Td
+(TASK / DEMONSTRATION) Tj
+0 -15.00 Td
+(Demonstrate entry-level competence with no critical safety error.) Tj
+0 -15.00 Td
+(Equipment and setup) Tj
+0 -15.00 Td
+(Approved drone, simulator, scenario cards, checkride rubric and flight log.) Tj
+0 -15.00 Td
+(Procedure) Tj
+0 -15.00 Td
+(Pass safety/aircraft preflight gate.) Tj
+0 -15.00 Td
+(1) Tj
+0 -15.00 Td
+(Perform takeoff, hover, precision maneuver and safe landing.) Tj
+0 -15.00 Td
+(2) Tj
+0 -15.00 Td
+(Respond to two simulator or oral emergency events.) Tj
+0 -15.00 Td
+(3) Tj
+0 -15.00 Td
+(Verify one waypoint plan and inspect one sample map/data output.) Tj
+0 -15.00 Td
+(4) Tj
+0 -15.00 Td
+(Complete the log, receive debrief and sign record.) Tj
+0 -15.00 Td
+(5) Tj
+0 -15.00 Td
+(EVIDENCE TO SUBMIT) Tj
+0 -15.00 Td
+(Completed signed checkride sheet, simulator log and final flight record.) Tj
+0 -15.00 Td
+(PASS CONDITION) Tj
+0 -15.00 Td
+(At least 80% overall and PASS every safety-critical item; five hours of supervised live flight logged) Tj
+0 -15.00 Td
+(separately as a) Tj
+0 -15.00 Td
+(program target.) Tj
+0 -15.00 Td
+(DEBRIEF: What is the next flight skill you should train before solo work?) Tj
+0 -15.00 Td
+(SAFETY LIMIT: A trainee who fails a critical item must be stopped, coached and reassessed; no automatic) Tj
+0 -15.00 Td
+(pass.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (53 / 60) Tj ET
+endstream
+endobj
+111 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 112 0 R >>
+endobj
+112 0 obj
+<< /Length 2021 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (MODULE 10) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(MODULE 10) Tj
+0 -15.00 Td
+(ASSESSMENT) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Module 10 / Knowledge check) Tj
+0 -15.00 Td
+0 -15.00 Td
+(Circle one best answer. 5 questions x 1 point. No guessing in flight-critical tasks.) Tj
+0 -15.00 Td
+(Name ____________________________________ Date _______________) Tj
+0 -15.00 Td
+(1 The instructor should prioritize:) Tj
+0 -15.00 Td
+(A. Speed of completion B. Documented safe competence) Tj
+0 -15.00 Td
+(C. The most dramatic flight D. Shortest flight log) Tj
+0 -15.00 Td
+(2 A critical safety item is failed. The result is:) Tj
+0 -15.00 Td
+(A. Automatic pass above 80% B. Remediation and reassessment) Tj
+0 -15.00 Td
+(C. Extra credit for speed D. Ignore the item) Tj
+0 -15.00 Td
+(3 An emergency fault in assessment should be:) Tj
+0 -15.00 Td
+(A. Induced live without warning B. Simulated or orally assessed) Tj
+0 -15.00 Td
+(C. Created by disconnecting antennas D. Ignored entirely) Tj
+0 -15.00 Td
+(4 A flight log should separate:) Tj
+0 -15.00 Td
+(A. Morning and afternoon only B. Actual aircraft time from simulator time) Tj
+0 -15.00 Td
+(C. Different pen colors D. Camera resolutions) Tj
+0 -15.00 Td
+(5 Completion of this course grants:) Tj
+0 -15.00 Td
+(A. Automatic commercial approval B. An institutional completion record, not CAAP qualification) Tj
+0 -15.00 Td
+(C. All BVLOS permissions D. Automatic drone registration) Tj
+0 -15.00 Td
+(Written questions check understanding; the activity performance gate determines whether the trainee may) Tj
+0 -15.00 Td
+(progress. Answer) Tj
+0 -15.00 Td
+(key and rationale are placed in the instructor section.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (54 / 60) Tj ET
+endstream
+endobj
+113 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 114 0 R >>
+endobj
+114 0 obj
+<< /Length 2468 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (ASSESSMENT INTEGRITY) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(INSTRUCTOR GUIDE) Tj
+0 -15.00 Td
+(Delivery rules and constraints) Tj
+0 -15.00 Td
+(Use this as a training package - validate against local conditions.) Tj
+0 -15.00 Td
+(BEFORE FIRST COHORT) Tj
+0 -15.00 Td
+(Verify applicable CAAP rules, provider approvals, operating sites, aircraft manuals, insurance and internal) Tj
+0 -15.00 Td
+(training SOPs.) Tj
+0 -15.00 Td
+(MC 064-2026 is relevant to RPAS ground/flight training by ROC/COA holders; obtain legal/regulatory) Tj
+0 -15.00 Td
+(confirmation) Tj
+0 -15.00 Td
+(before advertising a regulated qualification.) Tj
+0 -15.00 Td
+(RATIO AND ROTATIONS) Tj
+0 -15.00 Td
+(Recommend one trainer-managed aircraft per two trainees when practical, with visual observer coverage. Run) Tj
+0 -15.00 Td
+(three) Tj
+0 -15.00 Td
+(parallel stations \(simulator / aircraft / data lab\) to minimize idle time and allow individual logs.) Tj
+0 -15.00 Td
+(ASSESSMENT INTEGRITY) Tj
+0 -15.00 Td
+0 -15.00 Td
+(A 5-item multiple-choice check is formative, not sufficient for flight approval. Keep critical competency) Tj
+0 -15.00 Td
+(gates as observed) Tj
+0 -15.00 Td
+(PASS / RETRAIN. Document attempts, remediation and retests.) Tj
+0 -15.00 Td
+(EMERGENCY PRACTICE) Tj
+0 -15.00 Td
+(Never cause a live lost-link, GNSS failure or battery-critical condition. Simulate faults or use controlled) Tj
+0 -15.00 Td
+(table-top prompts.) Tj
+0 -15.00 Td
+(Test aircraft failsafe configuration only per approved manufacturer/firmware procedures.) Tj
+0 -15.00 Td
+(HARDWARE DIFFERENCES) Tj
+0 -15.00 Td
+(Controller layouts, aircraft modes, RTH behavior and battery thresholds vary by model. Replace generic) Tj
+0 -15.00 Td
+(controls or) Tj
+0 -15.00 Td
+(recommended training dimensions with model-specific instructions and local risk limits.) Tj
+0 -15.00 Td
+(DATA AND PRIVACY) Tj
+0 -15.00 Td
+(Collect minimum required data, control access to imagery, preserve originals, and document metadata and) Tj
+0 -15.00 Td
+(uncertainty.) Tj
+0 -15.00 Td
+(Avoid sensitive areas or identifiable people without consent/authority.) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (55 / 60) Tj ET
+endstream
+endobj
+115 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 116 0 R >>
+endobj
+116 0 obj
+<< /Length 1766 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (LEARNER MANUAL) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(FIELD RESOURCE) Tj
+0 -15.00 Td
+(Before launch / crew checklist) Tj
+0 -15.00 Td
+(Use with the actual approved aircraft manual and location.) Tj
+0 -15.00 Td
+(AUTHORIZATION AND SITE) Tj
+0 -15.00 Td
+(Operation category, permits and required crew qualifications verified.) Tj
+0 -15.00 Td
+(Airspace, temporary restrictions and local approval checked.) Tj
+0 -15.00 Td
+(Weather / wind / visibility within aircraft and instructor limits.) Tj
+0 -15.00 Td
+(Bystanders controlled; safe flight box and emergency landing options ready.) Tj
+0 -15.00 Td
+(AIRCRAFT AND POWER) Tj
+0 -15.00 Td
+(Airframe, arms, props, payload and battery physically sound.) Tj
+0 -15.00 Td
+(Controller link, correct flight mode and aircraft status reviewed.) Tj
+0 -15.00 Td
+(Home point, RTH height, geofence and applicable failsafe state verified.) Tj
+0 -15.00 Td
+(Battery reserve and planned mission duration meet policy.) Tj
+0 -15.00 Td
+(CREW AND FINAL CLEARANCE) Tj
+0 -15.00 Td
+(Pilot, observer and data roles clearly assigned.) Tj
+0 -15.00 Td
+(Brief commands, lost-link and abort actions confirmed.) Tj
+0 -15.00 Td
+(Takeoff/landing zone physically clear; spotter confirms CLEAR.) Tj
+0 -15.00 Td
+(GO / NO-GO decision announced and recorded.) Tj
+0 -15.00 Td
+(Pilot / trainee ________________________ Observer ________________________ Date ___________) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (56 / 60) Tj ET
+endstream
+endobj
+117 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 118 0 R >>
+endobj
+118 0 obj
+<< /Length 1667 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (LEARNER MANUAL) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(FIELD RESOURCE) Tj
+0 -15.00 Td
+(After landing / data checklist) Tj
+0 -15.00 Td
+(Finish the operation before packing the drone.) Tj
+0 -15.00 Td
+(AIRCRAFT SECURE) Tj
+0 -15.00 Td
+(Touchdown confirmed; motors disarmed; propellers stopped.) Tj
+0 -15.00 Td
+(Power isolated per aircraft procedure; battery condition checked.) Tj
+0 -15.00 Td
+(Aircraft inspected for damage or unusual vibration/heat.) Tj
+0 -15.00 Td
+(Any warnings, defects, near-misses and maintenance needs recorded.) Tj
+0 -15.00 Td
+(EVIDENCE AND DELIVERABLES) Tj
+0 -15.00 Td
+(Mission objective and collection coverage checked.) Tj
+0 -15.00 Td
+(Original imagery, log and metadata saved to approved storage.) Tj
+0 -15.00 Td
+(Image quality checked for blur, exposure and omissions.) Tj
+0 -15.00 Td
+(Data access, privacy and storage policy applied.) Tj
+0 -15.00 Td
+(CREW CLOSURE) Tj
+0 -15.00 Td
+(Flight times separated into live and simulator hours.) Tj
+0 -15.00 Td
+(Site cleared of equipment and battery hazards.) Tj
+0 -15.00 Td
+(Debrief includes improvement, deviation and follow-up owner.) Tj
+0 -15.00 Td
+(Supervisor signs completed flight record.) Tj
+0 -15.00 Td
+(Pilot / trainee ________________________ Observer ________________________ Date ___________) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (57 / 60) Tj ET
+endstream
+endobj
+119 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 120 0 R >>
+endobj
+120 0 obj
+<< /Length 1756 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (EVALUATION FORM) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(EVALUATION FORM) Tj
+0 -15.00 Td
+(Individual competency checkride) Tj
+0 -15.00 Td
+(Mark every critical task PASS / RETRAIN before awarding a numeric score.) Tj
+0 -15.00 Td
+(Trainee: ____________________________________ Aircraft: ______________________________) Tj
+0 -15.00 Td
+(COMPETENCY WEIGHT SCORE) Tj
+0 -15.00 Td
+(Site/airspace GO / NO-GO and crew brief) Tj
+0 -15.00 Td
+(25% ____ / ____) Tj
+0 -15.00 Td
+(Airframe, battery and failsafe inspection) Tj
+0 -15.00 Td
+(Gate ____ / ____) Tj
+0 -15.00 Td
+(Takeoff, hover, translation, precision landing) Tj
+0 -15.00 Td
+(30% ____ / ____) Tj
+0 -15.00 Td
+(Simulated emergency response) Tj
+0 -15.00 Td
+(20% ____ / ____) Tj
+0 -15.00 Td
+(Mission plan verification and data QA) Tj
+0 -15.00 Td
+(25% ____ / ____) Tj
+0 -15.00 Td
+(CRITICAL GATES - PASS / RETRAIN) Tj
+0 -15.00 Td
+(Airspace and site legality reviewed P/R) Tj
+0 -15.00 Td
+(No active critical aircraft warning / defect ignored P/R) Tj
+0 -15.00 Td
+(Safe clearance and positive preflight call P/R) Tj
+0 -15.00 Td
+(No unsafe pilot action or instructor intervention P/R) Tj
+0 -15.00 Td
+(Safe landing or immediate abort when required P/R) Tj
+0 -15.00 Td
+(FINAL: TOTAL ______ / 100 CRITICAL GATES ______ PASS / RETRAIN) Tj
+0 -15.00 Td
+(Assessor signature _________________________________ Date ___________________) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (58 / 60) Tj ET
+endstream
+endobj
+121 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 122 0 R >>
+endobj
+122 0 obj
+<< /Length 1161 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (EVALUATION FORM) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(EVALUATION FORM) Tj
+0 -15.00 Td
+(Flight exposure and incident log) Tj
+0 -15.00 Td
+(Individual actual-aircraft and simulator time must be recorded separately.) Tj
+0 -15.00 Td
+(Trainee: ____________________________________ Cohort: ___________________________) Tj
+0 -15.00 Td
+(DATE AIRCRAFT SKILL / MISSION LIVE MIN SIM MIN SUPERVISOR) Tj
+0 -15.00 Td
+(ACTUAL-AIRCRAFT TOTAL ________ min SIMULATOR TOTAL ________ min) Tj
+0 -15.00 Td
+(ANOMALY / INCIDENT RECORD) Tj
+0 -15.00 Td
+(Event time / place) Tj
+0 -15.00 Td
+(Observed state / action) Tj
+0 -15.00 Td
+(People / property effects) Tj
+0 -15.00 Td
+(Immediate response / follow-up) Tj
+0 -15.00 Td
+(Reviewed by ______________________________ Date ___________________) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (59 / 60) Tj ET
+endstream
+endobj
+123 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 124 0 R >>
+endobj
+124 0 obj
+<< /Length 2136 >>
+stream
+q
+0.035 0.105 0.18 rg
+0 753 595 89 re f
+0.10 0.72 0.75 rg
+0 749 595 4 re f
+Q
+BT /F2 19 Tf 1 1 1 rg 44 798 Td (DRONE: ZERO TO HERO) Tj ET
+BT /F1 9 Tf 0.70 0.87 0.94 rg 44 776 Td (SOURCE NOTES) Tj ET
+BT /F1 11.50 Tf 0.11 0.16 0.21 rg
+1 0 0 1 44 727.00 Tm
+(SOURCE NOTES) Tj
+0 -15.00 Td
+(Official references and verification) Tj
+0 -15.00 Td
+(Selected authoritative sources; checked 30 October 2026.) Tj
+0 -15.00 Td
+(CAAP / RPAS Regulations) Tj
+0 -15.00 Td
+(Regulatory framework: PCAR Parts 1, 2, 4, 11) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(CAAP / Types of Operations) Tj
+0 -15.00 Td
+(Commercial/non-commercial and special flight permit pathways) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(CAAP / MC 064-2026) Tj
+0 -15.00 Td
+(Guidelines for RPAS ground and flight training by ROC/COA holders) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(ArduPilot / Pre-flight Checklist) Tj
+0 -15.00 Td
+(Flight readiness and gradual flight mode introduction) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(ArduPilot / Radio & Battery Failsafes) Tj
+0 -15.00 Td
+(Configurable link-loss and low-battery behavior) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(ArduPilot / Battery Failsafe) Tj
+0 -15.00 Td
+(Power monitoring and safe fallback actions) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(QGroundControl / Plan View) Tj
+0 -15.00 Td
+(Mission planning, upload and waypoint review) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(QGroundControl / Survey Pattern) Tj
+0 -15.00 Td
+(Grid survey planning and terrain-following cautions) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(OpenDroneMap / Outputs) Tj
+0 -15.00 Td
+(Orthophoto, point cloud and digital elevation products) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+0 -15.00 Td
+(EASA / SORA 2.5) Tj
+0 -15.00 Td
+(International risk assessment learning reference, not Philippine law) Tj
+0 -15.00 Td
+(OPEN OFFICIAL RESOURCE) Tj
+ET
+0.10 0.72 0.75 rg
+44 44 507 1 re f
+BT /F1 8 Tf 0.35 0.42 0.49 rg 44 27 Td (2026 | 40-HOUR UAV CRASH COURSE | LEARNER EDITION) Tj ET
+BT /F1 8 Tf 0.35 0.42 0.49 rg 513 27 Td (60 / 60) Tj ET
+endstream
+endobj
+xref
+0 125
+0000000000 65535 f 
+0000000016 00000 n 
+0000000065 00000 n 
+0000000546 00000 n 
+0000000616 00000 n 
+0000000691 00000 n 
+0000000827 00000 n 
+0000001709 00000 n 
+0000001845 00000 n 
+0000003898 00000 n 
+0000004035 00000 n 
+0000005502 00000 n 
+0000005640 00000 n 
+0000007188 00000 n 
+0000007326 00000 n 
+0000008817 00000 n 
+0000008955 00000 n 
+0000011092 00000 n 
+0000011230 00000 n 
+0000013326 00000 n 
+0000013464 00000 n 
+0000015179 00000 n 
+0000015317 00000 n 
+0000017464 00000 n 
+0000017602 00000 n 
+0000019075 00000 n 
+0000019213 00000 n 
+0000021300 00000 n 
+0000021438 00000 n 
+0000023561 00000 n 
+0000023699 00000 n 
+0000025553 00000 n 
+0000025691 00000 n 
+0000027830 00000 n 
+0000027968 00000 n 
+0000029424 00000 n 
+0000029562 00000 n 
+0000031684 00000 n 
+0000031822 00000 n 
+0000033847 00000 n 
+0000033985 00000 n 
+0000035881 00000 n 
+0000036019 00000 n 
+0000038041 00000 n 
+0000038179 00000 n 
+0000039639 00000 n 
+0000039777 00000 n 
+0000041877 00000 n 
+0000042015 00000 n 
+0000044047 00000 n 
+0000044185 00000 n 
+0000046038 00000 n 
+0000046176 00000 n 
+0000048240 00000 n 
+0000048378 00000 n 
+0000049800 00000 n 
+0000049938 00000 n 
+0000052018 00000 n 
+0000052156 00000 n 
+0000054199 00000 n 
+0000054337 00000 n 
+0000056146 00000 n 
+0000056284 00000 n 
+0000058346 00000 n 
+0000058484 00000 n 
+0000059919 00000 n 
+0000060057 00000 n 
+0000062098 00000 n 
+0000062236 00000 n 
+0000064272 00000 n 
+0000064410 00000 n 
+0000066215 00000 n 
+0000066353 00000 n 
+0000068348 00000 n 
+0000068486 00000 n 
+0000070056 00000 n 
+0000070194 00000 n 
+0000072304 00000 n 
+0000072442 00000 n 
+0000074473 00000 n 
+0000074611 00000 n 
+0000076626 00000 n 
+0000076764 00000 n 
+0000078791 00000 n 
+0000078929 00000 n 
+0000080489 00000 n 
+0000080627 00000 n 
+0000082767 00000 n 
+0000082905 00000 n 
+0000085046 00000 n 
+0000085184 00000 n 
+0000087009 00000 n 
+0000087147 00000 n 
+0000089181 00000 n 
+0000089319 00000 n 
+0000090773 00000 n 
+0000090911 00000 n 
+0000092959 00000 n 
+0000093097 00000 n 
+0000095084 00000 n 
+0000095223 00000 n 
+0000097158 00000 n 
+0000097298 00000 n 
+0000099304 00000 n 
+0000099444 00000 n 
+0000100967 00000 n 
+0000101107 00000 n 
+0000103082 00000 n 
+0000103222 00000 n 
+0000105239 00000 n 
+0000105379 00000 n 
+0000107347 00000 n 
+0000107487 00000 n 
+0000109561 00000 n 
+0000109701 00000 n 
+0000112222 00000 n 
+0000112362 00000 n 
+0000114181 00000 n 
+0000114321 00000 n 
+0000116041 00000 n 
+0000116181 00000 n 
+0000117990 00000 n 
+0000118130 00000 n 
+0000119344 00000 n 
+0000119484 00000 n 
+trailer
+<< /Size 125 /Root 1 0 R >>
+startxref
+121673
+%%EOF
