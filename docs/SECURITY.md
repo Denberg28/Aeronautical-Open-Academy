@@ -22,7 +22,7 @@ Material read/unread is self-reported, not a grade. Activities and written exami
 
 Verify HTTPS host/reverse proxy, DNS, organization identity/Drive membership, scoped secret handling/rotation, password delivery/recovery, administrator MFA/organization access safeguards, backup restoration, monitoring/rate limits, approved PDF scanning/accessibility, intended load, Android runtime/permissions/caching, signing continuity, and adversarial access tests against the actual deployed service. There is no blanket claim of production readiness from unit tests.
 
-The local development store is not a public download directory. Production startup requires Drive configuration. Backend data directories, environment/keystore/service-account files, and private key material are excluded from Git. Do not deploy test-mode fixtures or default credentials.
+The local development store is not a public download directory. Production uses links-only mode by default; enabling the Drive adapter requires private Drive configuration. Backend data directories, environment/keystore/service-account files, and private key material are excluded from Git. Do not deploy test-mode fixtures or default credentials.
 
 ## Learner privacy and exports
 
@@ -42,8 +42,14 @@ Pre-v3 enrollment provenance cannot be reconstructed: those records migrate as l
 
 References are protected metadata, not protected file bytes. Every tap rechecks current account/session, enrollment, publication and exact current text reference/revision. The browser/host app receives only the URL via ACTION_VIEW; no Academy bearer token, private file, login cookie or request headers are forwarded. No webview, embed, preview, server-side URL fetch, DNS lookup or arbitrary redirect exists, so the backend is not a link-content proxy. The selected platform handles its own sign-in, permissions, downloads and redirects.
 
-Only public-style HTTP/HTTPS addresses with standard ports are clickable. Credentials, literal IP/local names and unsafe schemes are rejected independently in core and backend helpers. Invalid URLs stay plain text; they do not become executable HTML. HTTP is labeled and is unencrypted in the host/browser; it does not relax the Academy's own HTTPS/loopback-only debug policy. Hostnames/labels are parsing aids, not an endorsement or malware/phishing scan. Institutions must curate resources and actual host sharing; an app enrollment check cannot revoke already copied/opened URLs or make a public host file private.
+Only public-style HTTP/HTTPS addresses with standard ports are clickable. Credentials, literal IP/local names and unsafe schemes are rejected independently in core and backend helpers. Invalid URLs stay plain text; they do not become executable HTML. HTTP is labeled, requires destination confirmation, and is unencrypted in the host/browser; it does not relax the Academy's own HTTPS/loopback-only debug policy. Hostnames/labels are parsing aids, not an endorsement or malware/phishing scan. Institutions must curate resources and actual host sharing; an app enrollment check cannot revoke already copied/opened URLs or make a public host file private.
 
 MATERIAL_STORAGE=links requires no Drive secret and stores only references plus existing account/learning data. Optional file adapters retain their security requirements when enabled. Stable gates for a links-only deployment require actual provider access/handoff tests, rather than credentials for an unused Drive upload adapter.
 
 Discovery now substitutes a generic enrollment hint for subject descriptions, so eligible-but-unenrolled accounts cannot obtain subject resource URLs through discovery metadata. Full subject text/links remain available only after enrollment or authorized instructor/admin access.
+
+## 0.9 account, storage and destination hardening
+
+See [SECURITY_RELEASE.md](SECURITY_RELEASE.md) for scope, budget values, expected tests, database v6 migration/rollback and honest verification boundaries. New persistent limits separate TCP peer and normalized email, cover password-change/account-create paths and survive restart. Single-line identities reject hidden controls; registration rejects unsupported access fields; temporary passwords must actually change. Account creation and credential/session/audit changes are transactional.
+
+Database initialization creates a private 0600 file, refuses a symlink database path, runs pending migrations together and refuses broken quick/foreign-key integrity. No encryption-at-rest or backup deployment claim is implied. Initial link policies reject encoded controls/backslashes, invisible formatting, escaped/Unicode authorities and local arpa destinations. Punycode URLs can be used but display their ASCII host during unfamiliar-host review. Familiar exact HTTPS providers retain direct handoff; HTTP/unfamiliar hosts show the full host and URL, followed by fresh permission/reference authorization on Open.

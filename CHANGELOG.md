@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0-alpha.1
+
+- Reinforce admin-led registration with bounded attempts, validated identities and explicit allowed fields; require an actually different temporary-password replacement.
+- Persist separate normalized-account and TCP-peer authentication budgets across restarts; make account/credential/session/audit writes atomic.
+- Upgrade SQLite to v6 with private creation, one pending-migration transaction and fail-closed integrity checks; retain all existing domain records.
+- Reject deceptive/encoded-control links in backend and Android policies; review unfamiliar hosts and HTTP destinations before fresh authorized handoff.
+- Adopt shared AGENTS v1.4, Constitution v3.2 and kickoff v1.3 while retaining Academy-specific rules; add focused edit and security acceptance guides.
+- Add abuse, restart, migration rollback, audit-failure and URL regression coverage. Physical-device/deployment/signing gates remain explicit.
+
 ## 0.8.3-alpha.1
 
 - Keep workspace/public headers and tab controls mounted instead of resetting the activity view on each tab change.

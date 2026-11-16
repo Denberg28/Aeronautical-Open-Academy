@@ -3,10 +3,13 @@ import { requireThat } from './security.mjs';
 /** Validate the initial public web URL only. No DNS, preview, redirect or content fetch. */
 export function externalUrl(raw){
  requireThat(typeof raw==='string',400,'Provide a web material link.');const value=raw.trim();
- requireThat(value.length>0&&value.length<=2048&&!/[\s\\\u0000-\u001f\u007f]/u.test(value)&&/^https?:\/\//i.test(value),400,'Use a complete HTTP or HTTPS link, without spaces or backslashes.');
+ requireThat(value.length>0&&value.length<=2048&&!/[\s\\\u0000-\u001f\u007f\p{Cf}]/u.test(value)&&!/%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(value)&&/^https?:\/\//i.test(value),400,'Use a complete HTTP or HTTPS link, without spaces or backslashes.');
+ // Links — Match Android's ASCII authority parsing; refuse browser URL repair.
+ const authority=value.match(/^https?:\/\/([^/?#]+)/i)?.[1]||'';
+ requireThat(/^[a-z0-9.-]+(?::(?:80|443))?$/i.test(authority),400,'Use an ASCII public hostname without credentials or escaped characters.');
  let url;try{url=new URL(value);}catch{requireThat(false,400,'Invalid material link.');}
  const host=url.hostname.toLowerCase();
- requireThat(['http:','https:'].includes(url.protocol)&&!url.username&&!url.password&&!url.port&&host.length<=253&&!isIP(host)&&!host.includes(':')&&!host.startsWith('[')&&host.includes('.')&&!host.endsWith('.')&&host.split('.').every(s=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s))&&!/(^|\.)(localhost|local|internal|lan|home|test|invalid|example|onion)$/.test(host)&&!/^\d+$/.test(host.split('.').at(-1)),400,'Use a public web link without credentials, local addresses or custom ports.');
+ requireThat(['http:','https:'].includes(url.protocol)&&!url.username&&!url.password&&!url.port&&host.length<=253&&!isIP(host)&&!host.includes(':')&&!host.startsWith('[')&&host.includes('.')&&!host.endsWith('.')&&host.split('.').every(s=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s))&&!/(^|\.)(localhost|local|internal|lan|home|test|invalid|example|onion|arpa)$/.test(host)&&!/^\d+$/.test(host.split('.').at(-1)),400,'Use a public web link without credentials, local addresses or custom ports.');
  requireThat(url.href.length<=2048,400,'Material link is too long.');return url.href;
 }
 function trimPunctuation(value){
