@@ -188,7 +188,7 @@ public final class MainActivity extends AppCompatActivity {
         body.addView(text("Subject code",19,INK,true));gap(body,8);
         EditText entry=input("For example, A","");entry.setContentDescription("Subject code or Academy QR text");body.addView(entry);
         body.addView(button("Open subject",true,v->openCode(entry.getText().toString())));gap(body,12);
-        body.addView(text("Sample codes: A, B, C. Courses require sign-in.",14,MUTED,false));
+        body.addView(text("Template code: A. Courses require sign-in.",14,MUTED,false));
     }
     private void downloadScreen() {
         body.addView(text("Downloads",28,INK,true));gap(body,16);
@@ -250,7 +250,7 @@ public final class MainActivity extends AppCompatActivity {
         }));dialog.show();
     }
     private void showHelp() {
-        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage(repo.notice+"\n\n1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nSample subject codes: A, B, C. Samples are demonstrations.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
+        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage(repo.notice+"\n\n1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nTemplate subject code: A. Practice content is not an approved syllabus.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
     }
     private void message(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK",null).show();}
     private void navButton(String label,String target){Button b=button(label,false,v->navigate(target));b.setTag(target);nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}

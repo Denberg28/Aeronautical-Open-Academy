@@ -55,7 +55,7 @@ public class TestWorkspaceTest {
     }
     @Test public void writtenSubmissionGradingAndRevisionRecovery()throws Exception{
         JSONObject activity=item("activity");String id=activity.getString("id"),key=UUID.randomUUID().toString();submit(id,data("output","Check the current approved revision."),key);submit(id,data("output","Check the current approved revision."),key);denied(409,()->submit(id,data("output","Different output"),key));
-        JSONObject detail=call(teacher,"GET","/v1/subjects/"+subject+"/learners/"+studentId,null).getJSONArray("items").getJSONObject(1);String grade="/v1/submissions/"+detail.getString("submission_id")+"/grade";
+        JSONArray details=call(teacher,"GET","/v1/subjects/"+subject+"/learners/"+studentId,null).getJSONArray("items");JSONObject detail=null;for(int n=0;n<details.length();n++)if(details.getJSONObject(n).getString("id").equals(id))detail=details.getJSONObject(n);assertNotNull(detail);String grade="/v1/submissions/"+detail.getString("submission_id")+"/grade";
         denied(404,()->call(student,"POST",grade,data("score",99)));call(teacher,"POST",grade,data("score",92,"feedback","Good revision check.","expected_graded_at",JSONObject.NULL));denied(409,()->call(teacher,"POST",grade,data("score",90,"expected_graded_at",JSONObject.NULL)));
         JSONObject view=call(student,"GET","/v1/items/"+id,null).getJSONObject("item").getJSONObject("submission");assertEquals(92,view.getInt("score"));assertEquals("Good revision check.",view.getString("feedback"));
         call(teacher,"POST","/v1/items/"+id,data("expected_edit_version",1,"title","Revised activity","body","New prompt"));assertFalse(call(student,"GET","/v1/items/"+id,null).getJSONObject("item").has("submission"));submit(id,data("output","New revision answer"),UUID.randomUUID().toString());
@@ -87,7 +87,7 @@ public class TestWorkspaceTest {
         app.reset();denied(401,()->call(admin,"GET","/v1/me",null));admin=login(0);teacher=login(1);student=login(2);assertEquals(3,call(admin,"GET","/v1/admin/accounts",null).getJSONArray("accounts").length());assertEquals(0,call(student,"GET","/v1/subjects",null).getJSONArray("subjects").getJSONObject(0).getJSONObject("summary").getInt("completed"));
     }
     @Test public void staleWritesDoNotMutateAndArchiveHidesItem()throws Exception{
-        JSONObject material=item("material");String id=material.getString("id");denied(409,()->call(teacher,"POST","/v1/items/"+id,data("expected_edit_version",8,"title","Stale edit")));assertEquals(material.getString("title"),call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item").getString("title"));call(teacher,"POST","/v1/items/"+id,data("expected_edit_version",1,"archived",true));denied(404,()->call(student,"GET","/v1/items/"+id,null));assertEquals(2,course(student).getJSONObject("summary").getInt("total"));
+        JSONObject material=item("material");String id=material.getString("id");denied(409,()->call(teacher,"POST","/v1/items/"+id,data("expected_edit_version",8,"title","Stale edit")));assertEquals(material.getString("title"),call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item").getString("title"));call(teacher,"POST","/v1/items/"+id,data("expected_edit_version",1,"archived",true));denied(404,()->call(student,"GET","/v1/items/"+id,null));assertEquals(24,course(student).getJSONObject("summary").getInt("total"));
     }
     @Test public void corruptStateFailsWithoutSilentlyDeletingWork()throws Exception{
         File state=new File(root,"workspace.json");Files.write(state.toPath(),"corrupt".getBytes());try{call(admin,"GET","/v1/me",null);fail();}catch(IOException expected){assertTrue(expected.getMessage().contains("Reset"));}assertEquals("corrupt",new String(Files.readAllBytes(state.toPath())));app.reset();login(0);
@@ -98,12 +98,78 @@ public class TestWorkspaceTest {
 
     @Test public void orderPersistsWithoutChangingWorkAndNewEntriesAppend()throws Exception{
         JSONObject material=item("material");call(student,"POST","/v1/items/"+material.getString("id")+"/complete",data("completed",true));JSONObject before=course(teacher);JSONArray items=before.getJSONArray("items"),ids=new JSONArray();for(int i=items.length()-1;i>=0;i--)ids.put(items.getJSONObject(i).getString("id"));String path="/v1/subjects/"+subject+"/order";JSONObject order=data("item_ids",ids,"expected_revision",before.getJSONObject("subject").getInt("order_revision"));denied(403,()->call(student,"POST",path,order));call(teacher,"POST",path,order);denied(409,()->call(teacher,"POST",path,order));app=new TestWorkspace(root);assertEquals(ids.getString(0),course(student).getJSONArray("items").getJSONObject(0).getString("id"));assertEquals(1,course(student).getJSONObject("summary").getInt("read"));
-        String added=call(teacher,"POST","/v1/subjects/"+subject+"/items",data("kind","material","material_mode","text","title","Last entry","body","Added after reorder","published",true)).getString("id");assertEquals(added,course(student).getJSONArray("items").getJSONObject(3).getString("id"));
-        int revision=course(teacher).getJSONObject("subject").getInt("order_revision");denied(400,()->call(teacher,"POST",path,data("item_ids",new JSONArray().put(added).put(added).put(added).put(added),"expected_revision",revision)));assertEquals(added,course(student).getJSONArray("items").getJSONObject(3).getString("id"));
+        String added=call(teacher,"POST","/v1/subjects/"+subject+"/items",data("kind","material","material_mode","text","title","Last entry","body","Added after reorder","published",true)).getString("id");assertEquals(added,course(student).getJSONArray("items").getJSONObject(items.length()).getString("id"));
+        int revision=course(teacher).getJSONObject("subject").getInt("order_revision");denied(400,()->call(teacher,"POST",path,data("item_ids",duplicateOrder(ids,added),"expected_revision",revision)));assertEquals(added,course(student).getJSONArray("items").getJSONObject(items.length()).getString("id"));
     }
     @Test public void legacyLocalMigrationPreservesEntriesAndCustomPasswords()throws Exception{
         call(student,"POST","/v1/auth/password",data("current_password","student","new_password",TestWorkspace.PASSWORD));call(teacher,"POST","/v1/auth/password",data("current_password","instructor","new_password","My custom teacher password!"));
         File file=new File(root,"workspace.json");JSONObject state=new JSONObject(new String(Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));state.put("version",1);JSONArray items=state.getJSONArray("items");for(int n=0;n<items.length();n++)items.getJSONObject(n).remove("sort_order");state.getJSONArray("subjects").getJSONObject(0).remove("order_revision");Files.write(file.toPath(),state.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        app=new TestWorkspace(root);student=login(2);teacher=login(TestWorkspace.EMAILS[1],"My custom teacher password!");assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(3,course(student).getJSONArray("items").length());denied(401,()->login(1));
+        app=new TestWorkspace(root);student=login(2);teacher=login(TestWorkspace.EMAILS[1],"My custom teacher password!");assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(25,course(student).getJSONArray("items").length());denied(401,()->login(1));
     }
+
+    private JSONArray duplicateOrder(JSONArray ids,String added)throws Exception{
+        JSONArray duplicate=new JSONArray(ids.toString());duplicate.put(added);duplicate.put(duplicate.length()-1,duplicate.getString(0));return duplicate;
+    }
+
+    @Test public void completeTemplateHasFourBalancedPeriodsAndRoleViews()throws Exception{
+        JSONArray all=course(teacher).getJSONArray("items");assertEquals(25,all.length());
+        int quizzes=0,activities=0,exams=0,materials=0;java.util.Set<String> keys=new java.util.HashSet<>();
+        for(int n=0;n<all.length();n++){JSONObject item=all.getJSONObject(n);assertEquals(n,item.getInt("sort_order"));assertTrue(item.getBoolean("published"));assertTrue(keys.add(item.getString("template_entry_key")));switch(item.getString("kind")){case "quiz":quizzes++;assertEquals(4,item.getJSONArray("options").length());break;case "activity":if(item.getString("assessment_type").equals("examination"))exams++;else activities++;assertTrue(item.getString("body").contains("/100")||item.getString("body").contains("25 points each"));break;case "material":materials++;break;default:fail("Unexpected kind");}}
+        assertEquals(8,quizzes);assertEquals(4,activities);assertEquals(4,exams);assertEquals(9,materials);
+        for(String period:new String[]{"prelim","midterm","semifinals","finals"}){int count=0;for(String key:keys)if(key.startsWith(period+"-"))count++;assertEquals(period,6,count);}
+        assertEquals(16,course(student).getJSONObject("summary").getInt("required"));assertFalse(course(student).toString().contains("correct_index"));
+        app=new TestWorkspace(root);assertEquals(1,call(teacher,"GET","/v1/subjects",null).getJSONArray("subjects").length());assertEquals(25,course(teacher).getJSONArray("items").length());
+    }
+
+    // Migration fixtures reproduce the old factory content independently of the new seed.
+    private JSONObject writeLegacyFixture(boolean edited)throws Exception{
+        File file=new File(root,"workspace.json");JSONObject state=new JSONObject(Files.readString(file.toPath()));
+        state.put("version",2);state.remove("template_version");JSONObject old=state.getJSONArray("subjects").getJSONObject(0);
+        old.put("title","Practice subject · Aircraft maintenance").put("description","Synthetic practice content. Create materials as the instructor, then sign in as the student to read and submit work.").put("order_revision",4).put("eligibility_revision",1);old.remove("template_key");
+        JSONObject material=item("material"),activity=item("activity"),quiz=item("quiz");JSONArray legacy=new JSONArray();
+        for(int n=0;n<state.getJSONArray("items").length();n++){JSONObject entry=state.getJSONArray("items").getJSONObject(n);if(!entry.getString("subject_id").equals(subject))legacy.put(entry);}
+        String[] titles={"Welcome to your practice subject","Practice written activity","Practice documentation quiz"};
+        String[] bodies={"Read this test material, then tap Mark as read.\nSign out and switch accounts to review the same work as instructor or administrator.","Describe how you would check the current maintenance document revision before starting a task. Synthetic exercise only.","Which document should you use before beginning a maintenance task?"};
+        JSONObject[] items={material,activity,quiz};for(int n=0;n<3;n++){JSONObject entry=items[n];entry.put("title",titles[n]).put("body",bodies[n]).put("sort_order",n).put("revision",1).put("edit_version",1);entry.remove("template_entry_key");legacy.put(entry);}
+        quiz.put("options",new JSONArray().put("Current approved documentation").put("An obsolete personal copy")).put("correct_index",0);
+        if(edited)material.put("body","My instructor changes");state.put("items",legacy);
+        state.getJSONArray("records").put(data("id",UUID.randomUUID().toString(),"student_id",studentId,"item_id",material.getString("id"),"revision",1,"completed",true,"score",JSONObject.NULL));
+        Files.writeString(file.toPath(),state.toString());return state;
+    }
+    @Test public void untouchedFactoryUpgradesInPlaceAndRetainsHistoricalRecords()throws Exception{
+        String material=item("material").getString("id"),activity=item("activity").getString("id"),quiz=item("quiz").getString("id");JSONObject legacy=writeLegacyFixture(false);
+        app=new TestWorkspace(root);assertEquals(1,call(student,"GET","/v1/subjects",null).getJSONArray("subjects").length());assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(25,course(student).getJSONArray("items").length());
+        for(String id:new String[]{material,activity,quiz})assertEquals(2,call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item").getInt("revision"));
+        assertEquals(0,course(student).getJSONObject("summary").getInt("read"));
+        JSONObject saved=new JSONObject(Files.readString(new File(root,"workspace.json").toPath()));assertEquals(3,saved.getInt("version"));assertEquals(1,saved.getJSONArray("records").length());
+        assertEquals(legacy.toString(),Files.readString(new File(root,"workspace-before-template.json").toPath()));
+        app=new TestWorkspace(root);assertEquals(25,course(student).getJSONArray("items").length());
+    }
+    @Test public void editedLegacyAndIndependentInstructorWorkArePreserved()throws Exception{
+        String custom=call(teacher,"POST","/v1/subjects",data("title","My actual course","description","Preserve this work")).getString("id");
+        call(teacher,"POST","/v1/subjects/"+custom+"/items",data("kind","material","material_mode","text","title","My lesson","body","Original instructor work","published",true));
+        call(admin,"POST","/v1/announcements",data("title","Keep my announcement","body","User-authored notice"));writeLegacyFixture(true);
+        app=new TestWorkspace(root);assertEquals(3,call(teacher,"GET","/v1/subjects",null).getJSONArray("subjects").length());assertEquals("My instructor changes",item("material").getString("body"));assertEquals(1,course(student).getJSONObject("summary").getInt("read"));
+        assertTrue(call(teacher,"GET","/v1/subjects/"+custom,null).toString().contains("Original instructor work"));assertTrue(call(student,"GET","/v1/announcements",null).toString().contains("Keep my announcement"));
+    }
+    @Test public void failedTemplateMigrationLeavesPreviousFileUsable()throws Exception{
+        writeLegacyFixture(false);File file=new File(root,"workspace.json");byte[] before=Files.readAllBytes(file.toPath());try(InputStream in=getClass().getClassLoader().getResourceAsStream("subject-template.json")){assertNotNull(in);JSONObject invalid=new JSONObject(new String(in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));invalid.getJSONObject("overview").put("body","");app=new TestWorkspace(root,invalid.toString());}
+        try{call(admin,"GET","/v1/me",null);fail("Invalid template must stop migration");}catch(IOException expected){assertArrayEquals(before,Files.readAllBytes(file.toPath()));}
+        app=new TestWorkspace(root);call(admin,"GET","/v1/me",null);assertEquals(25,course(teacher).getJSONArray("items").length());
+    }
+
+    @Test public void wholeCourseSubmissionsAndWrittenExaminationsCanBeAssessed()throws Exception{
+        JSONArray items=course(teacher).getJSONArray("items");
+        for(int n=0;n<items.length();n++){JSONObject item=items.getJSONObject(n);String path="/v1/items/"+item.getString("id");switch(item.getString("kind")){
+            case "material":call(student,"POST",path+"/complete",data("completed",true));break;
+            case "quiz":app.request("POST",path+"/quiz",data("choice",item.getInt("correct_index")),student,UUID.randomUUID().toString());break;
+            case "activity":submit(item.getString("id"),data("output","Original numbered classroom response with calculations and assumptions."),UUID.randomUUID().toString());break;
+            default:fail("Unexpected learning item");
+        }}
+        JSONObject summary=course(student).getJSONObject("summary");assertEquals(9,summary.getInt("read"));assertEquals(16,summary.getInt("submitted"));assertEquals(100,summary.getInt("completion_percent"));assertEquals(8,summary.getInt("awaiting_assessment"));
+        JSONArray report=call(teacher,"GET","/v1/subjects/"+subject+"/learners/"+studentId,null).getJSONArray("items");int exams=0;
+        for(int n=0;n<report.length();n++){JSONObject item=report.getJSONObject(n);if(item.getString("kind").equals("activity")){call(teacher,"POST","/v1/submissions/"+item.getString("submission_id")+"/grade",data("score",80,"feedback","Reviewed against the published rubric.","expected_graded_at",JSONObject.NULL));if(item.getString("assessment_type").equals("examination"))exams++;}}
+        assertEquals(4,exams);assertEquals(0,course(student).getJSONObject("summary").getInt("awaiting_assessment"));assertFalse(course(student).toString().contains("correct_index"));
+    }
+
 }

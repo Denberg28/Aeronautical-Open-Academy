@@ -22,7 +22,7 @@ final class LearningApi {
     boolean isTest(){return BuildConfig.DEBUG&&TestWorkspace.BASE.equals(vault.base());}
     private TestWorkspace testWorkspace()throws IOException{
         if(!BuildConfig.DEBUG)throw new IOException("Local test mode is available only in the test APK.");
-        return new TestWorkspace(new File(context.getNoBackupFilesDir(),"local-test"));
+        try(InputStream in=context.getAssets().open("subject-template.json")){return new TestWorkspace(new File(context.getNoBackupFilesDir(),"local-test"),AcademyRepository.readText(in,256*1024));}
     }
     void resetTest()throws Exception{testWorkspace().reset();if(isTest()){vault.clear();clearProtectedCache();}}
     static String validateBase(String raw){

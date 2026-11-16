@@ -3,6 +3,8 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -19,9 +21,9 @@ class CatalogChecks(unittest.TestCase):
     def validate(self,j):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'catalog.json';p.write_text(json.dumps(j));return module.validate(p)
-    def test_valid_remote_structure(self):self.assertEqual(len(self.validate(self.catalog)['subjects']),3)
+    def test_valid_remote_structure(self):self.assertEqual(len(self.validate(self.catalog)['subjects']),1)
     def test_duplicate_id_rejected(self):
-        self.catalog['subjects'][1]['id']=self.catalog['subjects'][0]['id']
+        self.catalog['subjects'].append(copy.deepcopy(self.catalog['subjects'][0]))
         with self.assertRaises(AssertionError):self.validate(self.catalog)
     def test_private_file_uri_rejected(self):
         self.catalog['subjects'][0]['resources'][0]['downloadUrl']='file:///data/data/private'

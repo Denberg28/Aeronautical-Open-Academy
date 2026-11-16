@@ -1,74 +1,119 @@
 %PDF-1.4
-%“Œ‹ž ReportLab Generated PDF document (opensource)
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Pages /Count 1 /Kids [4 0 R] >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 4 0 obj
-<<
-/Contents 8 0 R /MediaBox [ 0 0 595.28 841.89 ] /Parent 7 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<<
-/PageMode /UseNone /Pages 7 0 R /Type /Catalog
->>
-endobj
-6 0 obj
-<<
-/Author (Aeronautical Open Academy) /CreationDate (D:20261019223719+11'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20261019223719+11'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (\(unspecified\)) /Title (A | Subject A) /Trapped /False
->>
-endobj
-7 0 obj
-<<
-/Count 1 /Kids [ 4 0 R ] /Type /Pages
->>
-endobj
-8 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 887
->>
+<< /Length 2329 >>
 stream
-Gatn#?Z4XP'ZJu*'^(TQ>oGd2,hc0hl%DHuKlg68?"1T$37K[Z9`+=k:8+NO'PS2;"HNN;F7/MRR),\U<PO_DE0fJTJq7oP;m=UVOnI,H)ID2/,6fer@R!DfHQE&uBLEh;J0gpDE.\>6NEqdE$K?F&5"NIle=tD8]V$"KGT18W2RAq^$5Kq1/^YOV2,d[0:l=@L+YbFQQ.k4.3ZXaH,4p7$O5uKS<M@7C+M1/;eYsP.$eepM[.ZcrG<Iij2oTI>).c8;B\HrY#q:?WLra$*O2%LghPlRWKfm',@&uu,jcXGWh9g2'hIO;pg;i]_4$_Lkcb#OQ#L_5r]U'.mSc$M3IPbDSqQ2`%POT<Y&MfCP&IHnc-\ZNC^gj8Rn4I-%^:T^FMgD5`=:#SgiF&18d]>AIi%iQgUE1TYL;>Q29%^>M7`1kSF,Y&7rUfGg>\f8<DmhWni6IYK5V:<]:W)C[Xk&C^[^XeiCiu@OMo&!j/7_m!q?5Ac+Z.-UW[DAe-hNR317+10Cl>^;>3F=uQ=cDRH$(a7,X)jR^(a&g8k&ajKEqN$o$-q,O9P&=fq:?g,);`4*??\bPt'/6m\$MK^2Psc6J7N&P]ek"_bDS\1KH\D\d4TPU"qZBR7f-(Ui@6V13,uSYtrNGj:'.e]>a1dm<+aa4_&pl`p'YaF_Y?4/Bl@G7Tn>djh*8_P1i`G@3)7TMF,LD-&?9cFN'"0'dbRso^o:/e.U8^DYg&3M2=?g)OLc=\5/g/DrRc($g@el<']Mu46aVle$X_DkZEA=fBRR^&j%":]%`On^7Z.Ngec.rqr%<dlQO4lH%@Fq@PUGVmC+p`gK%EKBrLpC=6g@H_1h@cpQ]H!a:c(W?DmQu;601B,BEUB/K0*>WlXOQ~>endstream
+BT
+/F1 10 Tf
+14 TL
+46 785 Td
+(Course guide) Tj
+T*
+() Tj
+T*
+(AE 101 - Foundations of Aeronautical Engineering) Tj
+T*
+(Practice subject template | Original Academy content | Not an approved institutional) Tj
+T*
+(syllabus.) Tj
+T*
+() Tj
+T*
+(Outcomes) Tj
+T*
+(O1. Explain an engineering problem, its constraints and the evidence needed.) Tj
+T*
+(O2. Use consistent units and trace calculations.) Tj
+T*
+(O3. Interpret a simple force model and stated assumptions.) Tj
+T*
+(O4. Compare materials and resources using supplied data.) Tj
+T*
+(O5. Evaluate uncertainty and communicate a defensible recommendation.) Tj
+T*
+() Tj
+T*
+(Study route) Tj
+T*
+(Prelim \(weeks 1-4\): engineering practice, evidence and units.) Tj
+T*
+(Midterm \(weeks 5-8\): forces, motion and model limits.) Tj
+T*
+(Semifinals \(weeks 9-12\): materials, resources and trade-offs.) Tj
+T*
+(Finals \(weeks 13-16\): integrated design brief, validation and reporting.) Tj
+T*
+(Each period: Lesson A, Quiz A, Lesson B, Quiz B, Activity, Examination.) Tj
+T*
+() Tj
+T*
+(Assessment) Tj
+T*
+(8 quizzes: one multiple-choice question each, automatically scored out of 1.) Tj
+T*
+(4 activities: written outputs, instructor-rated out of 100 using the stated rubric.) Tj
+T*
+(4 examinations: four written problems each, instructor-rated out of 100.) Tj
+T*
+(Review before submitting: one submission per item version. Do your own work; cite any) Tj
+T*
+(outside sources.) Tj
+T*
+() Tj
+T*
+(Suggested planning weights: quizzes 20%, activities 30%, examinations 50%. Use) Tj
+T*
+(category averages if applying these weights manually. Confirm your institution's) Tj
+T*
+(policy first; the app does not calculate a weighted course grade or infer passing) Tj
+T*
+(readiness. Reading completion is self-reported and is separate from achievement.) Tj
+T*
+() Tj
+T*
+(Instructor preparation) Tj
+T*
+(Review objectives, sequence, source permissions, accessibility and rubrics. Replace) Tj
+T*
+(synthetic data with suitable approved classroom cases; verify any outside links as the) Tj
+T*
+(student. Set enrollment eligibility, publish, then test with the student account.) Tj
+T*
+(Return clear feedback before the next period.) Tj
+T*
+(No aircraft operation, maintenance release or real flight is authorized by these) Tj
+T*
+(exercises.) Tj
+T*
+ET
+BT
+/F1 9 Tf
+46 35 Td
+(Original Academy practice template | Page 1) Tj
+ET
+endstream
 endobj
 xref
-0 9
+0 6
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000520 00000 n 
-0000000588 00000 n 
-0000000880 00000 n 
-0000000939 00000 n 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
 trailer
-<<
-/ID 
-[<321c907d0f754fafe61a8f0f07d6700e><321c907d0f754fafe61a8f0f07d6700e>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 6 0 R
-/Root 5 0 R
-/Size 9
->>
+<< /Size 6 /Root 1 0 R >>
 startxref
-1916
+2691
 %%EOF
