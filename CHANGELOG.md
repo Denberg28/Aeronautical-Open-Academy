@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.2-alpha.1
+
+- Keep the workspace header and role-aware bottom navigation visible while learning content scrolls; add a direct return to My subjects.
+- Refine white cards on a pale background, active navigation, focus outlines, ripple feedback, quiz answer targets and accessible headings.
+- Add persistent form labels, password visibility, keyboard sign-in, required-field errors and password retention after failed sign-in.
+- Show request progress and disabled action states; simplify public-library copy, add search counts/clear-search recovery and inline PDF download progress.
+- Add an empty announcement state and document device acceptance checks. No data migration or new dependencies.
+
 ## 0.8.1-alpha.1
 
 - Temporarily allow screenshots/screen recording of account screens and the in-app PDF viewer for development feedback, as requested.

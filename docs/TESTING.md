@@ -150,3 +150,22 @@ Required device procedure before stable: create 8+ subjects of mixed one/multili
 ## 0.8.1 capture feedback check
 
 Baseline: `443d215`, v0.8.0-alpha.1-test.13. User authorizes temporarily disabling screenshot/recording protection until features are streamlined. Both account and protected PDF FLAG_SECURE guards now depend on the common SCREEN_CAPTURE_ALLOWED build flag, currently true. No backend/data migration or permission changes. Required automated gate: source/configuration checks plus Android debug/release compile/lint and existing regressions. No redundant test is added for the direct boolean guards. Device check: take a screenshot and start the phone’s screen recorder in admin/instructor/student views, open an in-app PDF and capture its page, then rotate/background/resume and repeat. Expected: the app does not block capture. Physical OS/device behavior remains NOT TESTED. Restore SCREEN_CAPTURE_ALLOWED=false when capture protection is reintroduced.
+
+## 0.8.2 navigation and form acceptance
+
+Baseline: ff937326b56fd973db1e1842d41455c0eb076917, published v0.8.1-alpha.1-test.62; its Android verification run 41068276900 passed. Target: Android main branch UI. Scope: MainActivity and WorkspaceActivity only, version/documentation updates. No service, schema, identity, subject-order or dependency changes.
+
+| Criterion | Check / expected behavior | Evidence tier |
+| --- | --- | --- |
+| Persistent navigation | Scroll long subjects and all account pages. Header/Menu and role destinations remain visible; only content scrolls. Subject board occupies the remaining height between header and navigation. | Device required |
+| Role routes | Student: Subjects/News/Results. Instructor: Subjects/News. Admin: Subjects/News/Accounts. Menu retains all prior actions. Subject return and Android Back reach the expected page. No extra destinations during mandatory password change. | Source review + device required |
+| Form labels and focus | Filled, empty and multiline fields keep labels above text. Local sign-in hides server and its label; username/email labels change together. Focus outlines are visible. | Source review + device required |
+| Sign-in recovery | Empty username/password shows inline error and focuses the field. Show password toggles masking without losing text/cursor. Keyboard Done signs in once. Failed sign-in keeps text; success clears password. | Device required |
+| Busy state | With delayed/failed requests, activity bar and polite status are shown, action buttons disable and recover, subject dragging stays disabled while busy. A failed request still exposes its error. | Source review + device required |
+| Discovery and downloads | Search counts agree with visible subjects. No matches offers Clear search; clearing restores catalog. Active PDF transfer has determinate progress when provided, otherwise indeterminate. Cancel/read/update still work. | Device required |
+| Empty news | Zero announcements shows an explicit empty state; admin can still publish. | Source review + device required |
+| Regression | Existing source/core/catalog/Python/backend/JVM tests and debug/release build/lint pass on the final commit. | CI required |
+
+Run the existing README commands in CI; no tests that merely restate cosmetic implementation are added. Gate A uses source/build/lint; B/C use existing workflow regressions plus the device procedures above; D uses local role switching and intended organization service/provider checks; E actuator HIL is N/A (education app); F requires signed installation/upgrade evidence before stable promotion. Local shell/build execution is unavailable in this editing session; use the linked GitHub run for automated evidence.
+
+Phone procedure before stable: test all three local roles, an 8+ subject list and a long course. Repeat at 320 dp width, landscape, tablet width, 100%/200% fonts and TalkBack. Check bottom labels wrap without overlap, header does not scroll away, content remains reachable with the keyboard visible, and switching tabs/returning from course retains subject arrangement. Reorder via handle and accessible menu, refresh, sign out/in and restart. Try rejected credentials, invalid server, no network, delayed response, retry, password reveal and keyboard Done. Open every editor including multiline work/PDF pickers; rotate/background/resume. Disable Android animations and verify navigation. These physical checks are NOT TESTED until observed.
