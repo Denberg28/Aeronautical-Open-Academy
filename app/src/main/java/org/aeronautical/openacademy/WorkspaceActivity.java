@@ -35,7 +35,15 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private boolean scrollToEntriesEnd;
     private SubjectBoard subjectBoard;
     private android.os.Parcelable subjectListState;
-    private TextView status;
+    // Workspace shell: keep chrome mounted; replace only the center content.
+    private android.widget.FrameLayout contentPane;
+    private LinearLayout navigation;
+    private TextView brand;
+    private Button menuButton;
+    private String navigationRole="";
+    private final java.util.Map<String,Button> tabs=new java.util.LinkedHashMap<>();
+    private final java.util.Map<String,Integer> scrollOffsets=new java.util.LinkedHashMap<>();
+    private Runnable revealProgress;
     private ProgressBar activityProgress;
     private final java.util.Set<Button> actionButtons=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<Button,Boolean>());
     private JSONObject account,course,report,learner;
@@ -88,20 +96,20 @@ public final class WorkspaceActivity extends AppCompatActivity {
         if(saved!=null){scannerActive=saved.getBoolean("scanner",false);pendingUploadVersion=saved.getInt("upload_version",0);qrSubject=saved.getString("qr_subject","");selected=saved.getString("selected","");screen=saved.getString("screen","subjects");pendingUpload=saved.getString("upload","");exportPath=saved.getString("export","");pickerActive=saved.getBoolean("picker",false);accountOffset=saved.getInt("offset",0);learnerId=saved.getString("learner","");rosterOffset=saved.getInt("roster",0);discoverOffset=saved.getInt("discover",0);reportSubject=saved.getString("report_subject","");}
         getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){public void handleOnBackPressed(){if(!learnerId.isEmpty()){learnerId="";load();}else if(screen.equals("learners")){screen="subjects";load();}else if(!selected.isEmpty()||!screen.equals("subjects")){selected="";screen="subjects";load();}else finish();}});
         if(saved!=null&&saved.containsKey("entry_editor"))try{restoreEditor=new JSONObject(saved.getString("entry_editor"));}catch(Exception ignored){}
-        if(saved!=null)subjectListState=saved.getParcelable("subject_list_state");
+        if(saved!=null){subjectListState=saved.getParcelable("subject_list_state");Bundle positions=saved.getBundle("scroll_positions");if(positions!=null)for(String key:positions.keySet())scrollOffsets.put(key,positions.getInt(key));}
         render();if(!pickerActive&&!scannerActive)load();
     }
-    @Override protected void onSaveInstanceState(Bundle out){if(subjectBoard!=null){subjectBoard.flush();out.putParcelable("subject_list_state",subjectBoard.layoutState());}try{if(editorText!=null)out.putString("entry_editor",editorSnapshot().toString());else if(restoreEditor!=null)out.putString("entry_editor",restoreEditor.toString());}catch(Exception ignored){}if(draftInput!=null)api.vault.saveDraft(draftKey,draftInput.getText().toString());out.putBoolean("scanner",scannerActive);out.putInt("upload_version",pendingUploadVersion);out.putString("qr_subject",qrSubject);out.putString("learner",learnerId);out.putInt("roster",rosterOffset);out.putInt("discover",discoverOffset);out.putString("report_subject",reportSubject);out.putString("selected",selected);out.putString("screen",screen);out.putString("upload",pendingUpload);out.putString("export",exportPath);out.putBoolean("picker",pickerActive);out.putInt("offset",accountOffset);super.onSaveInstanceState(out);}
+    @Override protected void onSaveInstanceState(Bundle out){rememberScroll();Bundle positions=new Bundle();for(java.util.Map.Entry<String,Integer> position:scrollOffsets.entrySet())positions.putInt(position.getKey(),position.getValue());out.putBundle("scroll_positions",positions);if(subjectBoard!=null){subjectBoard.flush();out.putParcelable("subject_list_state",subjectBoard.layoutState());}try{if(editorText!=null)out.putString("entry_editor",editorSnapshot().toString());else if(restoreEditor!=null)out.putString("entry_editor",restoreEditor.toString());}catch(Exception ignored){}if(draftInput!=null)api.vault.saveDraft(draftKey,draftInput.getText().toString());out.putBoolean("scanner",scannerActive);out.putInt("upload_version",pendingUploadVersion);out.putString("qr_subject",qrSubject);out.putString("learner",learnerId);out.putInt("roster",rosterOffset);out.putInt("discover",discoverOffset);out.putString("report_subject",reportSubject);out.putString("selected",selected);out.putString("screen",screen);out.putString("upload",pendingUpload);out.putString("export",exportPath);out.putBoolean("picker",pickerActive);out.putInt("offset",accountOffset);super.onSaveInstanceState(out);}
     @Override protected void onResume(){super.onResume();if(api!=null&&account!=null&&!busy&&!pickerActive&&!scannerActive&&!formOpen&&draftInput==null&&!account.optBoolean("must_change_password"))load();}
     @Override protected void onPause(){if(subjectBoard!=null)subjectBoard.flush();super.onPause();}
-    @Override protected void onDestroy(){if(subjectBoard!=null)subjectBoard.dispose();io.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){if(activityProgress!=null&&revealProgress!=null)activityProgress.removeCallbacks(revealProgress);if(subjectBoard!=null)subjectBoard.dispose();io.shutdown();super.onDestroy();}
     private boolean admin(){return account!=null&&account.optString("role").equals("admin");}
     private boolean creator(){return account!=null&&!account.optString("role").equals("student");}
     private void perform(Action action,Done done){
         if(busy||isDestroyed())return;busy=true;if(subjectBoard!=null)subjectBoard.setDragEnabled(false);setStatus("Working…");
         io.execute(()->{
             try{JSONObject result=action.run();runOnUiThread(()->{if(isDestroyed())return;busy=false;if(subjectBoard!=null)subjectBoard.setDragEnabled(true);try{done.accept(result);}catch(Exception e){error(e);}if(!busy)setStatus("");});}
-            catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;busy=false;if(subjectBoard!=null)subjectBoard.setDragEnabled(true);if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==404){course=null;report=null;learner=null;learnerId="";selected="";screen="subjects";render();}if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==401&&account!=null){api.vault.clear();account=null;course=null;subjects=new JSONArray();selected="";render();}error(e);});}
+            catch(Exception e){runOnUiThread(()->{if(isDestroyed())return;busy=false;if(subjectBoard!=null)subjectBoard.setDragEnabled(true);if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==404){course=null;report=null;learner=null;learnerId="";selected="";screen="subjects";render();}if(e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==401&&account!=null){api.vault.clear();account=null;course=null;subjects=new JSONArray();selected="";scrollOffsets.clear();renderedPage="";render();}error(e);});}
         });
     }
     private void error(Exception e){if(editorDialog!=null&&editorDialog.isShowing()&&e instanceof LearningApi.Failure&&((LearningApi.Failure)e).status==401)editorDialog.dismiss();if(editorDialog!=null&&editorDialog.isShowing()){editorDialog.setCancelable(true);editorDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);editorDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);}setStatus("Request not completed");new AlertDialog.Builder(this).setTitle("Please check").setMessage(e.getMessage()==null?"Connection unavailable. Try again.":e.getMessage()).setPositiveButton("OK",null).show();}
@@ -130,44 +138,61 @@ public final class WorkspaceActivity extends AppCompatActivity {
             uploadAllowed=r.optJSONObject("capabilities")!=null&&r.optJSONObject("capabilities").optBoolean("material_upload");report=r.optJSONObject("report");learner=r.optJSONObject("learner");available=r.optJSONArray("available")==null?new JSONArray():r.getJSONArray("available");account=r.optJSONObject("account");course=r.optJSONObject("course");subjects=r.optJSONArray("subjects")==null?new JSONArray():r.getJSONArray("subjects");announcements=r.optJSONArray("announcements")==null?new JSONArray():r.getJSONArray("announcements");accounts=r.optJSONArray("accounts")==null?new JSONArray():r.getJSONArray("accounts");if(r.optBoolean("qr_done"))qrSubject="";if(r.optBoolean("qr_enrolled"))selected=id;if(r.optBoolean("course_unavailable")||r.optBoolean("qr_denied"))selected="";render();if(restoreEditor!=null&&account!=null&&!account.optBoolean("must_change_password")&&course!=null&&!selected.isEmpty()&&selected.equals(restoreEditor.optString("subject_id",selected))&&!formOpen){JSONObject draft=restoreEditor;entryComposer(draft.optJSONObject("item"));}if(r.optBoolean("qr_denied"))showText("Not eligible for this subject","Ask your instructor to add your administrator-verified student ID, or select All students. Administratively removed access requires administrator restoration.");else if(r.optBoolean("qr_enrolled"))Toast.makeText(this,"Enrollment confirmed",Toast.LENGTH_SHORT).show();if(r.optBoolean("course_unavailable"))new AlertDialog.Builder(this).setTitle("Subject unavailable").setMessage("This subject is unavailable or you need enrollment. Use Enroll subjects from the menu if enrollment is open, or contact your administrator.").setPositiveButton("OK",null).show();
         });
     }
-    private void render(){
-        String nextPage=account==null?"sign-in":screen+":"+selected;boolean transition=!renderedPage.isEmpty()&&!renderedPage.equals(nextPage);
-        if(subjectBoard!=null){if(account!=null)subjectListState=subjectBoard.layoutState();else subjectListState=null;subjectBoard.dispose();subjectBoard=null;}
-        actionButtons.clear();
+    // Shell geometry stays fixed during requests and tab changes.
+    private void ensureShell(){
+        if(contentPane!=null)return;
         LinearLayout root=column();root.setBackgroundColor(PAPER);setContentView(root);
-        ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets b=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return insets;});ViewCompat.requestApplyInsets(root);
-        String page=nextPage;int prior=workspaceScroll!=null&&page.equals(renderedPage)?workspaceScroll.getScrollY():0;renderedPage=page;
-        LinearLayout header=column();header.setPadding(dp(20),dp(8),dp(12),dp(8));header.setBackgroundColor(Color.WHITE);
-        LinearLayout top=new LinearLayout(this);top.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        TextView brand=txt("Open Academy",22,true);ViewCompat.setAccessibilityHeading(brand,true);top.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        Button menu=button(account==null?"‹":"☰",false,account==null?v->finish():this::showMenu);menu.setPadding(0,0,0,0);menu.setContentDescription(account==null?"Back to public samples":"Menu");top.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(top);
-        status=txt(busy?"Working…":"",12,false);status.setPadding(0,0,0,0);status.setVisibility(busy?View.VISIBLE:View.GONE);ViewCompat.setAccessibilityLiveRegion(status,ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE);header.addView(status);root.addView(header);
-        activityProgress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);activityProgress.setIndeterminate(true);activityProgress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(GOLD));activityProgress.setVisibility(busy?View.VISIBLE:View.GONE);root.addView(activityProgress,new LinearLayout.LayoutParams(-1,dp(3)));
-        ScrollView scroll=new ScrollView(this);workspaceScroll=scroll;boolean bottom=scrollToEntriesEnd;scrollToEntriesEnd=false;scroll.post(()->{if(bottom)scroll.fullScroll(View.FOCUS_DOWN);else scroll.scrollTo(0,prior);});
-        body=column();body.setPadding(dp(20),dp(20),dp(20),dp(24));scroll.setFillViewport(true);scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);scroll.setVerticalScrollBarEnabled(true);
-        android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        if(pickerActive){label("Choose your file to continue.",16,false);return;}
-        if(account==null){signIn();return;}
-        LinearLayout identity=column();identity.setPadding(0,0,0,dp(12));
-        TextView name=txt(account.optString("name")+" · "+account.optString("role"),14,false);identity.addView(name);
-        if(api.isTest())identity.addView(txt("Local test",12,false));
-        if(!account.isNull("student_number"))identity.addView(txt("Student ID · "+account.optString("student_number"),13,false));body.addView(identity);
-        if(account.optBoolean("must_change_password")){passwordForm(true);return;}
-        LinearLayout navigation=new LinearLayout(this);navigation.setPadding(dp(8),dp(4),dp(8),dp(4));navigation.setBackgroundColor(Color.WHITE);
-        workspaceTab(navigation,"Subjects","subjects",screen.equals("subjects")||screen.equals("learners")||screen.equals("enroll"));
-        workspaceTab(navigation,"News","news",screen.equals("news"));
-        if(admin())workspaceTab(navigation,"Accounts","accounts",screen.equals("accounts"));
-        else if(!creator())workspaceTab(navigation,"Results","results",screen.equals("results"));
-        root.addView(navigation,new LinearLayout.LayoutParams(-1,-2));
-        if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(screen.equals("enroll")&&!creator())enrollScreen();else if(screen.equals("learners")&&creator())learnersScreen();else if(screen.equals("results")&&!creator())resultsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
-        if(transition&&android.animation.ValueAnimator.areAnimatorsEnabled()){View content=subjectBoard==null?scroll:subjectBoard;content.setTranslationY(dp(6));content.setAlpha(.92f);content.animate().translationY(0).alpha(1).setDuration(140).start();}
+        ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});ViewCompat.requestApplyInsets(root);
+        LinearLayout header=new LinearLayout(this);header.setGravity(android.view.Gravity.CENTER_VERTICAL);header.setPadding(dp(20),dp(8),dp(12),dp(8));header.setBackgroundColor(Color.WHITE);
+        brand=txt("Open Academy",22,true);ViewCompat.setAccessibilityHeading(brand,true);header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        menuButton=button("☰",false,v->{if(account==null)finish();else showMenu(v);});menuButton.setPadding(0,0,0,0);header.addView(menuButton,new LinearLayout.LayoutParams(dp(48),dp(48)));root.addView(header);
+        activityProgress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);activityProgress.setIndeterminate(true);activityProgress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(GOLD));activityProgress.setVisibility(View.INVISIBLE);root.addView(activityProgress,new LinearLayout.LayoutParams(-1,dp(3)));
+        revealProgress=()->{if(busy)activityProgress.setVisibility(View.VISIBLE);};
+        contentPane=new android.widget.FrameLayout(this);root.addView(contentPane,new LinearLayout.LayoutParams(-1,0,1));
+        navigation=new LinearLayout(this);navigation.setPadding(dp(8),dp(4),dp(8),dp(4));navigation.setBackgroundColor(Color.WHITE);root.addView(navigation,new LinearLayout.LayoutParams(-1,-2));
     }
-    private void workspaceTab(LinearLayout navigation,String title,String target,boolean active){
+    private void rememberScroll(){
+        if(workspaceScroll==null||renderedPage.isEmpty())return;
+        scrollOffsets.put(renderedPage,workspaceScroll.getScrollY());
+        if(scrollOffsets.size()>32)scrollOffsets.remove(scrollOffsets.keySet().iterator().next());
+    }
+    private void render(){
+        ensureShell();rememberScroll();
+        String nextPage=account==null?"sign-in":screen+":"+selected+":"+learnerId;
+        if(subjectBoard!=null){if(account!=null)subjectListState=subjectBoard.layoutState();else subjectListState=null;subjectBoard.dispose();subjectBoard=null;}
+        contentPane.removeAllViews();renderedPage=nextPage;
+        menuButton.setText(account==null?"‹":"☰");menuButton.setContentDescription(account==null?"Back to samples":"Menu");
+        brand.setText(account!=null&&api.isTest()?"Open Academy · Test":"Open Academy");updateNavigation();
+        ScrollView scroll=new ScrollView(this);workspaceScroll=scroll;boolean bottom=scrollToEntriesEnd;scrollToEntriesEnd=false;
+        body=column();body.setPadding(dp(20),dp(16),dp(20),dp(24));scroll.setFillViewport(true);scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);scroll.setVerticalScrollBarEnabled(true);
+        // Restore before drawing to avoid a visible jump from the top.
+        scroll.setFocusableInTouchMode(true);scroll.setDescendantFocusability(android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS);scroll.requestFocus();
+        android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);contentPane.addView(scroll,new android.widget.FrameLayout.LayoutParams(-1,-1));
+        int prior=scrollOffsets.getOrDefault(nextPage,0);androidx.core.view.OneShotPreDrawListener.add(scroll,()->{if(bottom)scroll.fullScroll(View.FOCUS_DOWN);else scroll.scrollTo(0,prior);});
+        if(pickerActive){label("Choose a file.",16,false);return;}
+        if(account==null){signIn();return;}
+        if(account.optBoolean("must_change_password")){passwordForm(true);return;}
+        if(screen.equals("accounts")&&admin())accountsScreen();else if(screen.equals("news"))newsScreen();else if(screen.equals("enroll")&&!creator())enrollScreen();else if(screen.equals("learners")&&creator())learnersScreen();else if(screen.equals("results")&&!creator())resultsScreen();else if(course!=null&&!selected.isEmpty())courseScreen();else subjectList();
+    }
+    private void updateNavigation(){
+        String role=account==null||account.optBoolean("must_change_password")?"":account.optString("role");
+        if(!role.equals(navigationRole)||tabs.isEmpty()){
+            navigationRole=role;navigation.removeAllViews();tabs.clear();
+            if(!role.isEmpty()){workspaceTab("Subjects","subjects");workspaceTab("News","news");if(role.equals("admin"))workspaceTab("Accounts","accounts");else if(role.equals("student"))workspaceTab("Results","results");}
+        }
+        navigation.setVisibility(role.isEmpty()?View.GONE:View.VISIBLE);
+        for(java.util.Map.Entry<String,Button> entry:tabs.entrySet()){
+            boolean active=entry.getKey().equals(screen)||entry.getKey().equals("subjects")&&(screen.equals("learners")||screen.equals("enroll"));Button tab=entry.getValue();
+            if(tab.isSelected()!=active){tab.setSelected(active);tab.setBackground(ripple(active?0xfffff2cc:Color.TRANSPARENT));}
+        }
+    }
+    private void workspaceTab(String title,String target){
         Button tab=button(title,false,v->{if(screen.equals(target)&&selected.isEmpty())return;selected="";learnerId="";screen=target;load();});
-        tab.setSelected(active);if(active)tab.setBackground(ripple(0xfffff2cc));tab.setContentDescription(title);navigation.addView(tab,new LinearLayout.LayoutParams(0,-2,1));
+        tab.setContentDescription(title);navigation.addView(tab,new LinearLayout.LayoutParams(0,-2,1));tabs.put(target,tab);
     }
     private void showMenu(View anchor){
         PopupMenu menu=new PopupMenu(this,anchor,android.view.Gravity.START);
+        menu.getMenu().add(account.optString("name")+" · "+account.optString("role")).setEnabled(false);if(!account.isNull("student_number"))menu.getMenu().add("ID "+account.optString("student_number")).setEnabled(false);
         menu.getMenu().add(0,1,0,"My subjects");menu.getMenu().add(0,11,1,"Scan subject QR");menu.getMenu().add(0,12,2,"Enter subject code");
         if(!creator()){menu.getMenu().add(0,2,1,"Enroll subjects");menu.getMenu().add(0,3,2,"My results");}
         if(creator()&&!selected.isEmpty()){menu.getMenu().add(0,4,3,"Students & compliance");menu.getMenu().add(0,13,3,"Edit subject text");}
@@ -181,17 +206,17 @@ public final class WorkspaceActivity extends AppCompatActivity {
         });menu.show();
     }
     private void signOut(){
-        perform(()->{JSONObject result=new JSONObject();try{api.request("POST","/v1/auth/logout",new JSONObject());}catch(Exception e){result.put("warning",true);}finally{api.vault.clear();api.clearProtectedCache();}return result;},r->{account=null;qrSubject="";selected="";learnerId="";course=null;report=null;learner=null;subjects=new JSONArray();render();if(r.optBoolean("warning"))new AlertDialog.Builder(this).setTitle("Signed out on this device").setMessage("Server sign-out could not be confirmed. The server session remains subject to its inactivity and expiry limits.").setPositiveButton("OK",null).show();});
+        perform(()->{JSONObject result=new JSONObject();try{api.request("POST","/v1/auth/logout",new JSONObject());}catch(Exception e){result.put("warning",true);}finally{api.vault.clear();api.clearProtectedCache();}return result;},r->{account=null;qrSubject="";selected="";learnerId="";course=null;report=null;learner=null;subjects=new JSONArray();scrollOffsets.clear();renderedPage="";subjectListState=null;render();if(r.optBoolean("warning"))new AlertDialog.Builder(this).setTitle("Signed out on this device").setMessage("Server sign-out could not be confirmed. The server session remains subject to its inactivity and expiry limits.").setPositiveButton("OK",null).show();});
     }
 
     private void signIn(){
-        label("Your subjects. Your next step.",22,true);label("Use the account supplied by your administrator. Public sample materials remain available without an account.",16,false);
-        CheckBox local=new CheckBox(this);local.setText("Local test accounts · no server needed");local.setTextColor(INK);local.setMinHeight(dp(56));
+        label("Sign in",22,true);
+        CheckBox local=new CheckBox(this);local.setText("Local test accounts");local.setTextColor(INK);local.setMinHeight(dp(56));
         local.setChecked(BuildConfig.DEBUG&&(api.vault.base().isEmpty()||api.isTest()));if(BuildConfig.DEBUG)body.addView(local);
         EditText server=field(body,"Organization HTTPS server",api.isTest()?"":api.vault.base(),false),email=field(body,"Email","",false),password=field(body,"Password","",true);email.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);email.setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS);password.setAutofillHints(View.AUTOFILL_HINT_PASSWORD);
-        LinearLayout testPanel=column();testPanel.addView(txt("Local test logins: admin / admin · instructor / instructor · student / student",14,false));
+        LinearLayout testPanel=column();testPanel.addView(txt("Username = password: admin, instructor or student",13,false));
         if(BuildConfig.DEBUG)body.addView(testPanel);
-        Runnable mode=()->{server.setVisibility(local.isChecked()?View.GONE:View.VISIBLE);((View)server.getTag()).setVisibility(server.getVisibility());testPanel.setVisibility(local.isChecked()?View.VISIBLE:View.GONE);email.setHint(local.isChecked()?"Username":"Email");((TextView)email.getTag()).setText(local.isChecked()?"Username":"Email");email.setInputType(local.isChecked()?InputType.TYPE_CLASS_TEXT:InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);};mode.run();local.setOnCheckedChangeListener((b,checked)->{password.setText("");email.setText("");mode.run();});
+        Runnable mode=()->{server.setVisibility(local.isChecked()?View.GONE:View.VISIBLE);((View)server.getTag()).setVisibility(server.getVisibility());testPanel.setVisibility(local.isChecked()?View.VISIBLE:View.GONE);((TextView)email.getTag()).setText(local.isChecked()?"Username":"Email");email.setInputType(local.isChecked()?InputType.TYPE_CLASS_TEXT:InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);};mode.run();local.setOnCheckedChangeListener((b,checked)->{password.setText("");email.setText("");mode.run();});
         CheckBox reveal=new CheckBox(this);reveal.setText("Show password");reveal.setTextSize(14);reveal.setTextColor(INK);reveal.setMinHeight(dp(48));reveal.setOnCheckedChangeListener((b,checked)->{int cursor=password.getSelectionStart();password.setTransformationMethod(checked?android.text.method.HideReturnsTransformationMethod.getInstance():android.text.method.PasswordTransformationMethod.getInstance());password.setSelection(Math.max(0,cursor));});body.addView(reveal);
         Button signIn=button("Sign in",true,v->{
             try{
@@ -202,7 +227,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         });body.addView(signIn);password.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);password.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){signIn.performClick();return true;}return false;});
         if(BuildConfig.DEBUG)body.addView(button("Reset local test data",false,v->new AlertDialog.Builder(this).setTitle("Reset local test workspace?").setMessage("Deletes this device’s test work and restores admin/admin, instructor/instructor and student/student.").setNegativeButton("Keep data",null).setPositiveButton("Reset",(d,w)->perform(()->{api.resetTest();return new JSONObject();},r->{email.setText("admin");password.setText("");Toast.makeText(this,"Default test accounts restored",Toast.LENGTH_LONG).show();})).show()));
         body.addView(button("Need an account or password reset?",false,v->new AlertDialog.Builder(this).setTitle("Contact your administrator").setMessage("Account registration, access changes, and temporary password resets are managed by your administrator. There is no public self-registration.").setPositiveButton("OK",null).show()));
-        label("Connect only to your organization’s verified address. Account roles and material access are enforced by the server.",13,false);
+        
     }
     private void passwordForm(boolean required){
         LinearLayout form=formColumn();EditText old=field(form,"Current password","",true),next=field(form,"New passphrase (15+ characters)","",true),confirm=field(form,"Confirm new passphrase","",true);
@@ -221,12 +246,12 @@ public final class WorkspaceActivity extends AppCompatActivity {
         getSharedPreferences("subject-order",MODE_PRIVATE).edit().putString(key,String.join(",",ids)).apply();
     }
     private void subjectList(){
-        label("My subjects",24,true);label(subjects.length()+" "+(subjects.length()==1?"subject":"subjects"),14,false);
-        if(subjects.length()==0)label(creator()?"Tap + to create your first subject.":"Scan your instructor’s subject QR to enroll.",15,false);
+        label("Subjects",24,true);
+        if(subjects.length()==0)label(creator()?"No subjects yet.":"No subjects yet.",15,false);
         if(!creator()&&subjects.length()==0)body.addView(button("Scan subject QR",true,v->scanSubject()));
         LinearLayout footer=column();footer.setPadding(dp(20),0,dp(20),dp(24));if(creator())footer.addView(addButton("Create subject",v->subjectForm()));
-        ScrollView old=workspaceScroll;LinearLayout root=(LinearLayout)old.getParent();old.removeView(body);root.removeView(old);workspaceScroll=null;
-        String key=subjectOrderKey(account);SubjectBoard board=new SubjectBoard(this,subjects,body,footer,this::subjectRow,ids->saveSubjectOrder(key,ids));subjectBoard=board;LinearLayout.LayoutParams space=new LinearLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,0,1);space.gravity=android.view.Gravity.CENTER_HORIZONTAL;root.addView(board,1+root.indexOfChild(activityProgress),space);board.restoreLayout(subjectListState);subjectListState=null;
+        ScrollView old=workspaceScroll;old.removeView(body);contentPane.removeView(old);workspaceScroll=null;
+        String key=subjectOrderKey(account);SubjectBoard board=new SubjectBoard(this,subjects,body,footer,this::subjectRow,ids->saveSubjectOrder(key,ids));subjectBoard=board;android.widget.FrameLayout.LayoutParams space=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-1,android.view.Gravity.CENTER_HORIZONTAL);contentPane.addView(board,space);board.restoreLayout(subjectListState);subjectListState=null;
     }
     private SubjectBoard.Row subjectRow(JSONObject subject){
         LinearLayout card=card(),line=new LinearLayout(this);line.setGravity(android.view.Gravity.TOP);TextView handle=txt("≡",22,false);handle.setGravity(android.view.Gravity.CENTER);handle.setPadding(0,0,0,0);handle.setContentDescription("Hold to move subject: "+subject.optString("title"));line.addView(handle,new LinearLayout.LayoutParams(dp(48),dp(48)));
@@ -255,9 +280,9 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private void courseScreen(){
         body.addView(button("‹  My subjects",false,v->{selected="";learnerId="";screen="subjects";load();}));
         JSONObject subject=course.optJSONObject("subject");label(subject.optString("title"),26,true);body.addView(linkedText(subject.optString("description"),15,url->openSubjectLink(subject,url)));
-        if(!creator()){progress(body,course.optJSONObject("summary"));body.addView(button("View results & feedback",false,v->{screen="results";render();}));}
+        if(!creator()){progress(body,course.optJSONObject("summary"));body.addView(button("Results",false,v->{screen="results";render();}));}
         JSONArray items=course.optJSONArray("items");
-        if(items.length()==0)label(creator()?"Tap + to add your first entry.":"No learning entries yet.",16,false);
+        if(items.length()==0)label(creator()?"No entries yet.":"No learning entries yet.",16,false);
         for(int n=0;n<items.length();n++){
             JSONObject item=items.optJSONObject(n);LinearLayout card=card();String kind=item.optString("kind"),id=item.optString("id");final boolean manage=admin()||account.optString("id").equals(item.optString("owner_id"));final boolean textMaterial=kind.equals("material")&&item.optString("material_mode").equals("text");
             String type=(item.optString("assessment_type").equals("examination")?"examination":kind).toUpperCase(java.util.Locale.ROOT)+(item.optBoolean("published")?"":" · Draft");
@@ -269,9 +294,9 @@ public final class WorkspaceActivity extends AppCompatActivity {
             if(kind.equals("material")&&!item.optString("material_mode").equals("text")){
                 if(item.optBoolean("has_file")&&uploadAllowed){
                     card.addView(button("Read PDF",true,v->perform(()->new JSONObject().put("path",api.material(id,false).getAbsolutePath()),r->startActivity(new Intent(this,PdfActivity.class).putExtra("secure_path",r.getString("path")).putExtra("title",item.optString("title")).putExtra("allow_export",manage).putExtra("item_id",id)))));
-                    if(manage)card.addView(button("Download own material",false,v->perform(()->new JSONObject().put("path",api.material(id,true).getAbsolutePath()),r->{exportPath=r.getString("path");pickerActive=true;exporter.launch("academy-material.pdf");})));
+                    if(manage)card.addView(button("Save PDF",false,v->perform(()->new JSONObject().put("path",api.material(id,true).getAbsolutePath()),r->{exportPath=r.getString("path");pickerActive=true;exporter.launch("academy-material.pdf");})));
                 }else card.addView(txt(uploadAllowed?"PDF has not been uploaded yet.":"File storage is unavailable. Ask the instructor to add a web link instead.",14,false));
-                if(manage&&uploadAllowed)card.addView(button("Upload / replace PDF",false,v->{if(busy)return;pendingUpload=id;pendingUploadVersion=item.optInt("edit_version");pickerActive=true;picker.launch(new String[]{"application/pdf"});}));
+                if(manage&&uploadAllowed)card.addView(button("Upload PDF",false,v->{if(busy)return;pendingUpload=id;pendingUploadVersion=item.optInt("edit_version");pickerActive=true;picker.launch(new String[]{"application/pdf"});}));
             }
             if(kind.equals("quiz")&&!creator()){
                 JSONObject attempt=item.optJSONObject("attempt");
@@ -288,8 +313,8 @@ public final class WorkspaceActivity extends AppCompatActivity {
                 }
             }else if(!creator()&&kind.equals("activity")){
                 JSONObject submission=item.optJSONObject("submission");
-                if(submission==null)card.addView(button("Write & submit output",true,v->submitOutput(item)));
-                else{card.addView(txt(submission.isNull("score")?"Submitted · awaiting assessment":"Result: "+submission.optDouble("score")+" / 100",16,true));card.addView(txt(submission.optString("feedback"),15,false));card.addView(button("View my submission",false,v->showText("My submitted output",submission.optString("output"))));}
+                if(submission==null)card.addView(button("Write answer",true,v->submitOutput(item)));
+                else{card.addView(txt(submission.isNull("score")?"Awaiting grade":"Result: "+submission.optDouble("score")+" / 100",16,true));card.addView(txt(submission.optString("feedback"),15,false));card.addView(button("My answer",false,v->showText("My submitted output",submission.optString("output"))));}
             }else if(!creator())card.addView(button(item.optBoolean("completed")?"Read · undo":"Mark as read",false,v->{try{JSONObject data=new JSONObject().put("completed",!item.optBoolean("completed"));perform(()->api.request("POST","/v1/items/"+id+"/complete",data),r->load());}catch(Exception e){error(e);}}));
             body.addView(card);gap();
         }
@@ -336,7 +361,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         editorText=field(form,"Text, instructions or web link",saved==null?(item==null?"":item.optString("body")):saved.optString("text"),false);editorText.setSingleLine(false);editorText.setMinLines(5);editorText.setMaxLines(12);editorText.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(12000)});
         LinearLayout quiz=column();form.addView(quiz);JSONArray options=item==null?null:item.optJSONArray("options");editorChoice1=field(quiz,"Choice 1",saved==null?(options==null?"":options.optString(0)):saved.optString("choice1"),false);editorChoice2=field(quiz,"Choice 2",saved==null?(options==null?"":options.optString(1)):saved.optString("choice2"),false);editorAnswer=spinner();editorAnswer.setContentDescription("Correct answer");editorAnswer.setAdapter(choiceAdapter(new String[]{"Correct: choice 1","Correct: choice 2"}));editorAnswer.setSelection(Math.min(1,saved==null?(item==null?0:item.optInt("correct_index")):saved.optInt("answer")));quiz.addView(editorAnswer);if(item!=null){editorChoice1.setEnabled(false);editorChoice2.setEnabled(false);editorAnswer.setEnabled(false);if(options!=null&&options.length()>2){editorChoice1.setVisibility(View.GONE);((View)editorChoice1.getTag()).setVisibility(View.GONE);editorChoice2.setVisibility(View.GONE);((View)editorChoice2.getTag()).setVisibility(View.GONE);editorAnswer.setVisibility(View.GONE);for(int i=0;i<options.length();i++)quiz.addView(txt((i+1)+". "+options.optString(i)+(i==item.optInt("correct_index")?" · Correct":""),15,false));}quiz.addView(txt("Create a new quiz to change choices or the answer.",13,false));}
         LinearLayout pdf=column();form.addView(pdf);editorFile=txt(editorPdf.isEmpty()?(item!=null&&item.optBoolean("has_file")?"Current PDF attached":"Choose a PDF"):"PDF selected",14,false);pdf.addView(editorFile);Button attach=button("Choose PDF",false,v->{try{pickerActive=true;entryFilePicker.launch(new String[]{"application/pdf"});}catch(RuntimeException e){pickerActive=false;error(e);}});pdf.addView(attach);
-        EditText entryText=editorText;Runnable fields=()->{int index=type.getSelectedItemPosition();quiz.setVisibility(index==1?View.VISIBLE:View.GONE);pdf.setVisibility(index==4?View.VISIBLE:View.GONE);entryText.setHint(index==1?"Quiz question":index>=2&&index<=3?"Instructions":"Material text or web link");((TextView)entryText.getTag()).setText(entryText.getHint());};fields.run();type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int position,long id){fields.run();}public void onNothingSelected(AdapterView<?> p){}});
+        EditText entryText=editorText;Runnable fields=()->{int index=type.getSelectedItemPosition();quiz.setVisibility(index==1?View.VISIBLE:View.GONE);pdf.setVisibility(index==4?View.VISIBLE:View.GONE);((TextView)entryText.getTag()).setText(index==1?"Quiz question":index>=2&&index<=3?"Instructions":"Material text or web link");};fields.run();type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int position,long id){fields.run();}public void onNothingSelected(AdapterView<?> p){}});
         ScrollView scroll=new ScrollView(this);scroll.addView(form);formOpen=true;AlertDialog dialog=new AlertDialog.Builder(this).setTitle(item==null?"New entry":"Edit entry").setView(scroll).setNegativeButton("Cancel",null).setPositiveButton("Done",null).create();
         dialog.setOnDismissListener(d->{formOpen=false;editorText=null;editorFile=null;editorType=null;editorChoice1=null;editorChoice2=null;editorAnswer=null;editorItem=null;editorPdf="";editorDialog=null;});
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{
@@ -355,31 +380,31 @@ public final class WorkspaceActivity extends AppCompatActivity {
     }
     private AlertDialog editorDialog;
     private void progress(LinearLayout parent,JSONObject m){
-        if(m==null)return;int percent=m.optInt("completion_percent");parent.addView(txt(percent+"% complete · "+m.optInt("completed")+" / "+m.optInt("total")+" items",16,true));
+        if(m==null)return;int percent=m.optInt("completion_percent");parent.addView(txt(percent+"% complete",16,true));
         ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(percent);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(LINE));bar.setContentDescription("Completion "+percent+" percent");parent.addView(bar,new LinearLayout.LayoutParams(-1,dp(8)));
-        parent.addView(txt("Read "+m.optInt("read_percent")+"% (self-reported) · Submitted "+m.optInt("submitted")+" / "+m.optInt("required"),14,false));
+        bar.setContentDescription(percent+"% complete; reading "+m.optInt("read_percent")+"% self-reported; submitted "+m.optInt("submitted")+" of "+m.optInt("required"));
     }
     private void enrollScreen(){
-        label("Enroll subjects",24,true);label("Only subjects you are eligible to join appear here. You can also scan your instructor’s QR.",15,false);
-        if(available.length()==0)label("No open subjects on this page. Ask your administrator about restricted subjects.",16,false);
+        label("Enroll",24,true);
+        if(available.length()==0)label("No eligible subjects.",16,false);
         for(int i=0;i<available.length();i++){JSONObject s=available.optJSONObject(i);LinearLayout c=card();c.addView(txt(s.optString("title"),21,true));c.addView(button("Enroll",true,v->new AlertDialog.Builder(this).setTitle("Enroll in "+s.optString("title")+"?").setNegativeButton("Cancel",null).setPositiveButton("Enroll",(d,w)->perform(()->api.request("POST","/v1/subjects/"+s.optString("id")+"/enrol",new JSONObject()),r->{selected=s.optString("id");screen="subjects";discoverOffset=0;load();})).show()));body.addView(c);gap();}
         if(discoverOffset>0)body.addView(button("Previous subjects",false,v->{discoverOffset=Math.max(0,discoverOffset-100);load();}));if(available.length()==100)body.addView(button("More subjects",false,v->{discoverOffset+=100;load();}));
     }
     private void resultsScreen(){
-        label("My results",24,true);
+        label("Results",24,true);
         if(course==null||selected.isEmpty()){
             for(int i=0;i<subjects.length();i++){JSONObject s=subjects.optJSONObject(i);body.addView(button(s.optString("title"),false,v->{selected=s.optString("id");load();}));}
             if(subjects.length()==0)label("Enroll in a subject to see your results.",16,false);return;
         }
-        label(course.optJSONObject("subject").optString("title"),20,true);progress(body,course.optJSONObject("summary"));label("Completion tracks participation. Grades are separate; no course pass/fail is inferred.",14,false);
+        label(course.optJSONObject("subject").optString("title"),20,true);progress(body,course.optJSONObject("summary"));label("Completion ≠ grade",13,false);
         JSONArray items=course.optJSONArray("items");
         for(int i=0;i<items.length();i++){
             JSONObject item=items.optJSONObject(i);if(item.optString("kind").equals("material"))continue;
             LinearLayout c=card();c.addView(txt(item.optString("title"),20,true));JSONObject q=item.optJSONObject("attempt"),w=item.optJSONObject("submission");
-            c.addView(txt(q!=null?"Quiz result: "+q.optInt("score")+" / 1":w==null?"Not submitted":w.isNull("score")?"Submitted · awaiting assessment":"Result: "+w.optDouble("score")+" / 100",16,true));
-            if(w!=null){c.addView(txt(w.optString("feedback").isEmpty()?"No feedback yet":w.optString("feedback"),15,false));c.addView(button("View my submission",false,v->showText("My output",w.optString("output"))));}body.addView(c);gap();
+            c.addView(txt(q!=null?"Quiz result: "+q.optInt("score")+" / 1":w==null?"Not submitted":w.isNull("score")?"Awaiting grade":"Result: "+w.optDouble("score")+" / 100",16,true));
+            if(w!=null){c.addView(txt(w.optString("feedback").isEmpty()?"No feedback yet":w.optString("feedback"),15,false));c.addView(button("My answer",false,v->showText("My output",w.optString("output"))));}body.addView(c);gap();
         }
-        body.addView(button("Back to learning items",true,v->{screen="subjects";render();}));
+        body.addView(button("Back to subject",true,v->{screen="subjects";render();}));
     }
     private void submitOutput(JSONObject item){
         final String key=account.optString("id")+":"+item.optString("id")+":"+item.optInt("revision");
@@ -481,11 +506,15 @@ public final class WorkspaceActivity extends AppCompatActivity {
         });
     }
     private void newsScreen(){
-        label("Announcements",24,true);if(admin())body.addView(button("New global announcement",true,v->{LinearLayout form=formColumn();EditText title=field(form,"Title","",false),text=field(form,"Announcement","",false);text.setSingleLine(false);new AlertDialog.Builder(this).setTitle("Global announcement").setView(formScroll(form)).setNegativeButton("Cancel",null).setPositiveButton("Publish",(d,w)->{try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("body",text.getText().toString());perform(()->api.request("POST","/v1/announcements",data),r->{screen="news";load();});}catch(Exception e){error(e);}}).show();}));
-        if(announcements.length()==0){LinearLayout empty=card();empty.addView(txt("You’re all caught up",20,true));empty.addView(txt("New announcements from your academy will appear here.",16,false));body.addView(empty);}
+        label("News",24,true);if(admin())body.addView(button("Post announcement",true,v->{LinearLayout form=formColumn();EditText title=field(form,"Title","",false),text=field(form,"Announcement","",false);text.setSingleLine(false);new AlertDialog.Builder(this).setTitle("Global announcement").setView(formScroll(form)).setNegativeButton("Cancel",null).setPositiveButton("Publish",(d,w)->{try{JSONObject data=new JSONObject().put("title",title.getText().toString()).put("body",text.getText().toString());perform(()->api.request("POST","/v1/announcements",data),r->{screen="news";load();});}catch(Exception e){error(e);}}).show();}));
+        if(announcements.length()==0)label("No announcements.",16,false);
         for(int n=0;n<announcements.length();n++){JSONObject a=announcements.optJSONObject(n);LinearLayout card=card();card.addView(txt(a.optString("title"),21,true));card.addView(txt(a.optString("body"),16,false));if(admin())card.addView(button("Archive announcement",false,v->new AlertDialog.Builder(this).setTitle("Archive announcement?").setNegativeButton("Keep",null).setPositiveButton("Archive",(d,w)->perform(()->api.request("DELETE","/v1/announcements/"+a.optString("id"),null),r->load())).show()));body.addView(card);gap();}
     }
-    private void setStatus(String value){if(status!=null){status.setText(value);status.setVisibility(value.isEmpty()?View.GONE:View.VISIBLE);}if(activityProgress!=null)activityProgress.setVisibility(busy?View.VISIBLE:View.GONE);for(Button action:actionButtons)action.setEnabled(!busy);}
+    // Delay the indicator for short requests; reserve its height to avoid layout jumps.
+    private void setStatus(String value){
+        if(activityProgress!=null){activityProgress.removeCallbacks(revealProgress);activityProgress.setContentDescription(value);if(busy){if(activityProgress.getVisibility()!=View.VISIBLE)activityProgress.postDelayed(revealProgress,150);}else activityProgress.setVisibility(View.INVISIBLE);}
+        for(Button action:actionButtons)action.setEnabled(!busy);
+    }
     private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
     private ScrollView formScroll(LinearLayout form){ScrollView scroll=new ScrollView(this);scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);scroll.setClipToPadding(false);scroll.addView(form);return scroll;}
     private LinearLayout formColumn(){LinearLayout l=column();l.setPadding(dp(20),dp(8),dp(20),dp(12));return l;}
@@ -495,7 +524,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private TextView label(String text,int sp,boolean bold){TextView t=txt(text,sp,bold);if(bold&&sp>=22)ViewCompat.setAccessibilityHeading(t,true);body.addView(t);return t;}
     private EditText field(LinearLayout parent,String hint,String value,boolean secret){
         TextView caption=txt(hint,14,true);caption.setPadding(0,dp(10),0,dp(4));parent.addView(caption);
-        EditText e=new EditText(this);e.setId(View.generateViewId());caption.setLabelFor(e.getId());e.setTag(caption);e.setHint(hint);e.setText(value);e.setTextSize(16);e.setTextColor(INK);e.setHintTextColor(MUTED);e.setSingleLine(true);e.setIncludeFontPadding(false);e.setGravity(android.view.Gravity.TOP|android.view.Gravity.START);e.setMinHeight(dp(52));e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+        EditText e=new EditText(this);e.setId(View.generateViewId());caption.setLabelFor(e.getId());e.setTag(caption);e.setText(value);e.setTextSize(16);e.setTextColor(INK);e.setHintTextColor(MUTED);e.setSingleLine(true);e.setIncludeFontPadding(false);e.setGravity(android.view.Gravity.TOP|android.view.Gravity.START);e.setMinHeight(dp(52));e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
         GradientDrawable outline=shape(Color.WHITE);outline.setStroke(dp(1),0xffb6c2d2);e.setBackground(outline);e.setOnFocusChangeListener((v,focused)->outline.setStroke(dp(focused?2:1),focused?INK:0xffb6c2d2));
         LinearLayout.LayoutParams fieldSpace=new LinearLayout.LayoutParams(-1,-2);fieldSpace.setMargins(0,0,0,dp(6));e.setLayoutParams(fieldSpace);e.setPadding(dp(14),dp(14),dp(14),dp(14));if(secret)e.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);parent.addView(e);return e;
     }

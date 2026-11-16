@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.3-alpha.1
+
+- Keep workspace/public headers and tab controls mounted instead of resetting the activity view on each tab change.
+- Remove the workspace vertical slide and restore content positions before drawing; retain tab/page offsets through rotation and subject-list placement through its existing layout state.
+- Reserve the loading indicator height and delay display by 150 ms; remove expanding status text and skip repeated taps on the active public tab.
+- Move account identity into Menu, shorten routine copy/actions and progress summaries, and remove duplicated field hints while keeping persistent labels.
+- Keep meaningful error notices, course content, scores, accessible progress details and submission/destructive confirmations. No data schema or dependency changes.
+
 ## 0.8.2-alpha.1
 
 - Keep the workspace header and role-aware bottom navigation visible while learning content scrolls; add a direct return to My subjects.

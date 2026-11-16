@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.8.2-alpha.1
+# Known issues and verification limits — 0.8.3-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -47,3 +47,7 @@ User-authorized screenshots and screen recording are enabled on account screens 
 ### 0.8.2 UI validation
 
 The persistent header/navigation, role destinations, form labels, password visibility, busy states, search recovery and PDF progress require the phone acceptance procedure in docs/TESTING.md. 320 dp/landscape layouts, 200% text, TalkBack, soft-keyboard behavior and drag ordering within the remaining content area are NOT TESTED in this editing session. Source changes do not establish physical layout or usability acceptance. No data migration is introduced; the previous APK remains the rollback baseline, subject to its signing certificate.
+
+### 0.8.3 tab transition verification
+
+User-reported jitter is addressed by retaining the activity shell, removing page movement, pre-draw offset restoration and fixed-height delayed loading feedback. This is a source diagnosis and correction, not a measured frame-rate result. Repeat the 20-cycle and slow/error-request procedure in docs/TESTING.md on the intended phone. Rotation, 200% fonts, TalkBack, keyboard, drag ordering and picker return remain NOT TESTED here. The 32-page offset history is transient UI state, not private-content offline synchronization. No data migration is needed; v0.8.2-alpha.1-test.66 remains the rollback baseline.

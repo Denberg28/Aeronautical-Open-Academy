@@ -2,7 +2,7 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.8.2-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.8.3-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -28,9 +28,9 @@ Screen capture is temporarily enabled for development feedback, including accoun
 
 Hold a subject’s **≡** handle to lift and drag it. Rows move aside as you drag, including wrapped/multiline cards. Your order is saved on drag finish/cancel and when leaving the screen; it is personal to that account and organization on this device. Use **⋮ → Move up / Move down** as an accessible alternative. Tap a subject card to open it. Newly available subjects append; removed/revoked subjects disappear. Arrangement does not alter enrollment, materials or results and does not synchronize across phones.
 
-The account header and bottom navigation stay visible while the center pane scrolls. Subjects and News are one tap away; students also have Results, and administrators have Accounts. Menu retains QR enrollment, reports and account actions. Forms have persistent labels, sign-in offers Show password and keyboard submission, and requests show progress with temporarily disabled action buttons. Public samples show search counts and download progress.
+The account header and bottom navigation stay mounted while the center pane changes. Tab changes have no vertical slide; saved scroll positions restore before drawing, including after rotation. Loading uses a fixed-height indicator delayed by 150 ms to avoid flashing on short requests. Subjects and News are one tap away; students also have Results, and administrators have Accounts. Menu retains QR enrollment, reports and account actions. Forms use one persistent label per field, sign-in offers Show password and keyboard submission, and requests temporarily disable action buttons. Public samples show search counts and download progress. Account identity is in Menu; repeated introductions and progress detail are removed from routine screens. Meaningful errors, content, results and submission confirmations remain available.
 
-Both subject and entry **+** controls have transparent resting backgrounds. The interface uses a consistent type hierarchy, 48 dp minimum button/handle targets, 52 dp text boxes, 12 dp corner radii, even card/form padding and a centered 760 dp maximum content pane. Pages use a short content transition only when navigating; refresh does not crossfade. Android’s disabled-animation preference is respected for page transitions.
+Both subject and entry **+** controls have transparent resting backgrounds. The interface uses a consistent type hierarchy, 48 dp minimum button/handle targets, 52 dp text boxes, 12 dp corner radii, even card/form padding and a centered 760 dp maximum content pane. Tab navigation changes only the center content without translation or crossfade; header/tab instances and insets remain stable. Subject drag animations remain independent.
 
 ## Minimal workflow
 
