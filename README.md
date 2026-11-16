@@ -1,8 +1,8 @@
 # Aeronautical Open Academy
 
-A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
+A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
-Version: **0.9.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.9.1-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -23,6 +23,22 @@ Open a subject as admin or instructor → tap **+** below the last entry → cho
 Sign out to switch roles. All local accounts share the saved test workspace on this installation; nothing synchronizes across phones. Use synthetic data. Organization sign-in still requires an HTTPS backend and its own accounts; short default credentials never authenticate to that service. Test mode is disabled in release builds.
 
 Screen capture is temporarily enabled for development feedback, including account screens and the in-app PDF viewer. `SCREEN_CAPTURE_ALLOWED=true` controls this build policy; restore it to `false` when the features are streamlined. Account permissions and PDF access checks continue to apply.
+
+## Complete subject practice template
+
+Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical Engineering**. The student is already enrolled in the local template. Admin can inspect the same subject. The anonymous library mirrors its course guide and four period handouts under code **A**.
+
+| Period | Lessons | Quizzes | Activity | Examination |
+| --- | --- | --- | --- | --- |
+| Prelim | 1-2 | 1-2 | 1 | 1 |
+| Midterm | 3-4 | 3-4 | 2 | 2 |
+| Semifinals | 5-6 | 5-6 | 3 | 3 |
+| Finals | 7-8 | 7-8 | 4 | 4 |
+| Total | 8 | 8 | 4 | 4 |
+
+The subject contains 25 ordered entries: a course guide, eight lessons and sixteen assessments. Each quiz uses the current single-question format with four choices; activities/examinations are written submissions rated out of 100. Examinations each contain four questions. Rubrics, outcomes, worked examples, assumptions and suggested study weeks are included. Planning weights are illustrative and manually applied; the app does not compute a weighted course grade. This original fictional course is a build/practice template, not an institutional syllabus or flight/maintenance authorization.
+
+Upgrade replaces only the exact unchanged factory demo in place, retaining its subject and three item IDs with new content revisions. Edited/extended subjects and their work are preserved; one new template is added alongside them. Migration saves a private local workspace backup and is idempotent. Previously saved public PDFs remain in Downloads until explicitly removed. A full local reset is optional and destructive, not required to receive the template. See [subject build guide](docs/SUBJECT_TEMPLATE.md).
 
 ## Subject list and interface
 
@@ -75,7 +91,7 @@ A live hosting destination has **not** been configured. Optional organization Dr
 
 ## Materials and offline access
 
-- Public sample catalog: offline after installation; subject QR/manual codes `A`, `B`, `C`; PDFs can be saved and read offline.
+- Public sample catalog: offline after installation; subject QR/manual code `A`; PDFs can be saved and read offline.
 - Protected course data: retrieved after active-session/enrollment checks. Protected PDFs use a temporary app-private viewer, no-store responses, and online reauthorization. Student offline copies of protected PDFs are not implemented in this version.
 - Instructor/admin downloads: explicit export to the user's chosen location after authorization. Exported files cannot be remotely revoked.
 - Optional uploaded-PDF store: organization Shared Drive adapter. Link-only deployments do not need it. Service-account credentials remain on the server; no direct private Drive URL or key is sent to students. Local private disk is for development tests.

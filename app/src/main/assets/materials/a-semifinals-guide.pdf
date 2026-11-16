@@ -1,0 +1,227 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2665 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+46 785 Td
+(AE 101 - Foundations of Aeronautical Engineering) Tj
+T*
+(Semifinals | Weeks 9-12) Tj
+T*
+(Original classroom practice template; not an approved syllabus.) Tj
+T*
+() Tj
+T*
+(Semifinals - Lesson 5: Material comparisons) Tj
+T*
+() Tj
+T*
+(Outcome O4: compare alternatives using the same basis.) Tj
+T*
+(A comparison is meaningful when candidates meet the same stated function and) Tj
+T*
+(constraints. Mass alone does not establish strength, durability, suitability or) Tj
+T*
+(approval.) Tj
+T*
+(For a supplied volume, estimated mass equals density multiplied by volume. Keep units) Tj
+T*
+(consistent.) Tj
+T*
+(Worked example: an imaginary classroom material with density 1200 kg/m3 occupying) Tj
+T*
+(0.002 m3 has estimated mass 2.4 kg. This arithmetic is not a qualification of the) Tj
+T*
+(material.) Tj
+T*
+(Synthetic candidates for the same 0.001 m3 component: P has density 1600 kg/m3 and) Tj
+T*
+(supplied cost PHP 180; Q has density 2400 kg/m3 and cost PHP 140. These fictional) Tj
+T*
+(figures are task inputs, not market prices.) Tj
+T*
+(Practice: calculate both masses, compare the trade-off and identify missing) Tj
+T*
+(strength/manufacturing data before recommending either candidate.) Tj
+T*
+() Tj
+T*
+(Semifinals - Quiz 5: Mass estimate) Tj
+T*
+() Tj
+T*
+(A fictional material has density 1500 kg/m3 and volume 0.002 m3. What is its estimated) Tj
+T*
+(mass?) Tj
+T*
+(A. 3 kg) Tj
+T*
+(B. 0.003 kg) Tj
+T*
+(C. 750 kg) Tj
+T*
+(D. 3000 kg) Tj
+T*
+() Tj
+T*
+(Semifinals - Lesson 6: Resource decisions) Tj
+T*
+() Tj
+T*
+(Outcomes O1/O4: justify a decision under explicit constraints.) Tj
+T*
+(Start with non-negotiable requirements, then compare eligible alternatives. A low cost) Tj
+T*
+(does not compensate for failing a required limit. Show which evidence supports each) Tj
+T*
+(judgment.) Tj
+T*
+(Synthetic procurement exercise: option A costs PHP 240 per unit and needs 2 hours) Tj
+T*
+(assembly; option B costs PHP 200 per unit and needs 3 hours. Four units are needed.) Tj
+T*
+(The classroom budget is PHP 1000 and assembly allowance is 10 hours. These figures are) Tj
+T*
+(fictional.) Tj
+T*
+(Calculate total cost and time for each option. Identify which meets both limits, then) Tj
+T*
+(state what remains unverified. A decision matrix can use columns for requirement,) Tj
+T*
+(supplied evidence, pass/fail and uncertainty.) Tj
+T*
+(Practice: explain how your recommendation changes if the budget becomes PHP 850. If) Tj
+T*
+(neither option meets all limits, request a revised brief rather than claiming success.) Tj
+T*
+() Tj
+T*
+(Semifinals - Quiz 6: Constraint check) Tj
+T*
+() Tj
+T*
+ET
+BT
+/F1 9 Tf
+46 35 Td
+(Original Academy practice template | Page 1) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 2109 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+46 785 Td
+(Four kits cost PHP 220 each. With a PHP 1000 budget, how much budget remains?) Tj
+T*
+(A. PHP 80) Tj
+T*
+(B. PHP 120) Tj
+T*
+(C. PHP 780) Tj
+T*
+(D. PHP 880) Tj
+T*
+() Tj
+T*
+(Semifinals - Activity 3: Evidence-based selection) Tj
+T*
+() Tj
+T*
+(Outcomes O1/O2/O4 | Individual written output | 400-600 words plus a comparison table.) Tj
+T*
+(Fictional candidates for one classroom model support:) Tj
+T*
+(P: density 1800 kg/m3, volume 0.001 m3, cost PHP 450, assembly 2 h.) Tj
+T*
+(Q: density 2500 kg/m3, volume 0.001 m3, cost PHP 380, assembly 4 h.) Tj
+T*
+(Constraints: estimated mass no more than 2 kg, cost no more than PHP 500, assembly no) Tj
+T*
+(more than 3 h.) Tj
+T*
+(Submit masses, a requirement/evidence/pass-fail table, a recommendation, three missing) Tj
+T*
+(evidence items and one sensitivity check with a changed limit. Treat material figures) Tj
+T*
+(as supplied data, not real certification properties.) Tj
+T*
+(Rubric /100: calculations 25; constraint matrix 30; justified recommendation 25;) Tj
+T*
+(uncertainty and sensitivity 20.) Tj
+T*
+() Tj
+T*
+(Semifinals - Examination 3) Tj
+T*
+() Tj
+T*
+(Outcomes O1/O2/O4 | Individual written examination | Four questions, 25 points each.) Tj
+T*
+(Q1. Estimate mass for a fictional component of volume 0.0015 m3 and supplied density) Tj
+T*
+(2000 kg/m3. Show units.) Tj
+T*
+(Q2. Six kits cost PHP 175 each. Find total cost and compare with the fictional PHP) Tj
+T*
+(1100 budget.) Tj
+T*
+(Q3. Candidate A has mass 1.8 kg and cost PHP 600; B has mass 2.2 kg and cost PHP 450.) Tj
+T*
+(Limits are 2 kg and PHP 550. Explain whether either qualifies and identify the next) Tj
+T*
+(decision.) Tj
+T*
+(Q4. Explain why selecting the lowest-density candidate alone is insufficient for a) Tj
+T*
+(real engineering recommendation. List four additional evidence categories.) Tj
+T*
+(Submit numbered responses. Suggested duration: 60 minutes; no app-enforced timer.) Tj
+T*
+(Each question /25: reasoning 10; correct method/evidence 8; units or assumptions 4;) Tj
+T*
+(clarity 3.) Tj
+T*
+ET
+BT
+/F1 9 Tf
+46 35 Td
+(Original Academy practice template | Page 2) Tj
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000317 00000 n 
+0000003033 00000 n 
+0000003159 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+5319
+%%EOF

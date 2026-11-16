@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1-alpha.1
+
+- Replace factory examples with one AE 101 subject: four periods, eight lessons, eight quizzes, four activities and four four-question written examinations, plus a course guide.
+- Import local practice content and generate public catalog/PDF handouts from a single original subject-template asset; remove B/C from the bundled catalog/assets.
+- Upgrade unchanged legacy factory content in place with stable IDs and new revisions; back up local v1/v2 state before atomic v3 migration, retain historical records and preserve edited/instructor work.
+- Verify full-course submissions/grading, answer isolation, template counts, migration preservation/rollback and deterministic handout/hash generation. Add subject build and focused-edit guidance.
+
 ## 0.9.0-alpha.1
 
 - Reinforce admin-led registration with bounded attempts, validated identities and explicit allowed fields; require an actually different temporary-password replacement.

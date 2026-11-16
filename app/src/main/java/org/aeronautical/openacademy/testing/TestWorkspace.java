@@ -24,12 +24,22 @@ public final class TestWorkspace {
     public static final String[] EMAILS={"admin@academy.test","instructor@academy.test","student@academy.test"};
     private static final Object LOCK=new Object();
     private final File directory,stateFile;
+    private final String templateJson;
     private JSONObject state;
     public static final class Failure extends IOException {
         public final int status;
         Failure(int status,String message){super(message);this.status=status;}
     }
-    public TestWorkspace(File directory){this.directory=directory;stateFile=new File(directory,"workspace.json");}
+    public TestWorkspace(File directory)throws IOException{this(directory,testTemplateResource());}
+    public TestWorkspace(File directory,String templateJson){this.directory=directory;stateFile=new File(directory,"workspace.json");this.templateJson=templateJson;}
+    private static String testTemplateResource()throws IOException{
+        try(InputStream in=TestWorkspace.class.getResourceAsStream("/subject-template.json")){
+            if(in==null)throw new IOException("Subject template is unavailable.");
+            ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;
+            while((count=in.read(buffer))!=-1){if(out.size()+count>256*1024)throw new IOException("Subject template is too large.");out.write(buffer,0,count);}
+            return new String(out.toByteArray(),StandardCharsets.UTF_8);
+        }
+    }
     private static JSONObject obj(Object... pairs)throws Exception{JSONObject o=new JSONObject();for(int i=0;i<pairs.length;i+=2)o.put((String)pairs[i],pairs[i+1]);return o;}
     private static String id(){return UUID.randomUUID().toString();}
     private static void require(boolean test,int code,String message)throws Failure{if(!test)throw new Failure(code,message);}
@@ -55,12 +65,14 @@ public final class TestWorkspace {
     private void load()throws Exception{
         if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace. Check storage.");
         if(!stateFile.exists()){seed();save();return;}
-        try{require(stateFile.length()<=16*1024*1024,500,"Test data is too large. Reset test data to start again.");state=new JSONObject(new String(Files.readAllBytes(stateFile.toPath()),StandardCharsets.UTF_8));require(state.optInt("version")>=1&&state.optInt("version")<=2,500,"Unsupported test data version.");
+        try{require(stateFile.length()<=16*1024*1024,500,"Test data is too large. Reset test data to start again.");state=new JSONObject(new String(Files.readAllBytes(stateFile.toPath()),StandardCharsets.UTF_8));require(state.optInt("version")>=1&&state.optInt("version")<=3,500,"Unsupported test data version.");
+            if(state.optInt("version")<3)Files.copy(stateFile.toPath(),new File(directory,"workspace-before-template.json").toPath(),StandardCopyOption.REPLACE_EXISTING);
             if(state.optInt("version")==1){
                 for(int n=0;n<3;n++){JSONObject a=find("accounts","email",EMAILS[n]);if(a!=null&&a.optString("role").equals(USERS[n])&&!a.optBoolean("must_change_password")&&passwordMatches(a,PASSWORD)){storePassword(a,USERS[n]);revoke(a);}}
                 for(int n=0;n<rows("subjects").length();n++){JSONObject subject=rows("subjects").getJSONObject(n);subject.put("order_revision",1);int position=0;for(int j=0;j<rows("items").length();j++){JSONObject item=rows("items").getJSONObject(j);if(item.getString("subject_id").equals(subject.getString("id")))item.put("sort_order",position++);}}
-                state.put("version",2);save();
-            }}
+                state.put("version",2);
+            }
+            if(state.optInt("version")==2){if(state.optInt("template_version")==0)installTemplate();state.put("version",3);save();}}
         catch(Exception e){throw new IOException("Cannot read test data. Use Reset local test data to restore the default accounts.",e);}
     }
     private void save()throws Exception{
@@ -75,17 +87,57 @@ public final class TestWorkspace {
         require(num==null||find("accounts","student_number",num)==null,409,"Student ID is already assigned.");
         JSONObject a=obj("id",id(),"email",email,"name",name,"role",role,"status","active","must_change_password",temporary,"student_number",num==null?JSONObject.NULL:num);setPassword(a,d.optString("password"));rows("accounts").put(a);return a;
     }
+    // Content — the canonical asset supplies all four periods and assessment prompts.
+    // Change subject-template.json, not this import loop; newItem keeps role/input checks.
     private void seed()throws Exception{
-        state=obj("version",2);for(String name:new String[]{"accounts","sessions","subjects","items","enrolments","blocks","records","announcements"})state.put(name,new JSONArray());
-        JSONObject teacher=null,student=null;
-        for(int i=0;i<3;i++){JSONObject a=createAccount(obj("name",new String[]{"Test Administrator","Test Instructor","Test Student"}[i],"email",EMAILS[i],"password",PASSWORD,"role",new String[]{"admin","instructor","student"}[i],"student_number","TEST-001"),false);storePassword(a,USERS[i]);if(i==1)teacher=a;if(i==2)student=a;}
-        JSONObject subject=newSubject(teacher,obj("title","Practice subject · Aircraft maintenance","description","Synthetic practice content. Create materials as the instructor, then sign in as the student to read and submit work."));subject.put("all_students",true);
-        newItem(teacher,subject,obj("kind","material","material_mode","text","title","Welcome to your practice subject","body","Read this test material, then tap Mark as read.\nSign out and switch accounts to review the same work as instructor or administrator.","published",true));
-        newItem(teacher,subject,obj("kind","activity","title","Practice written activity","body","Describe how you would check the current maintenance document revision before starting a task. Synthetic exercise only.","published",true));
-        newItem(teacher,subject,obj("kind","quiz","title","Practice documentation quiz","body","Which document should you use before beginning a maintenance task?","options",new JSONArray().put("Current approved documentation").put("An obsolete personal copy"),"correct_index",0,"published",true));
-        enroll(student,subject,"admin");rows("announcements").put(obj("id",id(),"title","Local test workspace","body","Default accounts share this device's test data. No organization server is required. Use synthetic content only.","archived",false));
+        state=obj("version",3);for(String name:new String[]{"accounts","sessions","subjects","items","enrolments","blocks","records","announcements"})state.put(name,new JSONArray());
+        for(int i=0;i<3;i++){JSONObject account=createAccount(obj("name",new String[]{"Test Administrator","Test Instructor","Test Student"}[i],"email",EMAILS[i],"password",PASSWORD,"role",USERS[i],"student_number","TEST-001"),false);storePassword(account,USERS[i]);}
+        installTemplate();
     }
-    public void reset()throws Exception{synchronized(LOCK){if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace.");seed();save();File[] files=directory.listFiles((d,n)->n.endsWith(".pdf"));if(files!=null)for(File f:files)Files.deleteIfExists(f.toPath());}}
+    private JSONObject templateOwner()throws Exception{
+        JSONObject owner=find("accounts","email",EMAILS[1]);if(owner!=null&&owner.optString("role").equals("instructor")&&owner.optString("status").equals("active"))return owner;
+        for(String role:new String[]{"instructor","admin"})for(int n=0;n<rows("accounts").length();n++){owner=rows("accounts").getJSONObject(n);if(owner.optString("role").equals(role)&&owner.optString("status").equals("active"))return owner;}
+        throw new IOException("No active instructor or administrator can own the practice template.");
+    }
+    // Migration — replace only the exact unchanged factory demo, retaining its IDs.
+    // Edited or extended subjects stay intact; historical records keep their old revisions.
+    private JSONObject untouchedLegacy(JSONObject owner)throws Exception{
+        String[] titles={"Welcome to your practice subject","Practice written activity","Practice documentation quiz"};
+        String[] bodies={"Read this test material, then tap Mark as read.\nSign out and switch accounts to review the same work as instructor or administrator.","Describe how you would check the current maintenance document revision before starting a task. Synthetic exercise only.","Which document should you use before beginning a maintenance task?"};
+        for(int n=0;n<rows("subjects").length();n++){
+            JSONObject subject=rows("subjects").getJSONObject(n);
+            if(!subject.optString("owner_id").equals(owner.optString("id"))||!subject.optString("title").equals("Practice subject · Aircraft maintenance")||!subject.optString("description").equals("Synthetic practice content. Create materials as the instructor, then sign in as the student to read and submit work.")||subject.optInt("eligibility_revision")!=1||!subject.optBoolean("all_students"))continue;
+            int order=subject.optInt("order_revision");if(order!=1&&order!=4)continue;
+            JSONArray items=orderedItems(subject.getString("id"));if(items.length()!=3)continue;boolean same=true;
+            for(int i=0;i<3;i++){JSONObject item=items.getJSONObject(i);same&=item.optString("title").equals(titles[i])&&item.optString("body").equals(bodies[i])&&item.optInt("revision")==1&&item.optInt("edit_version")==1&&!item.optBoolean("archived")&&item.optBoolean("published")&&!item.optBoolean("has_file")&&item.optString("owner_id").equals(owner.getString("id"));}
+            JSONObject quiz=items.getJSONObject(2);same&=quiz.optString("kind").equals("quiz")&&quiz.optInt("correct_index",-1)==0&&quiz.optJSONArray("options")!=null&&quiz.getJSONArray("options").toString().equals(new JSONArray().put("Current approved documentation").put("An obsolete personal copy").toString());
+            if(same)return subject;
+        }
+        return null;
+    }
+    private void installTemplate()throws Exception{
+        require(templateJson.length()<=256*1024,500,"Subject template is too large.");JSONObject template=new JSONObject(templateJson);
+        require(template.getInt("schemaVersion")==1&&template.getJSONArray("periods").length()==4,500,"Check the subject template format.");
+        JSONObject owner=templateOwner(),subject=untouchedLegacy(owner);Map<String,JSONObject> previous=new HashMap<>();
+        if(subject==null)subject=newSubject(owner,obj("title",template.getString("title"),"description",template.getString("description")));
+        else{
+            JSONArray old=orderedItems(subject.getString("id"));previous.put("course-guide",old.getJSONObject(0));previous.put("prelim-activity",old.getJSONObject(1));previous.put("prelim-quiz-1",old.getJSONObject(2));
+            String sid=subject.getString("id");remove("items",item->item.optString("subject_id").equals(sid));
+            subject.put("title",template.getString("title")).put("description",template.getString("description"));
+        }
+        subject.put("all_students",true).put("template_key",template.getString("key"));
+        importTemplateEntry(owner,subject,template.getJSONObject("overview"),previous);
+        JSONArray periods=template.getJSONArray("periods");for(int n=0;n<periods.length();n++){JSONArray entries=periods.getJSONObject(n).getJSONArray("entries");for(int j=0;j<entries.length();j++)importTemplateEntry(owner,subject,entries.getJSONObject(j),previous);}
+        JSONObject student=find("accounts","email",EMAILS[2]);if(student!=null&&student.optString("role").equals("student")&&student.optString("status").equals("active")&&!blocked(student,subject))enroll(student,subject,"admin");
+        // The old generic announcement is factory content; user-authored announcements remain.
+        for(int n=0;n<rows("announcements").length();n++){JSONObject news=rows("announcements").getJSONObject(n);if(news.optString("title").equals("Local test workspace")&&news.optString("body").equals("Default accounts share this device's test data. No organization server is required. Use synthetic content only."))news.put("archived",true);}
+        state.put("template_version",template.getInt("templateVersion"));
+    }
+    private void importTemplateEntry(JSONObject owner,JSONObject subject,JSONObject entry,Map<String,JSONObject> previous)throws Exception{
+        JSONObject item=newItem(owner,subject,entry),old=previous.get(entry.getString("key"));item.put("template_entry_key",entry.getString("key"));
+        if(old!=null)item.put("id",old.getString("id")).put("revision",old.getInt("revision")+1).put("edit_version",old.getInt("edit_version")+1);
+    }
+    public void reset()throws Exception{synchronized(LOCK){if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace.");seed();save();File[] files=directory.listFiles((d,n)->n.endsWith(".pdf")||n.equals("workspace-before-template.json"));if(files!=null)for(File f:files)Files.deleteIfExists(f.toPath());}}
     private JSONObject actor(String token)throws Exception{
         JSONObject s=find("sessions","token",token);require(s!=null&&s.optLong("expires")>System.currentTimeMillis(),401,"Your test session ended. Sign in again.");JSONObject a=byId("accounts",s.getString("account_id"));require(a.optString("status").equals("active"),401,"This test account is inactive.");return a;
     }

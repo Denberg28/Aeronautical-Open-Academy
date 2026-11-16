@@ -14,14 +14,14 @@ public class CatalogValidationTest {
     }
     @Test public void bundledCatalogContainsStableSubjectAndOfflineText() throws Exception {
         Catalog c=Catalog.parse(sample().toString(),true);
-        assertEquals(3,c.subjects.size());assertNotNull(c.subject("a"));
+        assertEquals(1,c.subjects.size());assertEquals(5,c.subject("a").resources.size());assertNull(c.subject("b"));assertNull(c.subject("c"));assertNotNull(c.subject("a"));
         assertFalse(c.subject("a").resources.get(0).plainText.isEmpty());
     }
     @Test public void remoteCatalogCannotReadBundledPaths() throws Exception {
         assertThrows(JSONException.class,()->Catalog.parse(sample().toString(),false));
     }
     @Test public void duplicateIdsAreRejected() throws Exception {
-        JSONObject j=sample();j.getJSONArray("subjects").getJSONObject(1).put("id","a");
+        JSONObject j=sample();j.getJSONArray("subjects").put(new JSONObject(j.getJSONArray("subjects").getJSONObject(0).toString()));
         assertThrows(JSONException.class,()->Catalog.parse(j.toString(),true));
     }
     @Test public void unsupportedSchemaIsRejected() throws Exception {
@@ -45,8 +45,7 @@ public class CatalogValidationTest {
     @Test public void instructorCatalogCanUseValidatedGooglePdfSource() throws Exception {
         JSONObject j=sample();
         for(int i=0;i<j.getJSONArray("subjects").length();i++) {
-            JSONObject r=j.getJSONArray("subjects").getJSONObject(i).getJSONArray("resources").getJSONObject(0);
-            r.put("source","https://drive.google.com/file/d/approved/view");r.put("downloadUrl","https://drive.usercontent.google.com/download?id=approved");
+            org.json.JSONArray resources=j.getJSONArray("subjects").getJSONObject(i).getJSONArray("resources");for(int n=0;n<resources.length();n++){JSONObject r=resources.getJSONObject(n);r.put("source","https://drive.google.com/file/d/approved/view");r.put("downloadUrl","https://drive.usercontent.google.com/download?id=approved");}
         }
         assertFalse(Catalog.parse(j.toString(),false).demo);
     }

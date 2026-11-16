@@ -46,3 +46,7 @@ A narrower rule removes new automatic enrollments but retains progress/results. 
 5. Editing the text/link creates a new item revision; current reading resets. Archiving removes the app reference while the original stays on its platform. Same-URL provider edits are not detected; revise the material text when you want to reset the requirement.
 
 For link-only deployment use MATERIAL_STORAGE=links; service-account credentials are not required. No upload/download/transcoding/iframe/preview is performed for references. Existing uploaded PDFs require their original configured adapter, or create replacement hosted-link entries. Do not put credentials or sensitive student records into link text, and do not post real private links in the public repository.
+
+## Reference subject build
+
+Use [the AE 101 subject template](SUBJECT_TEMPLATE.md) as the complete practice example: course guide, four periods, eight lessons, eight quizzes, four activities and four written exams. Its canonical authoring asset is app/src/main/assets/subject-template.json. Change that source, then regenerate the public catalog/PDF handouts with tools/generate_samples.py; do not hand-edit generated outputs. Institutional content still requires approved objectives, enrollment policy, permissions and assessment review.

@@ -1,0 +1,223 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2985 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+46 785 Td
+(AE 101 - Foundations of Aeronautical Engineering) Tj
+T*
+(Prelim | Weeks 1-4) Tj
+T*
+(Original classroom practice template; not an approved syllabus.) Tj
+T*
+() Tj
+T*
+(Prelim - Lesson 1: Engineering evidence) Tj
+T*
+() Tj
+T*
+(Outcome O1: distinguish a requirement, evidence and an assumption.) Tj
+T*
+(An engineering brief states what a solution must achieve, the limits it must respect) Tj
+T*
+(and how success will be checked. A requirement is testable; an assumption is a) Tj
+T*
+(condition taken as true until checked. A measurement is useful evidence only when its) Tj
+T*
+(method, units and limits are known.) Tj
+T*
+(Classroom case: a model-aircraft storage rack must hold six models within a supplied) Tj
+T*
+(floor-space limit. 'Looks strong' is not an acceptance criterion. 'Supports the stated) Tj
+T*
+(classroom load without permanent deformation in the specified test' identifies a) Tj
+T*
+(measurable outcome, but the instructor must define the load, setup and limits.) Tj
+T*
+(Record the document title, revision and source before using a table. Conflicting) Tj
+T*
+(versions require clarification rather than silent mixing.) Tj
+T*
+(Practice: write one requirement, one assumption and one evidence item for the) Tj
+T*
+(storage-rack brief. Identify what you would ask the instructor before calculating.) Tj
+T*
+() Tj
+T*
+(Prelim - Quiz 1: Evidence) Tj
+T*
+() Tj
+T*
+(Which statement is a testable requirement for a classroom model carrier?) Tj
+T*
+(A. It must carry the specified classroom load within the stated deflection limit.) Tj
+T*
+(B. It should look professional.) Tj
+T*
+(C. It will probably be strong enough.) Tj
+T*
+(D. The material is assumed to be perfect.) Tj
+T*
+() Tj
+T*
+(Prelim - Lesson 2: Units and records) Tj
+T*
+() Tj
+T*
+(Outcome O2: convert units and show a traceable calculation.) Tj
+T*
+(Write the quantity, symbol and unit before substituting numbers. A calculation should) Tj
+T*
+(allow another student to follow the input data, conversion, equation and conclusion.) Tj
+T*
+(Worked example: 2.4 m = 2400 mm because 1 m = 1000 mm. Show the conversion factor so) Tj
+T*
+(units cancel. Do not add a length in metres directly to a length recorded in) Tj
+T*
+(millimetres.) Tj
+T*
+(Synthetic dataset: lengths 1200 mm, 0.8 m and 50 cm. Express each in metres before) Tj
+T*
+(adding them. Report an appropriate number of digits rather than implying greater) Tj
+T*
+(precision than the inputs provide.) Tj
+T*
+(A useful calculation record includes the data source or supplied dataset, assumptions,) Tj
+T*
+(steps, units and one reasonableness check. Correct arithmetic with the wrong unit is) Tj
+T*
+(still an incorrect result.) Tj
+T*
+(Practice: prepare a conversion table and explain how a unit error could change a) Tj
+T*
+(classroom decision.) Tj
+T*
+() Tj
+T*
+(Prelim - Quiz 2: Unit conversion) Tj
+T*
+() Tj
+T*
+(A drawing gives a span of 1500 mm. What is the span in metres?) Tj
+T*
+ET
+BT
+/F1 9 Tf
+46 35 Td
+(Original Academy practice template | Page 1) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 2027 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+46 785 Td
+(A. 0.15 m) Tj
+T*
+(B. 15 m) Tj
+T*
+(C. 1.5 m) Tj
+T*
+(D. 150 m) Tj
+T*
+() Tj
+T*
+(Prelim - Activity 1: Requirement and calculation record) Tj
+T*
+() Tj
+T*
+(Outcomes O1-O2 | Individual written output | 300-450 words plus calculations.) Tj
+T*
+(Use this fictional brief: store six classroom models; each model has a supplied mass) Tj
+T*
+(of 0.75 kg; available rack width is 1.2 m. This is a planning exercise, not a) Tj
+T*
+(structural design authorization.) Tj
+T*
+(Submit: \(1\) three measurable requirements, \(2\) an input/units table, \(3\) total model) Tj
+T*
+(mass, \(4\) width in millimetres, \(5\) two assumptions and the evidence needed to check) Tj
+T*
+(them, and \(6\) one independent reasonableness check.) Tj
+T*
+(Do not select a real load rating from this exercise.) Tj
+T*
+(Rubric /100: requirements 25; calculations and units 30; assumptions/evidence 25;) Tj
+T*
+(clear traceable record 20.) Tj
+T*
+() Tj
+T*
+(Prelim - Examination 1) Tj
+T*
+() Tj
+T*
+(Outcomes O1-O2 | Individual written examination | Four questions, 25 points each.) Tj
+T*
+(Q1. A brief says 'build an efficient model carrier'. Rewrite it as two testable) Tj
+T*
+(requirements. Identify one missing numerical limit without inventing it.) Tj
+T*
+(Q2. Convert 1750 mm and 65 cm to metres, then find their combined length. Show unit) Tj
+T*
+(cancellation.) Tj
+T*
+(Q3. A classroom inventory contains eight models of 0.625 kg each. Calculate their) Tj
+T*
+(total mass. State one assumption and one check on the result.) Tj
+T*
+(Q4. Two worksheets show different values for the same dimension. Describe a documented) Tj
+T*
+(process for resolving the discrepancy before calculation.) Tj
+T*
+(Submit one numbered response. Suggested duration: 60 minutes; the app does not enforce) Tj
+T*
+(a timer.) Tj
+T*
+(Each question /25: sound reasoning 10; correct method/evidence 8; units or explicit) Tj
+T*
+(assumptions 4; clear presentation 3. No automatic written grading.) Tj
+T*
+ET
+BT
+/F1 9 Tf
+46 35 Td
+(Original Academy practice template | Page 2) Tj
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000317 00000 n 
+0000003353 00000 n 
+0000003479 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+5557
+%%EOF

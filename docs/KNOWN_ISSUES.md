@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.9.0-alpha.1
+# Known issues and verification limits — 0.9.1-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -55,3 +55,7 @@ User-reported jitter is addressed by retaining the activity shell, removing page
 ### 0.9 security acceptance
 
 Schema v6 requires the matching backend and a consistent backup before deployment. Older servers reject it; restore a compatible backup for rollback. Durable budgets are single-instance and use the TCP peer, so reverse-proxy users share that peer budget; perimeter/load validation remains required. Hashing bucket names does not anonymize guessable email/IP identifiers. Integrity checks and file permissions do not encrypt learner data. Physical-phone destination confirmation, Cancel/Open, revoked enrollment during confirmation and provider handoff remain NOT TESTED. See SECURITY_RELEASE.md for scope, automated acceptance and release gates.
+
+### 0.9.1 subject template and local compatibility
+
+The practice template is original classroom content requiring instructor review against the intended syllabus. Eight quizzes use the current one-question item format; written examinations contain four prompts but one submitted/graded /100 response. Suggested weights and durations are not automatically enforced. Local v3 state is incompatible with older APKs without restoring the pre-migration workspace/files backup; migration retains unchanged factory IDs/history and preserves edited subjects. Public handouts mirror questions, not answer indices. Previously saved B/C PDFs remain until removed; customized organization catalogs are preserved. Actual PDF rendering, physical-device upgrade, signing compatibility and complete UI acceptance remain NOT TESTED until observed.
