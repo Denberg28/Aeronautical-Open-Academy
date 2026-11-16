@@ -96,6 +96,14 @@ jobs:
           cp "$(find out/verified -name source-commit.txt -print -quit)" out/release/
           cp "$(find out/verified -name verification.json -print -quit)" out/release/
           cp docs/KNOWN_ISSUES.md out/release/
-          (cd out/release && sha256sum *.apk > SHA256SUMS.txt)
+          git archive --format=zip --output="out/release/Aeronautical-Open-Academy-$RELEASE_TAG-source.zip" "$GITHUB_SHA"
+          cp docs/SECURITY_RELEASE.md out/release/
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root=Path('out/release')
+          files=sorted(p for p in root.iterdir() if p.is_file() and p.name!='SHA256SUMS.txt')
+          (root/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files))
+          PY
       - name: Publish authorized public test APK
         run: gh release create "$RELEASE_TAG" out/release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Academy $RELEASE_TAG - development test APK" --notes-file docs/RELEASE_NOTES.md

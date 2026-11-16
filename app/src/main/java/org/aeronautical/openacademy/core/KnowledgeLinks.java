@@ -17,13 +17,20 @@ public final class KnowledgeLinks {
     }
     public static URI require(String raw){
         try{
-            String value=raw.trim();if(value.isEmpty()||value.length()>2048||value.matches("(?s).*[\\s\\\\\\x00-\\x1f\\x7f].*"))throw new IllegalArgumentException();
+            String value=raw.trim();if(value.isEmpty()||value.length()>2048||value.matches("(?s).*[\\s\\\\\\x00-\\x1f\\x7f\\p{Cf}].*")||Pattern.compile("%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)",Pattern.CASE_INSENSITIVE).matcher(value).find())throw new IllegalArgumentException();
             URI uri=new URI(value);String scheme=uri.getScheme()==null?"":uri.getScheme().toLowerCase(Locale.ROOT),host=uri.getHost()==null?"":uri.getHost().toLowerCase(Locale.ROOT);
             int port=uri.getPort();boolean defaultPort=port==-1||scheme.equals("https")&&port==443||scheme.equals("http")&&port==80;
-            if((!scheme.equals("http")&&!scheme.equals("https"))||uri.getUserInfo()!=null||!defaultPort||host.length()>253||!host.contains(".")||host.endsWith(".")||host.contains(":")||host.matches(".*[.]([0-9]+|localhost|local|internal|lan|home|test|invalid|example|onion)$"))throw new IllegalArgumentException();
+            if((!scheme.equals("http")&&!scheme.equals("https"))||uri.getUserInfo()!=null||!defaultPort||host.length()>253||!host.contains(".")||host.endsWith(".")||host.contains(":")||host.matches(".*[.]([0-9]+|localhost|local|internal|lan|home|test|invalid|example|onion|arpa)$"))throw new IllegalArgumentException();
             for(String part:host.split("\\."))if(!part.matches("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"))throw new IllegalArgumentException();
             return uri;
         }catch(Exception e){throw new IllegalArgumentException("Use a public HTTP or HTTPS link without credentials, local addresses or custom ports.");}
+    }
+    /** Links — Familiar hosts open on tap; other hosts and all HTTP links show the destination first. */
+    public static boolean needsConfirmation(URI uri){
+        String host=uri.getHost().toLowerCase(Locale.ROOT);
+        return !uri.getScheme().equalsIgnoreCase("https")
+            ||!(host.equals("docs.google.com")||host.equals("drive.google.com")
+                ||host.equals("youtu.be")||host.equals("youtube.com")||host.equals("www.youtube.com"));
     }
     private static String trimPunctuation(String value){
         String text=value;while(text.matches("(?s).*[.,;!]$"))text=text.substring(0,text.length()-1);

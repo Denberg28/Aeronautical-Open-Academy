@@ -9,32 +9,35 @@ import { Transform } from 'node:stream';
 import { linkFromText } from './links.mjs';
 import { workbook } from './xlsx.mjs';
 import { openDatabase } from './store.mjs';
-import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber } from './security.mjs';
+import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber, accountName } from './security.mjs';
 
 export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock=Date.now,scryptN=131072,sessionMs=8*60*60*1000}={}){
  const db=openDatabase(dbPath),now=()=>clock();
  const get=(sql,...args)=>db.prepare(sql).get(...args),all=(sql,...args)=>db.prepare(sql).all(...args),run=(sql,...args)=>db.prepare(sql).run(...args);
  const transaction=action=>{db.exec('BEGIN IMMEDIATE');try{const value=action();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}};
  const audit=(actor,action,target)=>run('INSERT INTO audit(actor_id,action,target_id,created_at) VALUES(?,?,?,?)',actor,action,target,now());
- async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{}){
+ async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{},actor=null){
   requireThat(['admin','instructor','student'].includes(role),400,'Choose admin, instructor, or student.');
-  const address=email(data.email),name=text(data.name,'name',100),number=data.student_number==null?null:studentNumber(data.student_number);
+  const address=email(data.email),name=accountName(data.name),number=data.student_number==null?null:studentNumber(data.student_number);
   requireThat(number===null||role==='student',400,'Student ID applies to student accounts only.');
   requireThat(number===null||!get('SELECT id FROM accounts WHERE student_number=?',number),409,'Student ID is already assigned.');
   requireThat(!get('SELECT id FROM accounts WHERE email=?',address),409,'An account already uses that email.');
   const hashed=await hashPassword(data.password,scryptN),id=randomUUID();beforeCommit();
-  try{run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now(),number);}
+  try{transaction(()=>{run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now(),number);if(actor)audit(actor,'account-create',id);});}
   catch(e){if(number&&get('SELECT id FROM accounts WHERE student_number=?',number))throw new ApiError(409,'Student ID is already assigned.');if(get('SELECT id FROM accounts WHERE email=?',address))throw new ApiError(409,'An account already uses that email.');throw e;}
   return publicAccount(get('SELECT * FROM accounts WHERE id=?',id));
  }
  if(!get('SELECT id FROM accounts LIMIT 1')&&bootstrap)await createAccount({...bootstrap,role:'admin'},'admin',false);
  const dummyHash=await hashPassword(token(),scryptN);
- const loginLimits=new Map();let activeUploads=0;
- function throttle(key){
-  const current=now();for(const [k,v]of loginLimits)if(v.until<current)loginLimits.delete(k);
-  if(loginLimits.size>5000)throw new ApiError(429,'Sign-in is busy. Try again later.');
-  const entry=loginLimits.get(key)||{count:0,until:current+15*60*1000};entry.count++;loginLimits.set(key,entry);
-  requireThat(entry.count<=10,429,'Too many sign-in attempts. Try again in 15 minutes.');
+ let activeUploads=0;
+ // Authentication — Durable 15-minute budgets, scoped separately to peer and identity.
+ // Hash bucket keys; forwarded headers require a separately configured trusted proxy policy.
+ function throttle(key,limit=10){
+  const current=now();run('DELETE FROM security_limits WHERE expires_at<=?',current);
+  const hash=digest(key),entry=get('SELECT * FROM security_limits WHERE key_hash=?',hash);
+  requireThat(entry||get('SELECT count(*) n FROM security_limits').n<5000,429,'Sign-in is busy. Try again later.');
+  requireThat(!entry||entry.hits<limit,429,'Too many authentication attempts. Try again in 15 minutes.');
+  run('INSERT INTO security_limits VALUES(?,?,?) ON CONFLICT(key_hash) DO UPDATE SET hits=hits+1',hash,1,current+15*60*1000);
  }
  async function json(req){
   requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send JSON with application/json.');
@@ -121,35 +124,43 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.7.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.9.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
-    const data=payload;throttle(String(req.socket.remoteAddress||'local')+':'+String(data.email||'').toLowerCase().slice(0,254));
-    const address=email(data.email),a=get('SELECT * FROM accounts WHERE email=?',address);
+    const data=payload;throttle('login-peer:'+String(req.socket.remoteAddress||'local'),100);
+    const address=email(data.email);throttle('login-account:'+address);
+    const a=get('SELECT * FROM accounts WHERE email=?',address);
     const valid=await verifyPassword(data.password,a?.password_hash||dummyHash);
     requireThat(a&&valid&&a.status==='active',401,'Email or password is incorrect, or this account is unavailable.');
     // Re-read after async hashing: suspension/deletion while hashing must win.
     const fresh=get('SELECT * FROM accounts WHERE id=?',a.id);requireThat(fresh.status==='active'&&fresh.password_hash===a.password_hash,401,'Account unavailable.');
     const raw=token();run('DELETE FROM sessions WHERE expires_at<=?',now());
     const old=all('SELECT token_hash FROM sessions WHERE account_id=? ORDER BY created_at DESC',a.id);for(const s of old.slice(4))run('DELETE FROM sessions WHERE token_hash=?',s.token_hash);
-    run('INSERT INTO sessions VALUES(?,?,?,?,?)',digest(raw),a.id,now(),now(),now()+sessionMs);audit(a.id,'sign-in',a.id);
+    transaction(()=>{run('INSERT INTO sessions VALUES(?,?,?,?,?)',digest(raw),a.id,now(),now(),now()+sessionMs);audit(a.id,'sign-in',a.id);});
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
    if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
+    throttle('password-change:'+a.id);
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
+    requireThat(d.new_password!==d.current_password,400,'Choose a different password from the current or temporary password.');
     requireThat(await verifyPassword(d.current_password,current.password_hash),403,'Current password is incorrect.');
     const nextHash=await hashPassword(d.new_password,scryptN);authenticate(req);
     const fresh=get('SELECT * FROM accounts WHERE id=?',a.id);requireThat(fresh.status==='active'&&fresh.password_hash===current.password_hash,401,'Sign in again.');
-    run('UPDATE accounts SET password_hash=?,must_change_password=0 WHERE id=?',nextHash,a.id);run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'password-change',a.id);return send(200,{sign_in_again:true});
+    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=0 WHERE id=?',nextHash,a.id);run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'password-change',a.id);});return send(200,{sign_in_again:true});
    }
    requireThat(!a.must_change_password,403,'Change your temporary password before continuing.');
    if(path==='/v1/admin/accounts'&&method==='GET'){admin(a);const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));return send(200,{accounts:all('SELECT * FROM accounts WHERE status<>? ORDER BY created_at DESC LIMIT 100 OFFSET ?','deleted',offset).map(publicAccount)});}
    if(path==='/v1/admin/audit'&&method==='GET'){admin(a);return send(200,{events:all('SELECT * FROM audit ORDER BY id DESC LIMIT 100')});}
-   if(path==='/v1/admin/accounts'&&method==='POST'){admin(a);recent(a);const created=await createAccount(payload,undefined,true,()=>{const fresh=authenticate(req);admin(fresh);recent(fresh);});audit(a.id,'account-create',created.id);return send(201,{account:created});}
+   if(path==='/v1/admin/accounts'&&method==='POST'){
+     admin(a);recent(a);throttle('account-create:'+a.id,30);
+     requireThat(Object.keys(payload).every(key=>['email','name','password','role','student_number'].includes(key)),400,'Unsupported account registration field.');
+     const created=await createAccount(payload,undefined,true,()=>{const fresh=authenticate(req);admin(fresh);recent(fresh);},a.id);
+     return send(201,{account:created});
+    }
    let match;
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     admin(a);recent(a);const d=payload,target=get('SELECT * FROM accounts WHERE id=? AND status<>?',match[1],'deleted');requireThat(target,404,'Account unavailable.');
@@ -173,7 +184,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})\/password$/))&&method==='POST'){
     admin(a);recent(a);const d=payload,target=get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",match[1]);requireThat(target,404,'Account unavailable.');
     const hashed=await hashPassword(d.password,scryptN);const fresh=authenticate(req);admin(fresh);recent(fresh);requireThat(get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",target.id),404,'Account unavailable.');
-    run('UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?',hashed,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);return send(200,{reset:true});
+    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?',hashed,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);});return send(200,{reset:true});
    }
    if(path==='/v1/admin/enrolments'&&method==='POST'){
     admin(a);const d=payload;requireThat(get("SELECT 1 FROM accounts WHERE id=? AND role='student' AND status='active'",d.student_id),400,'Choose an active student.');subjectFor(a,d.subject_id);

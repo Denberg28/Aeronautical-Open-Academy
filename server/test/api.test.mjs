@@ -457,3 +457,59 @@ test('entry order is owner-controlled, atomic, persistent and independent of lea
   assert.ok(!(await f.call(`/v1/subjects/${subject}`,{token:student.token})).body.items.some(i=>i.id===ids[1]));
  }finally{await f.close();}
 });
+
+
+test('registration rejects hidden identity characters and access-field injection without writes',async()=>{
+ const f=await fixture();try{
+  const base={name:'Learner',email:'valid@example.test',password:pass,role:'student'};
+  for(const change of [{name:'Learner\u202eAdmin'},{name:'Learner\nAdmin'},{email:'a\u0000@example.test'},{email:'a..b@example.test'},{email:'a@-bad.example.test'},{status:'active'},{must_change_password:false},{password_hash:'injected'}]){
+   const r=await f.call('/v1/admin/accounts',{method:'POST',token:f.admin,body:{...base,...change}});
+   assert.equal(r.status,400,JSON.stringify(change));
+  }
+  assert.equal(f.app.db.prepare('SELECT count(*) n FROM accounts').get().n,1);
+  assert.equal((await f.call('/v1/admin/accounts',{method:'POST',token:f.admin,body:{...base,email:'  Valid@Example.Test  ',name:'José María'}})).status,201);
+  assert.equal((await f.call('/v1/admin/accounts',{method:'POST',token:f.admin,body:base})).status,409);
+ }finally{await f.close();}
+});
+
+test('temporary password reuse stays blocked; failed audit rolls password/session changes back',async()=>{
+ const f=await fixture();try{
+  const r=await f.call('/v1/admin/accounts',{method:'POST',token:f.admin,body:{name:'Pending',email:'pending-new@example.test',password:pass,role:'student'}});
+  assert.equal(r.status,201);const pending=await f.login('pending-new@example.test');
+  assert.equal((await f.call('/v1/auth/password',{method:'POST',token:pending,body:{current_password:pass,new_password:pass}})).status,400);
+  assert.equal((await f.call('/v1/subjects',{token:pending})).status,403);
+  f.app.db.exec("CREATE TRIGGER fail_password_audit BEFORE INSERT ON audit WHEN NEW.action='password-change' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;");
+  assert.equal((await f.call('/v1/auth/password',{method:'POST',token:pending,body:{current_password:pass,new_password:pass+'new'}})).status,500);
+  assert.equal((await f.call('/v1/me',{token:pending})).status,200);
+  assert.equal((await f.call('/v1/me',{token:pending})).body.account.must_change_password,true);
+  await f.login('pending-new@example.test');
+  f.app.db.exec('DROP TRIGGER fail_password_audit');
+  assert.equal((await f.call('/v1/auth/password',{method:'POST',token:pending,body:{current_password:pass,new_password:pass+'new'}})).status,200);
+  assert.equal((await f.call('/v1/me',{token:pending})).status,401);
+ }finally{await f.close();}
+});
+
+test('identity throttling normalizes emails; rotating names cannot evade the peer budget',async()=>{
+ const f=await fixture();try{
+  for(let n=0;n<10;n++)assert.equal((await f.call('/v1/auth/login',{method:'POST',body:{email:n%2?'Nobody@Example.Test':' nobody@example.test ',password:'wrong'}})).status,401);
+  assert.equal((await f.call('/v1/auth/login',{method:'POST',body:{email:'NOBODY@example.test',password:'wrong'}})).status,429);
+  // Fixture sign-in plus the eleven requests above have already consumed twelve peer slots.
+  for(let n=0;n<88;n++)assert.equal((await f.call('/v1/auth/login',{method:'POST',body:{email:'rotating-'+n+'@example.test',password:'wrong'}})).status,401);
+  assert.equal((await f.call('/v1/auth/login',{method:'POST',body:{email:'fresh@example.test',password:pass}})).status,429);
+  const buckets=f.app.db.prepare('SELECT key_hash FROM security_limits').all();
+  assert.ok(buckets.every(b=>/^[a-f0-9]{64}$/.test(b.key_hash)));
+  f.advance(15*60*1000);
+  assert.equal((await f.call('/v1/auth/login',{method:'POST',body:{email:'fresh@example.test',password:'wrong'}})).status,401);
+ }finally{await f.close();}
+});
+
+test('authentication budgets survive restarting the actual HTTP service',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'academy-auth-restart-'));let app;
+ try{
+  const options={dbPath:join(directory,'state.sqlite'),bootstrap:{email:'admin@example.test',name:'Admin',password:pass},scryptN:16384};
+  const start=async()=>{app=await createAcademy(options);await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));return 'http://127.0.0.1:'+app.server.address().port;};
+  const login=base=>fetch(base+'/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'admin@example.test',password:'wrong'})});
+  let base=await start();for(let n=0;n<10;n++){const r=await login(base);assert.equal(r.status,401);await r.text();}
+  await app.close();app=null;base=await start();const r=await login(base);assert.equal(r.status,429);await r.text();
+ }finally{if(app)await app.close();await rm(directory,{recursive:true,force:true});}
+});

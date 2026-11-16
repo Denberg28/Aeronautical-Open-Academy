@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.8.3-alpha.1
+# Known issues and verification limits — 0.9.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -51,3 +51,7 @@ The persistent header/navigation, role destinations, form labels, password visib
 ### 0.8.3 tab transition verification
 
 User-reported jitter is addressed by retaining the activity shell, removing page movement, pre-draw offset restoration and fixed-height delayed loading feedback. This is a source diagnosis and correction, not a measured frame-rate result. Repeat the 20-cycle and slow/error-request procedure in docs/TESTING.md on the intended phone. Rotation, 200% fonts, TalkBack, keyboard, drag ordering and picker return remain NOT TESTED here. The 32-page offset history is transient UI state, not private-content offline synchronization. No data migration is needed; v0.8.2-alpha.1-test.66 remains the rollback baseline.
+
+### 0.9 security acceptance
+
+Schema v6 requires the matching backend and a consistent backup before deployment. Older servers reject it; restore a compatible backup for rollback. Durable budgets are single-instance and use the TCP peer, so reverse-proxy users share that peer budget; perimeter/load validation remains required. Hashing bucket names does not anonymize guessable email/IP identifiers. Integrity checks and file permissions do not encrypt learner data. Physical-phone destination confirmation, Cancel/Open, revoked enrollment during confirmation and provider handoff remain NOT TESTED. See SECURITY_RELEASE.md for scope, automated acceptance and release gates.

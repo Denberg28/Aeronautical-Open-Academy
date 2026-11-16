@@ -15,3 +15,12 @@ test('inline extraction preserves balanced URL punctuation and exact-reference c
  assert.throws(()=>linkFromText('https://youtu.be/demo?t=5',text));assert.throws(()=>linkFromText('https://www.example.org/injected',text));
  assert.deepEqual(linksInText('unsafe https://127.0.0.1/private and javascript:alert(1)'),[]);
 });
+
+
+test('deceptive authorities, invisible formatting and encoded controls remain plain text',()=>{
+ for(const url of ['https://%65xample.org/a','https://éxample.org/a','https://example.org/%0d%0aHeader','https://example.org/%5csecret','https://example.org/a\u202eb','https://router.home.arpa/','https://docs.google.com.evil.org/%00']){
+  assert.throws(()=>externalUrl(url),url);assert.deepEqual(linksInText(url),[]);
+ }
+ assert.ok(externalUrl('https://xn--xample-9ua.org/lesson'));
+ assert.ok(externalUrl('https://example.org/lesson%20notes?q=a%2Fb'));
+});

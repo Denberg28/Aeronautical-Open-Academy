@@ -25,6 +25,9 @@ public final class CoreChecks {
         var linked=KnowledgeLinks.inText("Slides (https://docs.google.com/presentation/d/demo/edit). Video https://youtu.be/demo?t=4 and https://www.example.org/wiki/Topic_(detail).");
         expect(linked.size()==3,"inline web links extracted without punctuation");expect(linked.get(0).label.equals("Google Slides"),"presentation link label");expect(linked.get(1).label.equals("YouTube"),"video link label");expect(linked.get(2).url.endsWith("Topic_(detail)"),"balanced URL parentheses retained");
         expect(KnowledgeLinks.inText("unsafe https://127.0.0.1/private and javascript:alert(1)").isEmpty(),"unsafe text stays noninteractive");
+        for(String link:new String[]{"https://%65xample.org/a","https://éxample.org/a","https://example.org/%0d%0aHeader","https://example.org/%5csecret","https://example.org/a\u202eb","https://router.home.arpa/","https://docs.google.com.evil.org/%00"})rejects(()->KnowledgeLinks.require(link),"reject deceptive web reference");
+        for(String link:new String[]{"https://example.org/a","http://docs.google.com/a","https://docs.google.com.evil.org/a","https://xn--xample-9ua.org/a"})expect(KnowledgeLinks.needsConfirmation(KnowledgeLinks.require(link)),"review full unfamiliar destination");
+        for(String link:new String[]{"https://docs.google.com/a","https://drive.google.com/a","https://www.youtube.com/a","https://youtu.be/a"})expect(!KnowledgeLinks.needsConfirmation(KnowledgeLinks.require(link)),"familiar HTTPS provider keeps one-tap handoff");
         var prior=java.util.List.of("b","a","deleted","b");var current=java.util.List.of("a","b","new");
         expect(SubjectOrder.merge(prior,current).equals(java.util.List.of("b","a","new")),"personal subject order removes stale and duplicate IDs, appends newly available subjects");
         expect(SubjectOrder.merge(java.util.List.of(),current).equals(current),"first account keeps received order");

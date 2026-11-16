@@ -469,9 +469,23 @@ public final class WorkspaceActivity extends AppCompatActivity {
     }
     private void openItemLink(JSONObject item,String url){try{openExternal(url,()->api.request("POST","/v1/items/"+item.optString("id")+"/open-link",new JSONObject().put("url",url).put("expected_revision",item.optInt("revision"))));}catch(Exception e){error(e);}}
     private void openSubjectLink(JSONObject subject,String url){try{openExternal(url,()->api.request("POST","/v1/subjects/"+subject.optString("id")+"/open-link",new JSONObject().put("url",url).put("expected_description",subject.optString("description"))));}catch(Exception e){error(e);}}
+    // Links — Review unfamiliar destinations, then authorize the current reference immediately before launch.
     private void openExternal(String raw,Action check){
-        org.aeronautical.openacademy.core.KnowledgeLinks.require(raw);
-        perform(check,result->{String destination=result.getString("url");org.aeronautical.openacademy.core.KnowledgeLinks.require(destination);try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(destination)).addCategory(Intent.CATEGORY_BROWSABLE));}catch(android.content.ActivityNotFoundException e){showText("No app available","Install or enable a browser or the host's application, then tap the link again.");}});
+        java.net.URI uri=org.aeronautical.openacademy.core.KnowledgeLinks.require(raw);
+        if(org.aeronautical.openacademy.core.KnowledgeLinks.needsConfirmation(uri)){
+            String warning=uri.getScheme().equalsIgnoreCase("http")?"Unencrypted HTTP connection.\n\n":"";
+            new AlertDialog.Builder(this).setTitle("Open external link?")
+                .setMessage(warning+uri.getHost()+"\n\n"+uri.toASCIIString())
+                .setNegativeButton("Cancel",null).setPositiveButton("Open",(d,w)->launchExternal(check)).show();
+        }else launchExternal(check);
+    }
+    private void launchExternal(Action check){
+        perform(check,result->{
+            String destination=result.getString("url");
+            org.aeronautical.openacademy.core.KnowledgeLinks.require(destination);
+            try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(destination)).addCategory(Intent.CATEGORY_BROWSABLE));}
+            catch(android.content.ActivityNotFoundException e){showText("No app available","Install or enable a browser or the host's application, then tap the link again.");}
+        });
     }
     private String materialTitle(String text){String first=text.trim().split("\\R",2)[0];java.util.List<org.aeronautical.openacademy.core.KnowledgeLinks.Link> links=org.aeronautical.openacademy.core.KnowledgeLinks.inText(first);if(!links.isEmpty()&&links.get(0).start==0)return links.get(0).label;return first.length()>100?first.substring(0,100):first;}
     private void accountsScreen(){

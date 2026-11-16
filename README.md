@@ -2,9 +2,9 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus a public offline sample library containing **Subject A, Subject B, and Subject C**.
 
-Version: **0.8.3-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.9.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
-Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
+Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
 ## Try the three roles on one phone
 
@@ -85,6 +85,8 @@ A live hosting destination has **not** been configured. Optional organization Dr
 - [Specification and role matrix](docs/SPEC.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Security and access review](docs/SECURITY.md)
+- [Current security scope, acceptance and rollback](docs/SECURITY_RELEASE.md)
+- [Targeted manual edit guide](docs/CODE_EDIT_GUIDE.md)
 - [Full source review and reliability findings](docs/CODE_REVIEW.md)
 - [Backend setup](server/README.md)
 - [Material/content workflow](docs/CONTENT_GUIDE.md)
