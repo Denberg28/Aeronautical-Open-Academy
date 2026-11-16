@@ -28,7 +28,6 @@ import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
 import org.aeronautical.openacademy.core.QrRouter;
 import org.aeronautical.openacademy.core.UrlPolicy;
-import java.text.DateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +40,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView searchCount;
     private String tab="subjects",subjectId="",query="",pendingCode="";
     private int scrollPosition;
+    private String renderedPage="";
+    private final Map<String,Integer> scrollOffsets=new LinkedHashMap<>();
     private final Map<String,WorkInfo> work=new HashMap<>();
     private final ActivityResultLauncher<ScanOptions> scanner=registerForActivityResult(new ScanContract(),result->{
         if(result.getContents()!=null)openCode(result.getContents());
@@ -50,7 +51,7 @@ public final class MainActivity extends AppCompatActivity {
     });
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); repo=((AcademyApp)getApplication()).repository();
-        if(state!=null) { tab=state.getString("tab","subjects"); subjectId=state.getString("subject",""); query=state.getString("query",""); scrollPosition=state.getInt("scroll",0); }
+        if(state!=null) { tab=state.getString("tab","subjects"); subjectId=state.getString("subject",""); query=state.getString("query",""); scrollPosition=state.getInt("scroll",0);Bundle positions=state.getBundle("scroll_positions");if(positions!=null)for(String key:positions.keySet())scrollOffsets.put(key,positions.getInt(key));scrollOffsets.put(tab+":"+subjectId,scrollPosition); }
         Intent intent=getIntent(); if(intent!=null&&intent.getData()!=null)pendingCode=intent.getData().toString();
         repo.changes.observe(this,ignored->{
             if(repo.catalog!=null&&!pendingCode.isEmpty()) { String code=pendingCode;pendingCode="";openCode(code); }
@@ -75,11 +76,12 @@ public final class MainActivity extends AppCompatActivity {
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("tab",tab);state.putString("subject",subjectId);state.putString("query",query);
-        state.putInt("scroll",scroll==null?0:scroll.getScrollY());super.onSaveInstanceState(state);
+        state.putInt("scroll",scroll==null?0:scroll.getScrollY());rememberScroll();Bundle positions=new Bundle();for(Map.Entry<String,Integer> position:scrollOffsets.entrySet())positions.putInt(position.getKey(),position.getValue());state.putBundle("scroll_positions",positions);super.onSaveInstanceState(state);
     }
-    private void navigate(String target) { tab=target;subjectId="";query="";scrollPosition=0;hideKeyboard();render(); }
-    private void render() {
-        if(isFinishing()||isDestroyed())return;
+    private void navigate(String target) { if(tab.equals(target)&&subjectId.isEmpty())return;tab=target;subjectId="";hideKeyboard();render(); }
+    // Public tabs share one header, navigation row and scroll viewport.
+    private void ensureShell(){
+        if(root!=null)return;
         root=column();root.setBackgroundColor(PAPER);setContentView(root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{
             androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());
@@ -96,30 +98,37 @@ public final class MainActivity extends AppCompatActivity {
         scroll=new ScrollView(this);scroll.setFillViewport(true);
         body=column();body.setPadding(dp(20),dp(16),dp(20),dp(24));scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        nav=row();nav.setPadding(dp(12),dp(7),dp(12),dp(7));nav.setBackgroundColor(Color.WHITE);
+        navButton("Subjects","subjects");navButton("Scan QR","scan");navButton("Downloads","downloads");root.addView(nav);
+        scroll.setOnScrollChangeListener((v,x,y,oldX,oldY)->scrollPosition=y);
+        scroll.setFocusableInTouchMode(true);scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+    }
+    private void rememberScroll(){
+        if(scroll==null||renderedPage.isEmpty())return;
+        scrollOffsets.put(renderedPage,scroll.getScrollY());
+        if(scrollOffsets.size()>32)scrollOffsets.remove(scrollOffsets.keySet().iterator().next());
+    }
+    private void render() {
+        if(isFinishing()||isDestroyed())return;
+        rememberScroll();ensureShell();renderedPage=tab+":"+subjectId;
+        int restore=scrollOffsets.getOrDefault(renderedPage,0);body.removeAllViews();scroll.requestFocus();
         if(repo.catalog==null) { body.addView(text("Preparing your library",28,INK,true));gap(body,16);ProgressBar loading=new ProgressBar(this);loading.setContentDescription("Loading library");body.addView(loading);body.addView(text(repo.notice,15,MUTED,false)); }
         else if(tab.equals("scan"))scanScreen();
         else if(tab.equals("downloads"))downloadScreen();
         else if(!subjectId.isEmpty())subjectScreen();
         else subjectsScreen();
-        nav=row();nav.setPadding(dp(12),dp(7),dp(12),dp(7));nav.setBackgroundColor(Color.WHITE);
-        navButton("Subjects","subjects");navButton("Scan QR","scan");navButton("Downloads","downloads");root.addView(nav);
-        final int restore=scrollPosition;
-        scroll.setOnScrollChangeListener((v,x,y,oldX,oldY)->scrollPosition=y);
-        scroll.post(()->scroll.scrollTo(0,restore));
+        for(int i=0;i<nav.getChildCount();i++){Button button=(Button)nav.getChildAt(i);boolean active=tab.equals(button.getTag());if(button.isSelected()!=active){button.setSelected(active);button.setBackground(ripple(active?0xfffff2cc:Color.TRANSPARENT));}}
+        androidx.core.view.OneShotPreDrawListener.add(scroll,()->scroll.scrollTo(0,restore));
     }
     private void subjectsScreen() {
-        body.addView(text("PUBLIC SAMPLE LIBRARY",11,MUTED,true));gap(body,10);
-        body.addView(text("Explore subjects",28,INK,true));gap(body,8);
-        body.addView(text("Browse sample lessons and save PDFs for offline study.",16,MUTED,false));gap(body,20);
-        body.addView(button("Sign in to my workspace",true,v->startActivity(new Intent(this,WorkspaceActivity.class))));gap(body,20);
+        body.addView(text("Subjects",28,INK,true));gap(body,12);
         EditText search=input("Search subjects or materials",query);subjectSearch=search;search.setContentDescription("Search subjects and materials");search.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);search.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH){hideKeyboard();search.clearFocus();return true;}return false;});body.addView(search);gap(body,12);
         searchCount=text("",13,MUTED,false);body.addView(searchCount);gap(body,12);
         results=column();body.addView(results);listSubjects();
         search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int c,int f){} public void onTextChanged(CharSequence s,int a,int b,int c){query=s.toString();listSubjects();}public void afterTextChanged(Editable e){}});
-        gap(body,16);body.addView(text(repo.notice,13,MUTED,false));
-        if(repo.lastSync()>0)body.addView(text("Last synced "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date(repo.lastSync())),12,MUTED,false));
+        gap(body,16);catalogNotice();
         Button refresh=button(repo.busy?"Refreshing…":"Refresh catalog",false,v->refresh());refresh.setEnabled(!repo.busy);body.addView(refresh);
-        body.addView(button("Help & public catalog",false,v->showHelp()));
+        body.addView(button("Help",false,v->showHelp()));
     }
     private void listSubjects() {
         results.removeAllViews();String q=query.trim().toLowerCase(Locale.ROOT);int count=0;
@@ -141,7 +150,7 @@ public final class MainActivity extends AppCompatActivity {
         body.addView(button("‹  All subjects",false,v->navigate("subjects")));gap(body,12);
         body.addView(text(subject.code,12,MUTED,true));body.addView(text(subject.title,29,INK,true));gap(body,8);
         body.addView(text(subject.description,16,MUTED,false));gap(body,14);
-        body.addView(text("Subject code: "+subject.code+" · aoa://subject/"+subject.id,12,MUTED,false));gap(body,20);
+        body.addView(text("Code "+subject.code,12,MUTED,false));gap(body,20);
         if(subject.retired)body.addView(text("This subject is retired. Your previously saved PDFs remain in Downloads.",16,MUTED,false));
         String module="";
         for(Catalog.Resource r:subject.resources) {
@@ -150,14 +159,14 @@ public final class MainActivity extends AppCompatActivity {
             AcademyRepository.Download d=repo.download(r.id);WorkInfo info=work.get(r.id);boolean active=info!=null&&!info.getState().isFinished();
             String status=d==null?"Not saved":d.revision==r.revision?"Available offline · "+size(d.bytes):"Saved revision "+d.revision+" · Update available";
             card.addView(text(status+" · Revision "+r.revision,12,MUTED,true));
-            if(d!=null)card.addView(button("Read saved PDF",true,v->openPdf(d)));
-            if(!r.plainText.isEmpty())card.addView(button("Read text version",false,v->{
+            if(d!=null)card.addView(button("Read PDF",true,v->openPdf(d)));
+            if(!r.plainText.isEmpty())card.addView(button("Read text",false,v->{
                 TextView notes=text(r.plainText,18,INK,false);notes.setTextIsSelectable(true);notes.setPadding(dp(20),dp(16),dp(20),dp(16));
                 ScrollView reader=new ScrollView(this);reader.addView(notes);
                 new AlertDialog.Builder(this).setTitle(r.title).setView(reader).setPositiveButton("Close",null).show();
             }));
             if(r.downloadable) {
-                Button save=button(active?"Saving PDF…":d==null?"Save PDF offline":d.revision!=r.revision?"Update offline copy":"Saved on this phone",d==null,v->enqueue(r));
+                Button save=button(active?"Saving PDF…":d==null?"Save PDF":d.revision!=r.revision?"Update PDF":"Saved",d==null,v->enqueue(r));
                 save.setEnabled(!active&&(d==null||d.revision!=r.revision));card.addView(save);
             }
             if(active){int percent=info.getProgress().getInt("percent",-1);ProgressBar transfer=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);transfer.setMax(100);transfer.setIndeterminate(percent<0);if(percent>=0)transfer.setProgress(percent);transfer.setContentDescription(percent<0?"Saving PDF":"Saving PDF · "+percent+" percent");card.addView(transfer,new LinearLayout.LayoutParams(-1,dp(8)));}
@@ -166,40 +175,39 @@ public final class MainActivity extends AppCompatActivity {
             if(!r.source.startsWith("asset://"))card.addView(button("Open online ↗",false,v->openOnline(r.source)));
             card.addView(text(r.license,11,MUTED,false));body.addView(card);gap(body,14);
         }
-        body.addView(text("PDFs are saved only after a complete, verified transfer. Other resources open in your browser.",13,MUTED,false));
+
     }
     private void scanScreen() {
-        body.addView(text("Scan a subject QR",28,INK,true));gap(body,12);
-        body.addView(text("Scan an Academy subject QR from your instructor. Camera access is used only while scanning.",16,MUTED,false));gap(body,24);
+        body.addView(text("Scan QR",28,INK,true));gap(body,16);
         LinearLayout frame=card(0xfffff7df);frame.setGravity(Gravity.CENTER);
         ImageView mark=new ImageView(this);mark.setImageResource(R.drawable.ic_scan);mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);frame.addView(mark,new LinearLayout.LayoutParams(dp(108),dp(108)));gap(frame,24);
-        frame.addView(button("Open camera scanner",true,v->{
+        frame.addView(button("Scan QR",true,v->{
             if(!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)){message("No camera available","Enter the subject code below or browse Subjects.");return;}
             if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)launchScanner();else cameraPermission.launch(Manifest.permission.CAMERA);
         }));body.addView(frame);gap(body,28);
-        body.addView(text("Have a subject code instead?",19,INK,true));gap(body,8);
+        body.addView(text("Subject code",19,INK,true));gap(body,8);
         EditText entry=input("For example, A","");entry.setContentDescription("Subject code or Academy QR text");body.addView(entry);
         body.addView(button("Open subject",true,v->openCode(entry.getText().toString())));gap(body,12);
-        body.addView(text("Public sample codes work offline. Protected subject scans require sign-in and an online eligibility check before automatic enrollment. Unknown codes will never open a website automatically.",14,MUTED,false));
+        body.addView(text("Sample codes: A, B, C. Courses require sign-in.",14,MUTED,false));
     }
     private void downloadScreen() {
-        body.addView(text("Downloads",28,INK,true));gap(body,12);
-        body.addView(text("Completed PDFs stay on this phone until you remove them. No connection needed to read.",16,MUTED,false));gap(body,24);
+        body.addView(text("Downloads",28,INK,true));gap(body,16);
         List<AcademyRepository.Download> copies=repo.downloads();
         if(copies.isEmpty()){
-            LinearLayout empty=card(Color.WHITE);empty.addView(text("Ready when you are",22,INK,true));empty.addView(text("Open a subject and choose Save PDF offline. Completed copies appear here.",15,MUTED,false));empty.addView(button("Explore subjects",true,v->navigate("subjects")));body.addView(empty);
+            LinearLayout empty=card(Color.WHITE);empty.addView(text("No downloads",22,INK,true));empty.addView(button("Explore subjects",true,v->navigate("subjects")));body.addView(empty);
         }
         for(AcademyRepository.Download d:copies) {
             LinearLayout card=card(Color.WHITE);card.addView(text(d.title,21,INK,true));gap(card,8);card.addView(text("PDF · "+size(d.bytes)+" · Revision "+d.revision,13,MUTED,false));
-            card.addView(button("Read PDF",true,v->openPdf(d)));card.addView(button("Remove offline copy",false,v->new AlertDialog.Builder(this).setTitle("Remove this PDF?").setMessage("This removes the copy on this phone. The instructor’s original is kept.").setNegativeButton("Keep",null).setPositiveButton("Remove",(a,b)->repo.delete(d)).show()));body.addView(card);gap(body,14);
+            card.addView(button("Read PDF",true,v->openPdf(d)));card.addView(button("Remove",false,v->new AlertDialog.Builder(this).setTitle("Remove this PDF?").setMessage("This removes the copy on this phone. The instructor’s original is kept.").setNegativeButton("Keep",null).setPositiveButton("Remove",(a,b)->repo.delete(d)).show()));body.addView(card);gap(body,14);
         }
         for(Map.Entry<String,WorkInfo> item:work.entrySet())if(!item.getValue().getState().isFinished()) {
             String id=item.getKey();int percent=item.getValue().getProgress().getInt("percent",-1);
             body.addView(text("Saving "+id+(percent>=0?" · "+percent+"%":" · waiting or downloading"),14,INK,false));
             body.addView(button("Cancel "+id,false,v->WorkManager.getInstance(this).cancelUniqueWork("download-"+id)));
         }
-        gap(body,14);body.addView(text(repo.notice,13,MUTED,false));
+        catalogNotice();
     }
+    private void catalogNotice(){String notice=repo.notice;if(notice.startsWith("Refresh failed")||notice.startsWith("Could not")||notice.startsWith("Offline index")||notice.contains("cleanup"))body.addView(text(notice,13,0xff943b26,false));}
     private void enqueue(Catalog.Resource r) {
         Data data=new Data.Builder().putString("id",r.id).putString("title",r.title).putString("url",r.url).putString("sha256",r.sha256).putInt("revision",r.revision).build();
         OneTimeWorkRequest.Builder builder=new OneTimeWorkRequest.Builder(DownloadWorker.class).setInputData(data).addTag("academy-download").addTag("resource:"+r.id).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.SECONDS);
@@ -242,10 +250,10 @@ public final class MainActivity extends AppCompatActivity {
         }));dialog.show();
     }
     private void showHelp() {
-        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage("1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nSample subject codes: A, B, C. Samples are demonstrations.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
+        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage(repo.notice+"\n\n1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nSample subject codes: A, B, C. Samples are demonstrations.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
     }
     private void message(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK",null).show();}
-    private void navButton(String label,String target){Button b=button(label,tab.equals(target),v->navigate(target));b.setSelected(tab.equals(target));if(tab.equals(target)){b.setBackground(ripple(0xfffff2cc));b.setTextColor(INK);}nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}
+    private void navButton(String label,String target){Button b=button(label,false,v->navigate(target));b.setTag(target);nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}
     private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
     private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
     private LinearLayout card(int color){LinearLayout l=column();l.setPadding(dp(18),dp(18),dp(18),dp(18));l.setBackground(shape(color));return l;}
