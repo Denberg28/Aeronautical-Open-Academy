@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.8.1-alpha.1
+# Known issues and verification limits — 0.8.2-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -43,3 +43,7 @@ Subject order is a device-local view preference, isolated by account ID and orga
 ### Temporary capture policy (0.8.1)
 
 User-authorized screenshots and screen recording are enabled on account screens and the in-app protected PDF viewer during feature refinement. `SCREEN_CAPTURE_ALLOWED=true` applies to current builds; setting it false restores the existing FLAG_SECURE guards. Device screenshot/recording behavior remains NOT TESTED. Access checks, enrollment and private file handling are unchanged.
+
+### 0.8.2 UI validation
+
+The persistent header/navigation, role destinations, form labels, password visibility, busy states, search recovery and PDF progress require the phone acceptance procedure in docs/TESTING.md. 320 dp/landscape layouts, 200% text, TalkBack, soft-keyboard behavior and drag ordering within the remaining content area are NOT TESTED in this editing session. Source changes do not establish physical layout or usability acceptance. No data migration is introduced; the previous APK remains the rollback baseline, subject to its signing certificate.
