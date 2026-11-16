@@ -123,7 +123,7 @@ public class TestWorkspaceTest {
 
     // Migration fixtures reproduce the old factory content independently of the new seed.
     private JSONObject writeLegacyFixture(boolean edited)throws Exception{
-        File file=new File(root,"workspace.json");JSONObject state=new JSONObject(Files.readString(file.toPath()));
+        File file=new File(root,"workspace.json");JSONObject state=new JSONObject(new String(Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));
         state.put("version",2);state.remove("template_version");JSONObject old=state.getJSONArray("subjects").getJSONObject(0);
         old.put("title","Practice subject · Aircraft maintenance").put("description","Synthetic practice content. Create materials as the instructor, then sign in as the student to read and submit work.").put("order_revision",4).put("eligibility_revision",1);old.remove("template_key");
         JSONObject material=item("material"),activity=item("activity"),quiz=item("quiz");JSONArray legacy=new JSONArray();
@@ -134,15 +134,15 @@ public class TestWorkspaceTest {
         quiz.put("options",new JSONArray().put("Current approved documentation").put("An obsolete personal copy")).put("correct_index",0);
         if(edited)material.put("body","My instructor changes");state.put("items",legacy);
         state.getJSONArray("records").put(data("id",UUID.randomUUID().toString(),"student_id",studentId,"item_id",material.getString("id"),"revision",1,"completed",true,"score",JSONObject.NULL));
-        Files.writeString(file.toPath(),state.toString());return state;
+        Files.write(file.toPath(),state.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));return state;
     }
     @Test public void untouchedFactoryUpgradesInPlaceAndRetainsHistoricalRecords()throws Exception{
         String material=item("material").getString("id"),activity=item("activity").getString("id"),quiz=item("quiz").getString("id");JSONObject legacy=writeLegacyFixture(false);
         app=new TestWorkspace(root);assertEquals(1,call(student,"GET","/v1/subjects",null).getJSONArray("subjects").length());assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(25,course(student).getJSONArray("items").length());
         for(String id:new String[]{material,activity,quiz})assertEquals(2,call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item").getInt("revision"));
         assertEquals(0,course(student).getJSONObject("summary").getInt("read"));
-        JSONObject saved=new JSONObject(Files.readString(new File(root,"workspace.json").toPath()));assertEquals(3,saved.getInt("version"));assertEquals(1,saved.getJSONArray("records").length());
-        assertEquals(legacy.toString(),Files.readString(new File(root,"workspace-before-template.json").toPath()));
+        JSONObject saved=new JSONObject(new String(Files.readAllBytes(new File(root,"workspace.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));assertEquals(3,saved.getInt("version"));assertEquals(1,saved.getJSONArray("records").length());
+        assertEquals(legacy.toString(),new String(Files.readAllBytes(new File(root,"workspace-before-template.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));
         app=new TestWorkspace(root);assertEquals(25,course(student).getJSONArray("items").length());
     }
     @Test public void editedLegacyAndIndependentInstructorWorkArePreserved()throws Exception{
