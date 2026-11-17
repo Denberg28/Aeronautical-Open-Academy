@@ -41,6 +41,7 @@ public final class MainActivity extends AppCompatActivity {
     private String tab="subjects",subjectId="",query="",pendingCode="";
     private int scrollPosition;
     private String renderedPage="";
+    private PracticeTemplate practice;
     private final Map<String,Integer> scrollOffsets=new LinkedHashMap<>();
     private final Map<String,WorkInfo> work=new HashMap<>();
     private final ActivityResultLauncher<ScanOptions> scanner=registerForActivityResult(new ScanContract(),result->{
@@ -92,9 +93,11 @@ public final class MainActivity extends AppCompatActivity {
         ImageView logo=new ImageView(this);logo.setImageResource(R.drawable.ic_academy);logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         header.addView(logo,new LinearLayout.LayoutParams(dp(38),dp(38)));
         LinearLayout brand=column();brand.setPadding(dp(12),0,dp(4),0);
-        brand.addView(text("AERONAUTICAL",11,INK,true));brand.addView(text("Open Academy",19,INK,true));
+        TextView brandLine=text("AERONAUTICAL",11,INK,true),brandName=text("Open Academy",19,INK,true);
+        for(TextView line:new TextView[]{brandLine,brandName}){line.setSingleLine(true);line.setEllipsize(android.text.TextUtils.TruncateAt.END);brand.addView(line);}
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));account.setGravity(Gravity.CENTER);header.addView(account);root.addView(header);
+        // UI — header actions must wrap their width; full-width card buttons collapse the weighted brand.
+        Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));account.setGravity(Gravity.CENTER);header.addView(account,new LinearLayout.LayoutParams(-2,-2));root.addView(header,new LinearLayout.LayoutParams(-1,-2));
         scroll=new ScrollView(this);scroll.setFillViewport(true);
         body=column();body.setPadding(dp(20),dp(16),dp(20),dp(24));scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
@@ -136,7 +139,7 @@ public final class MainActivity extends AppCompatActivity {
             boolean match=(subject.code+" "+subject.title+" "+subject.description).toLowerCase(Locale.ROOT).contains(q);
             for(Catalog.Resource r:subject.resources)match|=(r.title+" "+r.module).toLowerCase(Locale.ROOT).contains(q);
             if(!match)continue;count++;
-            LinearLayout card=card(Color.WHITE);card.addView(text(subject.title,20,INK,true));gap(card,8);card.addView(text("Code "+subject.code+" · "+subject.resources.size()+" materials"+(subject.retired?" · Retired":""),12,MUTED,false));gap(card,12);TextView summary=text(subject.description,14,MUTED,false);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);gap(card,8);
+            LinearLayout card=card(Color.WHITE);card.addView(text(subject.title,20,INK,true));gap(card,8);card.addView(text("Code "+subject.code+(repo.catalog.demo?" · 8 lessons · 16 assessments":" · "+subject.resources.size()+" materials")+(subject.retired?" · Retired":""),12,MUTED,false));gap(card,12);TextView summary=text(subject.description,14,MUTED,false);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);gap(card,8);
             card.addView(button("Open subject",false,v->{subjectId=subject.id;scrollPosition=0;hideKeyboard();render();scroll.scrollTo(0,0);}));
             results.addView(card);gap(results,12);
         }
@@ -149,7 +152,7 @@ public final class MainActivity extends AppCompatActivity {
         body.addView(button("‹  All subjects",false,v->navigate("subjects")));gap(body,12);
         body.addView(text("Code "+subject.code,12,MUTED,false));gap(body,8);body.addView(text(subject.title,26,INK,true));gap(body,12);
         body.addView(text(subject.description,16,MUTED,false));gap(body,14);
-        if(repo.catalog.demo&&BuildConfig.DEBUG)body.addView(button("Open assessments",true,v->startActivity(new Intent(this,WorkspaceActivity.class).putExtra("open_practice",true))));gap(body,12);
+        if(repo.catalog.demo){practiceSubject();return;}
         if(subject.retired)body.addView(text("This subject is retired. Your previously saved PDFs remain in Downloads.",16,MUTED,false));
         String module="";
         for(Catalog.Resource r:subject.resources) {
@@ -175,6 +178,26 @@ public final class MainActivity extends AppCompatActivity {
             gap(card,12);card.addView(text(r.license,12,MUTED,false));body.addView(card);gap(body,14);
         }
 
+    }
+    // UI — bundled course entries use Read/Take actions, never the legacy handout cards.
+    private void practiceSubject(){
+        try{
+            if(practice==null)try(java.io.InputStream in=getAssets().open("subject-template.json")){practice=new PracticeTemplate(AcademyRepository.readText(in,256*1024));}
+            String period="";
+            for(PracticeTemplate.Entry entry:practice.entries){
+                if(!period.equals(entry.period)){period=entry.period;gap(body,24);body.addView(text(period,18,INK,true));gap(body,12);}
+                LinearLayout card=card(Color.WHITE);card.addView(text(entry.title,20,INK,true));gap(card,8);
+                card.addView(button(PracticeTemplate.action(entry.kind,""),false,v->{
+                    if(entry.kind.equals("material"))readText(entry.title,entry.reading);
+                    else if(BuildConfig.DEBUG)startActivity(new Intent(this,WorkspaceActivity.class).putExtra("open_practice",true).putExtra("practice_entry",entry.key).putExtra("practice_subject",practice.key));
+                    else message("Sign in required","Open your enrolled subject to take this assessment.");
+                }));body.addView(card);gap(body,14);
+            }
+        }catch(Exception e){body.addView(text("Practice subject unavailable. Close and reopen the app.",16,MUTED,false));}
+    }
+    private void readText(String title,String reading){
+        TextView notes=text(reading,18,INK,false);notes.setTextIsSelectable(true);notes.setPadding(dp(20),dp(16),dp(20),dp(16));ReadingText.apply(notes);ScrollView reader=new ScrollView(this);reader.addView(notes);
+        new AlertDialog.Builder(this).setTitle(title).setView(reader).setPositiveButton("Close",null).show();
     }
     private void scanScreen() {
         body.addView(text("Scan QR",28,INK,true));gap(body,16);
@@ -252,7 +275,7 @@ public final class MainActivity extends AppCompatActivity {
     private void showHelp() {
         LinearLayout content=column();content.setPadding(dp(24),dp(8),dp(24),dp(20));
         content.addView(text("Get started",18,INK,true));gap(content,12);
-        helpStep(content,"1.","Choose a subject or scan its QR.");helpStep(content,"2.","Save lesson PDFs to read offline.");helpStep(content,"3.","Sign in to answer assessments and view results.");
+        helpStep(content,"1.","Choose a subject or scan its QR.");helpStep(content,"2.","Tap Read to open a lesson.");helpStep(content,"3.","Sign in to take assessments and view results.");
         gap(content,24);content.addView(text("Practice template",18,INK,true));gap(content,8);content.addView(text("Code A opens AE 101. Practice content requires instructor review before institutional use.",15,MUTED,false));
         gap(content,24);content.addView(text("Privacy and storage",18,INK,true));gap(content,8);content.addView(text("Camera access is used only for scanning. No advertising or analytics.",15,MUTED,false));gap(content,12);content.addView(text("Uninstalling or clearing app storage removes local copies. Exported copies cannot be revoked.",15,MUTED,false));
         gap(content,24);content.addView(text("Catalog",18,INK,true));gap(content,8);content.addView(text(repo.notice,14,MUTED,false));

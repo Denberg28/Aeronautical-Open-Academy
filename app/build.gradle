@@ -8,7 +8,8 @@ android {
         minSdk 26
         targetSdk 35
         versionCode (System.getenv('AOA_TEST_BUILD_NUMBER') ? 50000 + Integer.parseInt(System.getenv('AOA_TEST_BUILD_NUMBER')) : 10)
-        versionName '0.10.0-alpha.1'
+        versionName '0.10.1-alpha.1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         // Temporarily enabled for development feedback; set false when restoring capture protection.
         buildConfigField 'boolean', 'SCREEN_CAPTURE_ALLOWED', 'true'
         buildConfigField 'String', 'SOURCE_COMMIT', '"' + (System.getenv('GITHUB_SHA') ?: 'local') + '"'
@@ -44,6 +45,9 @@ dependencies {
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
 }
 
 def compileCoreChecks = tasks.register('compileCoreChecks', JavaCompile) {
