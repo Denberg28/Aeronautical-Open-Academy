@@ -73,7 +73,8 @@ def change_password(api):
 
 def administration(api):
     with st.expander("Create account"):
-        with st.form("create_account", clear_on_submit=True):
+        generation = st.session_state.get("account_form", 0)
+        with st.form(f"create_account_{generation}"):
             name = st.text_input("Full name", max_chars=100)
             email = st.text_input("Account email", max_chars=254)
             role = st.selectbox("Role", ["student", "instructor", "admin"])
@@ -86,6 +87,7 @@ def administration(api):
             if number:
                 body["student_number"] = number
             api.post("/v1/admin/accounts", body)
+            st.session_state["account_form"] = generation + 1
             saved("Account created. Share the temporary password privately.")
 
 
@@ -122,7 +124,8 @@ def subject_controls(api, subject):
 # An interrupted upload leaves the draft visible and retryable; no automatic write retries.
 def add_material(api, subject, uploads):
     with st.expander("Add material"):
-        with st.form("add_material_" + subject["id"], clear_on_submit=True):
+        generation = st.session_state.get("material_form", 0)
+        with st.form(f"add_material_{subject['id']}_{generation}"):
             title = st.text_input("Material title", max_chars=160)
             body = st.text_area("Reading text or instructions", max_chars=12000,
                                 help="Paste Google Docs, Slides, Drive, YouTube or website links here.")
@@ -134,6 +137,7 @@ def add_material(api, subject, uploads):
                 "kind": "material", "title": title, "body": body,
                 "material_mode": "file" if mode == "PDF upload" else "text", "published": False})
             st.session_state["item"] = result["id"]
+            st.session_state["material_form"] = generation + 1
             saved("Draft created. Upload a PDF or publish when ready.")
         if not uploads:
             st.caption("PDF uploads are not enabled for this Academy server. Text and hosted links are available.")
@@ -154,7 +158,7 @@ def edit_material(api, item):
                 "expected_edit_version": item["edit_version"]})
             saved("Material saved.")
         if item["material_mode"] == "file":
-            with st.form("upload_" + suffix, clear_on_submit=True):
+            with st.form("upload_" + suffix):
                 pdf = st.file_uploader("PDF file · up to 50 MiB", type=["pdf"])
                 upload = st.form_submit_button("Replace PDF" if item["has_file"] else "Upload PDF")
             if upload:
@@ -253,12 +257,14 @@ def workspace(api, me):
         administration(api)
     if not student:
         with st.expander("Create subject"):
-            with st.form("create_subject", clear_on_submit=True):
+            generation = st.session_state.get("subject_form", 0)
+            with st.form(f"create_subject_{generation}"):
                 title = st.text_input("Subject title", max_chars=160)
                 description = st.text_area("Subject description", max_chars=1000)
                 submit = st.form_submit_button("Create subject")
             if submit:
                 api.post("/v1/subjects", {"title": title, "description": description})
+                st.session_state["subject_form"] = generation + 1
                 saved("Subject created.")
     else:
         with st.expander("Enroll in a subject"):
