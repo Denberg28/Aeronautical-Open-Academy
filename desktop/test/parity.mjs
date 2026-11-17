@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 
 // Native Windows parity: the real default template, authoring, choices, results and fixed context.
-const directory=await mkdtemp(join(tmpdir(),'academy-parity-'));let app,page;
+const directory=await mkdtemp(join(tmpdir(),'academy-parity-')),qa=resolve(import.meta.dirname,'../../out/desktop-qa');let app,page;
 try{
  app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu'],env:{...process.env,ACADEMY_TEST_DATA:directory},timeout:30000});
  page=await app.firstWindow();page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{void dialog.dismiss();});
@@ -25,14 +25,15 @@ try{
  }
  await author('activity','UI selection activity',lesson.id);await author('examination','UI selection examination');
  const teacher=await request(`/v1/subjects/${subject.id}`),samples=[
-  teacher.items.find(i=>i.kind==='quiz'),teacher.items.find(i=>i.kind==='activity'&&i.assessment_type!=='examination'&&i.questions),teacher.items.find(i=>i.assessment_type==='examination'),teacher.items.find(i=>i.title==='UI selection activity'),teacher.items.find(i=>i.title==='UI selection examination')
+  original.items.find(i=>i.kind==='quiz'),original.items.find(i=>i.kind==='activity'&&i.assessment_type!=='examination'&&i.questions),original.items.find(i=>i.assessment_type==='examination'),teacher.items.find(i=>i.title==='UI selection activity'),teacher.items.find(i=>i.title==='UI selection examination')
  ];
+ assert.equal(teacher.items.length,27);assert.equal(new Set(samples.map(i=>i?.id)).size,5,'Exercise five distinct assessments regardless of tree order');
  assert.ok(samples.every(item=>item&&item.questions?.length),'All selected assessments must have questions');await action('logout');await login('student');
  assert.ok((await request(`/v1/subjects/${subject.id}`)).items.every(i=>!JSON.stringify(i).includes('correct_index')));
  for(const [n,item] of samples.entries()){
   console.log(`Assessment ${n+1}: ${item.title}`);
   const card=page.locator(`[data-item="${item.id}"]`);
-  console.log('Rendered assessment',await card.count(),await card.locator('[data-action="start-quiz"]').count());await card.locator('[data-action="start-quiz"]').click();await page.locator('#confirm-yes').click();await idle();
+  assert.equal(await card.count(),1);await card.locator('[data-action="start-quiz"]').click();await page.locator('#confirm-yes').click();await idle();
   const form=card.locator('form');assert.equal(await form.evaluate(form=>form.checkValidity()),false);
   const answers=item.questions.map(q=>q.correct_index);if(n===1)answers[0]=(answers[0]+1)%item.questions[0].options.length;
   for(let q=0;q<answers.length;q++)await form.locator(`input[name="answer-${q}"][value="${answers[q]}"]`).check();
@@ -43,12 +44,12 @@ try{
  const reading=teacher.items.find(i=>i.title.startsWith('Prelim - Lesson 2'));
  const reader=page.locator(`[data-item="${reading.id}"] .reading-entry`);await reader.locator('summary').click();
  assert.ok(await reader.locator('.reading-copy p').count()>=5);const rhythm=await reader.locator('.reading-copy p').first().evaluate(el=>({gap:parseFloat(getComputedStyle(el).marginBottom),leading:parseFloat(getComputedStyle(el).lineHeight)}));assert.equal(rhythm.gap,12);assert.ok(rhythm.leading>=22);
- await mkdir('out/desktop-qa',{recursive:true});await page.screenshot({path:'out/desktop-qa/pc-reader-paragraphs.png'});
+ await mkdir(qa,{recursive:true});await page.screenshot({path:join(qa,'pc-reader-paragraphs.png')});
  const before=await page.locator('#subject-context').boundingBox();await page.locator('#center').evaluate(el=>{el.scrollTop+=300;});assert.deepEqual(await page.locator('#subject-context').boundingBox(),before);assert.ok(await page.locator('.subject-progress progress').isVisible());
- await page.screenshot({path:'out/desktop-qa/pc-pinned-progress.png'});
- await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(900,700));await page.screenshot({path:'out/desktop-qa/pc-compact-layout.png'});assert.ok(await page.locator('.subject-progress').isVisible());assert.ok(await page.locator('.sidebar [data-action=announcements]').isVisible());
+ await page.screenshot({path:join(qa,'pc-pinned-progress.png')});
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(900,700));await page.screenshot({path:join(qa,'pc-compact-layout.png')});assert.ok(await page.locator('.subject-progress').isVisible());assert.ok(await page.locator('.sidebar [data-action=announcements]').isVisible());
  assert.deepEqual(errors,[]);console.log('PASS: native PC canonical template, activity/exam authoring, five scored selections, 75% mixed result, Read paragraphs and fixed context at desktop/compact widths');
 }catch(error){
- if(page){await mkdir('out/desktop-qa',{recursive:true});await page.screenshot({path:'out/desktop-qa/pc-parity-failure.png'});await writeFile('out/desktop-qa/pc-parity-failure.html',await page.content());console.error('Parity state',await page.evaluate(()=>({role:state.account?.role,active:state.active?.title,view:state.view,loginError:document.querySelector('#login-error')?.textContent,toast:document.querySelector('#toast')?.textContent,items:state.items.map(i=>({id:i.id,title:i.title,kind:i.kind,questions:i.questions?.length,completed:i.completed}))})));}
+ if(page){await mkdir(qa,{recursive:true});await page.screenshot({path:join(qa,'pc-parity-failure.png')});await writeFile(join(qa,'pc-parity-failure.html'),await page.content());console.error('Parity state',await page.evaluate(()=>({role:state.account?.role,active:state.active?.title,view:state.view,loginError:document.querySelector('#login-error')?.textContent,toast:document.querySelector('#toast')?.textContent,items:state.items.map(i=>({id:i.id,title:i.title,kind:i.kind,questions:i.questions?.length,completed:i.completed}))})));}
  throw error;
 }finally{await app?.close();await rm(directory,{recursive:true,force:true});}
