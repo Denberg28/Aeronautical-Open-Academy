@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 2329 >>
+<< /Length 1705 >>
 stream
 BT
 /F1 10 Tf
@@ -24,77 +24,61 @@ T*
 T*
 (AE 101 - Foundations of Aeronautical Engineering) Tj
 T*
-(Practice subject template | Original Academy content | Not an approved institutional) Tj
-T*
-(syllabus.) Tj
+(Practice template, not an approved institutional syllabus.) Tj
 T*
 () Tj
 T*
-(Outcomes) Tj
+(Learning outcomes) Tj
 T*
-(O1. Explain an engineering problem, its constraints and the evidence needed.) Tj
+(Define requirements and evidence; trace calculations and units; interpret force) Tj
 T*
-(O2. Use consistent units and trace calculations.) Tj
-T*
-(O3. Interpret a simple force model and stated assumptions.) Tj
-T*
-(O4. Compare materials and resources using supplied data.) Tj
-T*
-(O5. Evaluate uncertainty and communicate a defensible recommendation.) Tj
+(models; compare resources; communicate defensible recommendations.) Tj
 T*
 () Tj
 T*
 (Study route) Tj
 T*
-(Prelim \(weeks 1-4\): engineering practice, evidence and units.) Tj
+(Prelim: engineering practice and units.) Tj
 T*
-(Midterm \(weeks 5-8\): forces, motion and model limits.) Tj
+(Midterm: forces, motion and assumptions.) Tj
 T*
-(Semifinals \(weeks 9-12\): materials, resources and trade-offs.) Tj
+(Semifinals: materials and resource decisions.) Tj
 T*
-(Finals \(weeks 13-16\): integrated design brief, validation and reporting.) Tj
-T*
-(Each period: Lesson A, Quiz A, Lesson B, Quiz B, Activity, Examination.) Tj
+(Finals: integrated verification and reporting.) Tj
 T*
 () Tj
 T*
-(Assessment) Tj
+(Assessments) Tj
 T*
-(8 quizzes: one multiple-choice question each, automatically scored out of 1.) Tj
+(8 quizzes, 4 activities and 4 examinations open as selection forms in the app. Choose) Tj
 T*
-(4 activities: written outputs, instructor-rated out of 100 using the stated rubric.) Tj
+(one answer per question, review and submit. Results show correct answers out of the) Tj
 T*
-(4 examinations: four written problems each, instructor-rated out of 100.) Tj
+(total and a percentage. Completed forms collapse to a result; Review shows your) Tj
 T*
-(Review before submitting: one submission per item version. Do your own work; cite any) Tj
+(selections.) Tj
 T*
-(outside sources.) Tj
+(One submission is recorded per form revision. Reading completion is separate from) Tj
 T*
-() Tj
+(achievement. No aircraft operation or maintenance release is authorized by this) Tj
 T*
-(Suggested planning weights: quizzes 20%, activities 30%, examinations 50%. Use) Tj
-T*
-(category averages if applying these weights manually. Confirm your institution's) Tj
-T*
-(policy first; the app does not calculate a weighted course grade or infer passing) Tj
-T*
-(readiness. Reading completion is self-reported and is separate from achievement.) Tj
+(classroom exercise.) Tj
 T*
 () Tj
 T*
-(Instructor preparation) Tj
+(Instructor setup) Tj
 T*
-(Review objectives, sequence, source permissions, accessibility and rubrics. Replace) Tj
+(Add an assessment, write questions and choices, select the correct answers and) Tj
 T*
-(synthetic data with suitable approved classroom cases; verify any outside links as the) Tj
+(publish. Set eligible student IDs and test the student view. Use approved classroom) Tj
 T*
-(student. Set enrollment eligibility, publish, then test with the student account.) Tj
+(content for institutional teaching.) Tj
 T*
-(Return clear feedback before the next period.) Tj
+(Suggested planning weights: quizzes 20%, activities 30%, examinations 50%, applied to) Tj
 T*
-(No aircraft operation, maintenance release or real flight is authorized by these) Tj
+(category averages outside the app. Confirm institutional policy; the app does not) Tj
 T*
-(exercises.) Tj
+(calculate a weighted course grade.) Tj
 T*
 ET
 BT
@@ -115,5 +99,5 @@ xref
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-2691
+2067
 %%EOF

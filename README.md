@@ -2,7 +2,7 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
-Version: **0.9.1-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.10.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -26,7 +26,7 @@ Screen capture is temporarily enabled for development feedback, including accoun
 
 ## Complete subject practice template
 
-Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical Engineering**. The student is already enrolled in the local template. Admin can inspect the same subject. The anonymous library mirrors its course guide and four period handouts under code **A**.
+Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical Engineering**. The student is already enrolled in the local template. Admin can inspect the same subject. The anonymous library provides the course guide and lesson-only handouts under code **A**. Use **Open assessments** to sign in to the local practice subject; assessment questions are not included in text/PDF downloads.
 
 | Period | Lessons | Quizzes | Activity | Examination |
 | --- | --- | --- | --- | --- |
@@ -36,9 +36,9 @@ Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical 
 | Finals | 7-8 | 7-8 | 4 | 4 |
 | Total | 8 | 8 | 4 | 4 |
 
-The subject contains 25 ordered entries: a course guide, eight lessons and sixteen assessments. Each quiz uses the current single-question format with four choices; activities/examinations are written submissions rated out of 100. Examinations each contain four questions. Rubrics, outcomes, worked examples, assumptions and suggested study weeks are included. Planning weights are illustrative and manually applied; the app does not compute a weighted course grade. This original fictional course is a build/practice template, not an institutional syllabus or flight/maintenance authorization.
+The subject contains 25 ordered entries: a course guide, eight lessons and sixteen assessments. All sixteen assessments open as in-app selection forms. The eight quizzes have one question each; the four activities and four examinations each have four questions (40 questions total). Choose one answer per question, review and submit to see correct/total and a percentage. Completed cards collapse to a compact result with Review. Lessons, outcomes, examples and suggested study weeks remain available. Planning weights are illustrative and manually applied; the app does not compute a weighted course grade. This original fictional course is a build/practice template, not an institutional syllabus or flight/maintenance authorization.
 
-Upgrade replaces only the exact unchanged factory demo in place, retaining its subject and three item IDs with new content revisions. Edited/extended subjects and their work are preserved; one new template is added alongside them. Migration saves a private local workspace backup and is idempotent. Previously saved public PDFs remain in Downloads until explicitly removed. A full local reset is optional and destructive, not required to receive the template. See [subject build guide](docs/SUBJECT_TEMPLATE.md).
+Local schema v4 upgrades unchanged template assessments to selection forms with new revisions, retaining IDs and historical results. Edited/extended work is preserved; new template forms are added alongside edited published assessments. The exact original factory demo also upgrades in place. Edited/extended subjects and their work are preserved; one new template is added alongside them. Migration saves a private local workspace backup and is idempotent. Previously saved public PDFs remain in Downloads until explicitly removed. A full local reset is optional and destructive, not required to receive the template. See [subject build guide](docs/SUBJECT_TEMPLATE.md).
 
 ## Subject list and interface
 
@@ -54,7 +54,7 @@ Both subject and entry **+** controls have transparent resting backgrounds. The 
 - Instructor: create subject → + → enter material/quiz/work → Done → Menu → set eligible student IDs or All students → Students & compliance → assess outputs and feedback → export a roster page to Excel. Edit/download only creator-owned materials.
 - Admin: register accounts → assign role → enroll students → manage suspension/reactivation/deletion and password reset → publish global announcements. Administrators can oversee all content.
 
-Students cannot self-register, select their own role, join ineligible/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Automatic enrollment is instructor-controlled and defaults closed. Admins assign verified unique student ID numbers; instructors allow those IDs or select All students. Administrative removal blocks rejoining; admin/pre-update enrollments remain overrides. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. Written activities/exams accept text output; quizzes have one question per item.
+Students cannot self-register, select their own role, join ineligible/revoked subjects, alter grades, retrieve answer keys, or manually complete an unsubmitted quiz. Automatic enrollment is instructor-controlled and defaults closed. Admins assign verified unique student ID numbers; instructors allow those IDs or select All students. Administrative removal blocks rejoining; admin/pre-update enrollments remain overrides. Reading is student-reported; participation completion, submission compliance and grades are separate. Excel `.xlsx` reports cover up to 100 students per roster page; use Next students for further pages. New selection forms support 1–20 questions with 2–8 choices each. Legacy written outputs and single-question quizzes remain supported. Form scoring is trusted-side and normalized /100; reading completion remains separate.
 
 A subject QR identifies a subject; the backend checks the signed-in account’s eligibility and enrolls it once. QR codes contain no credentials. Existing students can receive their verified ID through Admin → Accounts.
 
@@ -111,3 +111,11 @@ A live hosting destination has **not** been configured. Optional organization Dr
 - [Known issues](docs/KNOWN_ISSUES.md)
 
 This is a focused learning workflow inspired by common open-university LMS patterns, not an official UPOU system or a full Moodle implementation.
+
+## In-app assessment workflow
+
+Student: open a subject → Start an assessment → select one choice per question → Submit → confirm → view the score. Review reopens your selections without exposing the answer key. Draft selections are encrypted on this device, scoped to account/item/revision and cleared after submission or sign-out. Rotation can reopen an unfinished form after fresh authorization.
+
+Instructor: + → Quiz / Activity / Examination → enter a title/instructions → add questions and choices → select each correct answer → Done. Existing form questions/keys are immutable; create a new form to change them. Legacy written entries retain their previous editor and grading route. New-form authoring requires the matching service advertising choice_forms.
+
+Server schema v7 adds a nullable questions column and automatically scored form submissions; do not downgrade a v7 database to an older server. Local schema v4 preserves a private workspace-before-forms.json migration backup. No live organization database is changed by this source update. See [forms and layout acceptance](docs/FORMS_RELEASE.md).

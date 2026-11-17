@@ -3,7 +3,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+<< /Type /Pages /Count 1 /Kids [4 0 R] >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 2985 >>
+<< /Length 2496 >>
 stream
 BT
 /F1 10 Tf
@@ -58,22 +58,6 @@ T*
 T*
 () Tj
 T*
-(Prelim - Quiz 1: Evidence) Tj
-T*
-() Tj
-T*
-(Which statement is a testable requirement for a classroom model carrier?) Tj
-T*
-(A. It must carry the specified classroom load within the stated deflection limit.) Tj
-T*
-(B. It should look professional.) Tj
-T*
-(C. It will probably be strong enough.) Tj
-T*
-(D. The material is assumed to be perfect.) Tj
-T*
-() Tj
-T*
 (Prelim - Lesson 2: Units and records) Tj
 T*
 () Tj
@@ -106,14 +90,6 @@ T*
 T*
 (classroom decision.) Tj
 T*
-() Tj
-T*
-(Prelim - Quiz 2: Unit conversion) Tj
-T*
-() Tj
-T*
-(A drawing gives a span of 1500 mm. What is the span in metres?) Tj
-T*
 ET
 BT
 /F1 9 Tf
@@ -122,102 +98,16 @@ BT
 ET
 endstream
 endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
-endobj
-7 0 obj
-<< /Length 2027 >>
-stream
-BT
-/F1 10 Tf
-14 TL
-46 785 Td
-(A. 0.15 m) Tj
-T*
-(B. 15 m) Tj
-T*
-(C. 1.5 m) Tj
-T*
-(D. 150 m) Tj
-T*
-() Tj
-T*
-(Prelim - Activity 1: Requirement and calculation record) Tj
-T*
-() Tj
-T*
-(Outcomes O1-O2 | Individual written output | 300-450 words plus calculations.) Tj
-T*
-(Use this fictional brief: store six classroom models; each model has a supplied mass) Tj
-T*
-(of 0.75 kg; available rack width is 1.2 m. This is a planning exercise, not a) Tj
-T*
-(structural design authorization.) Tj
-T*
-(Submit: \(1\) three measurable requirements, \(2\) an input/units table, \(3\) total model) Tj
-T*
-(mass, \(4\) width in millimetres, \(5\) two assumptions and the evidence needed to check) Tj
-T*
-(them, and \(6\) one independent reasonableness check.) Tj
-T*
-(Do not select a real load rating from this exercise.) Tj
-T*
-(Rubric /100: requirements 25; calculations and units 30; assumptions/evidence 25;) Tj
-T*
-(clear traceable record 20.) Tj
-T*
-() Tj
-T*
-(Prelim - Examination 1) Tj
-T*
-() Tj
-T*
-(Outcomes O1-O2 | Individual written examination | Four questions, 25 points each.) Tj
-T*
-(Q1. A brief says 'build an efficient model carrier'. Rewrite it as two testable) Tj
-T*
-(requirements. Identify one missing numerical limit without inventing it.) Tj
-T*
-(Q2. Convert 1750 mm and 65 cm to metres, then find their combined length. Show unit) Tj
-T*
-(cancellation.) Tj
-T*
-(Q3. A classroom inventory contains eight models of 0.625 kg each. Calculate their) Tj
-T*
-(total mass. State one assumption and one check on the result.) Tj
-T*
-(Q4. Two worksheets show different values for the same dimension. Describe a documented) Tj
-T*
-(process for resolving the discrepancy before calculation.) Tj
-T*
-(Submit one numbered response. Suggested duration: 60 minutes; the app does not enforce) Tj
-T*
-(a timer.) Tj
-T*
-(Each question /25: sound reasoning 10; correct method/evidence 8; units or explicit) Tj
-T*
-(assumptions 4; clear presentation 3. No automatic written grading.) Tj
-T*
-ET
-BT
-/F1 9 Tf
-46 35 Td
-(Original Academy practice template | Page 2) Tj
-ET
-endstream
-endobj
 xref
-0 8
+0 6
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
-0000000121 00000 n 
-0000000191 00000 n 
-0000000317 00000 n 
-0000003353 00000 n 
-0000003479 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 6 /Root 1 0 R >>
 startxref
-5557
+2858
 %%EOF

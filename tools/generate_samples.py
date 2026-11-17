@@ -54,31 +54,29 @@ def pdf(text):
 
 def entry_text(entry):
     result = entry['title'] + '\n\n' + entry['body']
-    if entry['kind'] == 'quiz':
-        result += '\n' + '\n'.join(chr(65+i) + '. ' + option for i, option in enumerate(entry['options']))
     return result
 
 def outputs():
     subject = json.loads((ASSETS / 'subject-template.json').read_text())
-    groups = [('a-guide', 'Course guide', 'Course overview', 2,
+    groups = [('a-guide', 'Course guide', 'Course overview', 3,
                'a-learning-guide.pdf', entry_text(subject['overview']))]
     for period in subject['periods']:
         text = subject['title'] + '\n' + period['name'] + ' | Weeks ' + period['weeks'] + '\n'
         text += 'Original classroom practice template; not an approved syllabus.\n\n'
-        text += '\n\n'.join(entry_text(entry) for entry in period['entries'])
-        groups.append(('a-'+period['key']+'-guide', period['name']+' - learning and assessments',
-                       period['name'], 1, 'a-'+period['key']+'-guide.pdf', text))
+        text += '\n\n'.join(entry_text(entry) for entry in period['entries'] if entry['kind']=='material')
+        groups.append(('a-'+period['key']+'-guide', period['name']+' - lessons',
+                       period['name'], 2, 'a-'+period['key']+'-guide.pdf', text))
     generated, resources = {}, []
     for rid, title, module, revision, name, text in groups:
         raw = pdf(text)
         generated[ASSETS / 'materials' / name] = raw
         source = 'asset://materials/' + name
         resources.append(dict(id=rid, title=title, module=module,
-            description='Read the lessons and assessment prompts. Submit work in the signed-in local test subject.',
+            description='Lesson notes. Open assessments in the signed-in workspace.',
             source=source, downloadUrl=source, downloadable=True, mimeType='application/pdf',
             revision=revision, sha256=hashlib.sha256(raw).hexdigest(),
             license='Original Academy practice content - CC BY 4.0', text=text))
-    catalog = dict(schemaVersion=1, version=2, title='Aeronautical Open Academy - Subject Template',
+    catalog = dict(schemaVersion=1, version=3, title='Aeronautical Open Academy - Subject Template',
         subjects=[dict(id='a', code='A', title=subject['title'], description=subject['description'],
                        resources=resources)])
     generated[ASSETS / 'catalog.json'] = (json.dumps(catalog, indent=2)+'\n').encode()

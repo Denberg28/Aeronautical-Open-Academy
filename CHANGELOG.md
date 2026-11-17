@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0-alpha.1
+
+- Add native selection forms for quizzes, activities and examinations, bounded question authoring, server/local trusted scoring, private answer drafts, idempotent submissions and compact result/review cards.
+- Convert the AE 101 template to 16 forms / 40 questions while retaining old revisions and edited work; generated PDFs now contain lessons only.
+- Add schema v7 server storage and v4 local backup/migration; preserve legacy written and single-question quiz workflows.
+- Align secondary actions and card text; normalize padding/title spacing, hanging list indentation, and sectioned Help with separate build details.
+
 ## 0.9.1-alpha.1
 
 - Replace factory examples with one AE 101 subject: four periods, eight lessons, eight quizzes, four activities and four four-question written examinations, plus a course guide.

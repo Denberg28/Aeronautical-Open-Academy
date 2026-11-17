@@ -13,8 +13,8 @@ async function fixture(options={}){
  const directory=await mkdtemp(join(tmpdir(),'academy-api-test-'));let time=Date.now();
  const app=await createAcademy({dbPath:join(directory,'test.sqlite'),materials:'materials' in options?options.materials:new LocalMaterials(join(directory,'files')),bootstrap:{email:'admin@example.test',name:'Administrator',password:pass},scryptN:16384,clock:()=>time});
  await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+app.server.address().port;
- async function call(path,{method='GET',token,body,key,binary}={}){
-  const headers={};if(token)headers.Authorization='Bearer '+token;if(key)headers['Idempotency-Key']=key;
+ async function call(path,{method='GET',token,body,key,binary,legacy=false}={}){
+  const headers=legacy?{}:{'X-Academy-Features':'choice-forms-v1'};if(token)headers.Authorization='Bearer '+token;if(key)headers['Idempotency-Key']=key;
   if(body!==undefined)headers['Content-Type']='application/json';if(binary)headers['Content-Type']='application/pdf';
   const response=await fetch(base+path,{method,headers,body:binary|| (body===undefined?undefined:JSON.stringify(body))});
   return {status:response.status,headers:response.headers,body:(/^(application\/pdf|application\/vnd.openxmlformats)/.test(response.headers.get('content-type')||''))?Buffer.from(await response.arrayBuffer()):await response.json()};
@@ -389,7 +389,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{external_links:true,material_upload:false,choice_forms:true});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -512,4 +512,45 @@ test('authentication budgets survive restarting the actual HTTP service',async()
   let base=await start();for(let n=0;n<10;n++){const r=await login(base);assert.equal(r.status,401);await r.text();}
   await app.close();app=null;base=await start();const r=await login(base);assert.equal(r.status,429);await r.text();
  }finally{if(app)await app.close();await rm(directory,{recursive:true,force:true});}
+});
+
+test('choice forms score all template assessment types; answers stay private and writes are idempotent',async()=>{
+ const f=await fixture();try{
+  const instructor=await f.account('forms-instructor@example.test','instructor'),student=await f.account('forms-student@example.test','student','FORM-001'),outsider=await f.account('forms-outsider@example.test','student','FORM-002');
+  const created=await f.call('/v1/subjects',{method:'POST',token:instructor.token,body:{title:'Selection forms',description:'Original practice content'}});assert.equal(created.status,201);const subject=created.body.id;
+  assert.equal((await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{student_id:student.id,subject_id:subject,enrolled:true}})).status,200);
+  const {readFile}=await import('node:fs/promises');const template=JSON.parse(await readFile(new URL('../../app/src/main/assets/subject-template.json',import.meta.url),'utf8'));
+  const entries=template.periods.flatMap(p=>p.entries).filter(e=>e.questions);assert.equal(entries.length,16);let first;
+  for(const entry of entries){
+   const item=await f.call('/v1/subjects/'+subject+'/items',{method:'POST',token:instructor.token,body:entry});assert.equal(item.status,201,JSON.stringify(item.body));const id=item.body.id,path='/v1/items/'+id;
+   assert.equal((await f.call(path,{token:student.token,legacy:true})).status,409);
+   const before=(await f.call(path,{token:student.token})).body.item;assert.equal(before.form_result,undefined);assert.ok(!JSON.stringify(before).includes('correct_index'));
+   const answers=entry.questions.map(q=>q.correct_index),key=randomUUID(),body={answers,expected_revision:1,score:0};
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:outsider.token,body,key})).status,404);
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:instructor.token,body,key})).status,403);
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:student.token,body:{...body,answers:[]},key})).status,400);
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:student.token,body:{...body,expected_revision:9},key})).status,409);
+   const result=await f.call(path+'/answers',{method:'POST',token:student.token,body,key});assert.equal(result.status,201);assert.equal(result.body.result.score,100);assert.equal(result.body.result.correct,answers.length);
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:student.token,body,key})).status,200);
+   assert.equal((await f.call(path+'/answers',{method:'POST',token:student.token,body,key:randomUUID()})).status,409);
+   const saved=(await f.call(path,{token:student.token})).body.item;assert.equal(saved.form_result.score,100);assert.ok(!JSON.stringify(saved).includes('correct_index'));
+   assert.equal((await f.call('/v1/submissions/'+saved.form_result.id+'/grade',{method:'POST',token:instructor.token,body:{score:99,feedback:'Tamper',expected_graded_at:null}})).status,409);
+   assert.equal((await f.call(path+(entry.kind==='quiz'?'/quiz':'/submission'),{method:'POST',token:student.token,body:{choice:0,output:'Bypass'},key:randomUUID()})).status,403);
+   assert.equal((await f.call(path,{method:'POST',token:instructor.token,body:{questions:entry.questions,expected_edit_version:1}})).status,400);
+   first??={path,body,key};
+  }
+  const changed={...first.body,answers:[(first.body.answers[0]+1)%4]};assert.equal((await f.call(first.path+'/answers',{method:'POST',token:student.token,body:changed,key:first.key})).status,409);
+  const course=(await f.call('/v1/subjects/'+subject,{token:student.token})).body;assert.equal(course.summary.submitted,16);assert.equal(course.summary.graded,16);assert.equal(course.summary.awaiting_assessment,0);
+  const roster=(await f.call('/v1/subjects/'+subject+'/learners/'+student.id,{token:instructor.token})).body;assert.ok(roster.items.every(item=>item.max_score===100&&item.response_mode==='choice'));assert.ok((await f.call('/v1/me',{token:student.token})).body.capabilities.choice_forms);
+ }finally{await f.close();}
+});
+
+test('choice form validation rejects ambiguous and oversized authoring inputs',async()=>{
+ const {questions,scoreAnswers}=await import('../src/assessments.mjs');
+ assert.throws(()=>questions([{prompt:'Question',options:['A','a'],correct_index:0}]),/distinct/);
+ assert.throws(()=>questions([{prompt:'Question',options:['A','B'],correct_index:-1}]),/correct answer/);
+ assert.throws(()=>questions(new Array(21).fill({prompt:'Q',options:['A','B'],correct_index:0})),/1–20/);
+ const form=[{prompt:'First',options:['A','B'],correct_index:0},{prompt:'Second',options:['C','D'],correct_index:1}];
+ assert.deepEqual(scoreAnswers(form,[0,0]),{answers:[0,0],correct:1,total:2,score:50});
+ for(const answers of [[0],[0,0,1],['0',1],[0.1,1],[-1,1],[0,2]])assert.throws(()=>scoreAnswers(form,answers));
 });

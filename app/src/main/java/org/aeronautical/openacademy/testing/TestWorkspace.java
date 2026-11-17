@@ -3,6 +3,7 @@ package org.aeronautical.openacademy.testing;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.aeronautical.openacademy.core.KnowledgeLinks;
+import org.aeronautical.openacademy.ChoiceAssessment;
 import org.aeronautical.openacademy.core.TransferPolicy;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -65,14 +66,15 @@ public final class TestWorkspace {
     private void load()throws Exception{
         if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace. Check storage.");
         if(!stateFile.exists()){seed();save();return;}
-        try{require(stateFile.length()<=16*1024*1024,500,"Test data is too large. Reset test data to start again.");state=new JSONObject(new String(Files.readAllBytes(stateFile.toPath()),StandardCharsets.UTF_8));require(state.optInt("version")>=1&&state.optInt("version")<=3,500,"Unsupported test data version.");
+        try{require(stateFile.length()<=16*1024*1024,500,"Test data is too large. Reset test data to start again.");state=new JSONObject(new String(Files.readAllBytes(stateFile.toPath()),StandardCharsets.UTF_8));require(state.optInt("version")>=1&&state.optInt("version")<=4,500,"Unsupported test data version.");
             if(state.optInt("version")<3)Files.copy(stateFile.toPath(),new File(directory,"workspace-before-template.json").toPath(),StandardCopyOption.REPLACE_EXISTING);
             if(state.optInt("version")==1){
                 for(int n=0;n<3;n++){JSONObject a=find("accounts","email",EMAILS[n]);if(a!=null&&a.optString("role").equals(USERS[n])&&!a.optBoolean("must_change_password")&&passwordMatches(a,PASSWORD)){storePassword(a,USERS[n]);revoke(a);}}
                 for(int n=0;n<rows("subjects").length();n++){JSONObject subject=rows("subjects").getJSONObject(n);subject.put("order_revision",1);int position=0;for(int j=0;j<rows("items").length();j++){JSONObject item=rows("items").getJSONObject(j);if(item.getString("subject_id").equals(subject.getString("id")))item.put("sort_order",position++);}}
                 state.put("version",2);
             }
-            if(state.optInt("version")==2){if(state.optInt("template_version")==0)installTemplate();state.put("version",3);save();}}
+            if(state.optInt("version")==2){if(state.optInt("template_version")==0)installTemplate();state.put("version",3);}
+            if(state.optInt("version")==3){Files.copy(stateFile.toPath(),new File(directory,"workspace-before-forms.json").toPath(),StandardCopyOption.REPLACE_EXISTING);upgradeChoiceTemplate();state.put("version",4);save();}}
         catch(Exception e){throw new IOException("Cannot read test data. Use Reset local test data to restore the default accounts.",e);}
     }
     private void save()throws Exception{
@@ -90,7 +92,7 @@ public final class TestWorkspace {
     // Content — the canonical asset supplies all four periods and assessment prompts.
     // Change subject-template.json, not this import loop; newItem keeps role/input checks.
     private void seed()throws Exception{
-        state=obj("version",3);for(String name:new String[]{"accounts","sessions","subjects","items","enrolments","blocks","records","announcements"})state.put(name,new JSONArray());
+        state=obj("version",4);for(String name:new String[]{"accounts","sessions","subjects","items","enrolments","blocks","records","announcements"})state.put(name,new JSONArray());
         for(int i=0;i<3;i++){JSONObject account=createAccount(obj("name",new String[]{"Test Administrator","Test Instructor","Test Student"}[i],"email",EMAILS[i],"password",PASSWORD,"role",USERS[i],"student_number","TEST-001"),false);storePassword(account,USERS[i]);}
         installTemplate();
     }
@@ -137,7 +139,27 @@ public final class TestWorkspace {
         JSONObject item=newItem(owner,subject,entry),old=previous.get(entry.getString("key"));item.put("template_entry_key",entry.getString("key"));
         if(old!=null)item.put("id",old.getString("id")).put("revision",old.getInt("revision")+1).put("edit_version",old.getInt("edit_version")+1);
     }
-    public void reset()throws Exception{synchronized(LOCK){if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace.");seed();save();File[] files=directory.listFiles((d,n)->n.endsWith(".pdf")||n.equals("workspace-before-template.json"));if(files!=null)for(File f:files)Files.deleteIfExists(f.toPath());}}
+    // Content — preserve instructor edits and old result revisions when upgrading the factory forms.
+    private void upgradeChoiceTemplate()throws Exception{
+        if(state.optInt("template_version")>=2)return;
+        JSONObject template=new JSONObject(templateJson);JSONArray entries=new JSONArray().put(template.getJSONObject("overview"));
+        for(int n=0;n<template.getJSONArray("periods").length();n++){JSONArray group=template.getJSONArray("periods").getJSONObject(n).getJSONArray("entries");for(int j=0;j<group.length();j++)entries.put(group.getJSONObject(j));}
+        for(int n=0;n<rows("subjects").length();n++){
+            JSONObject subject=rows("subjects").getJSONObject(n);if(!subject.optString("template_key").equals(template.getString("key")))continue;
+            JSONObject owner=byId("accounts",subject.getString("owner_id"));if(!owner.optString("status").equals("active"))continue;JSONArray existing=orderedItems(subject.getString("id"));
+            for(int j=0;j<entries.length();j++){
+                JSONObject entry=entries.getJSONObject(j);if(!entry.has("legacy_body"))continue;JSONObject old=null;
+                for(int k=0;k<existing.length();k++)if(existing.getJSONObject(k).optString("template_entry_key").equals(entry.getString("key"))){old=existing.getJSONObject(k);break;}
+                if(old==null||old.optBoolean("archived")||!old.optBoolean("published"))continue;
+                boolean unchanged=old.optString("title").equals(entry.getString("title"))&&old.optString("body").equals(entry.getString("legacy_body"))&&old.optInt("revision")==old.optInt("edit_version");
+                if(unchanged){old.put("body",entry.getString("body")).put("revision",old.getInt("revision")+1).put("edit_version",old.getInt("edit_version")+1);if(entry.has("questions")){old.put("questions",validatedQuestions(entry.getJSONArray("questions")));old.remove("options");old.remove("correct_index");}}
+                else if(entry.has("questions")){old.put("legacy_template_entry_key",old.getString("template_entry_key"));old.remove("template_entry_key");importTemplateEntry(owner,subject,entry,new HashMap<>());}
+            }
+        }
+        state.put("template_version",template.getInt("templateVersion"));
+    }
+    private static JSONArray validatedQuestions(JSONArray questions)throws Exception{try{return ChoiceAssessment.validate(questions);}catch(Exception e){throw new Failure(400,e.getMessage());}}
+    public void reset()throws Exception{synchronized(LOCK){if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot create test workspace.");seed();save();File[] files=directory.listFiles((d,n)->n.endsWith(".pdf")||n.equals("workspace-before-template.json")||n.equals("workspace-before-forms.json"));if(files!=null)for(File f:files)Files.deleteIfExists(f.toPath());}}
     private JSONObject actor(String token)throws Exception{
         JSONObject s=find("sessions","token",token);require(s!=null&&s.optLong("expires")>System.currentTimeMillis(),401,"Your test session ended. Sign in again.");JSONObject a=byId("accounts",s.getString("account_id"));require(a.optString("status").equals("active"),401,"This test account is inactive.");return a;
     }
@@ -161,15 +183,20 @@ public final class TestWorkspace {
         int position=0;for(int n=0;n<rows("items").length();n++){JSONObject old=rows("items").getJSONObject(n);if(old.getString("subject_id").equals(s.getString("id")))position=Math.max(position,old.optInt("sort_order")+1);}
         require(position<1000000,409,"Entry order is full.");
         JSONObject i=obj("sort_order",position,"id",id(),"subject_id",s.getString("id"),"owner_id",a.getString("id"),"kind",kind,"title",text(d,"title",160,false),"body",text(d,"body",12000,false),"published",d.optBoolean("published"),"archived",false,"material_mode",d.optString("material_mode","file"),"assessment_type",exam?"examination":"standard","revision",1,"edit_version",1,"has_file",false);
-        if(kind.equals("quiz")){JSONArray options=d.optJSONArray("options");int answer=d.optInt("correct_index",-1);require(options!=null&&options.length()>=2&&options.length()<=8&&answer>=0&&answer<options.length(),400,"Provide quiz choices and a correct answer.");for(int n=0;n<options.length();n++)require(!options.getString(n).trim().isEmpty()&&options.getString(n).length()<=500,400,"Check quiz choices.");i.put("options",options).put("correct_index",answer);}rows("items").put(i);s.put("order_revision",s.optInt("order_revision",1)+1);return i;
+        if(d.has("questions")){require(!kind.equals("material"),400,"Only assessments can contain questions.");i.put("questions",validatedQuestions(d.optJSONArray("questions")));}
+        else if(kind.equals("quiz")){JSONArray options=d.optJSONArray("options");int answer=d.optInt("correct_index",-1);require(options!=null&&options.length()>=2&&options.length()<=8&&answer>=0&&answer<options.length(),400,"Provide quiz choices and a correct answer.");for(int n=0;n<options.length();n++)require(!options.getString(n).trim().isEmpty()&&options.getString(n).length()<=500,400,"Check quiz choices.");i.put("options",options).put("correct_index",answer);}rows("items").put(i);s.put("order_revision",s.optInt("order_revision",1)+1);return i;
     }
     private JSONObject record(JSONObject a,JSONObject i)throws Exception{JSONArray r=rows("records");for(int n=0;n<r.length();n++){JSONObject x=r.getJSONObject(n);if(x.getString("student_id").equals(a.getString("id"))&&x.getString("item_id").equals(i.getString("id"))&&x.getInt("revision")==i.getInt("revision"))return x;}return null;}
-    private JSONObject present(JSONObject a,JSONObject i)throws Exception{JSONObject r=copy(i);r.remove("file_name");if(!manages(a,i))r.remove("correct_index");JSONObject done=record(a,i);r.put("completed",done!=null&&done.optBoolean("completed"));if(done!=null){JSONObject safe=copy(done);safe.remove("choice");safe.remove("request_key");r.put(i.getString("kind").equals("quiz")?"attempt":"submission",safe);}return r;}
+    private JSONObject present(JSONObject a,JSONObject i)throws Exception{
+        JSONObject r=copy(i);r.remove("file_name");if(!manages(a,i))r.remove("correct_index");if(i.has("questions"))r.put("questions",ChoiceAssessment.present(i.getJSONArray("questions"),manages(a,i)));
+        JSONObject done=record(a,i);r.put("completed",done!=null&&done.optBoolean("completed"));
+        if(done!=null){JSONObject safe=copy(done);safe.remove("choice");safe.remove("request_key");r.put(i.has("questions")?"form_result":i.getString("kind").equals("quiz")?"attempt":"submission",safe);}return r;
+    }
     private JSONObject learner(JSONObject a,JSONObject s)throws Exception{
         JSONArray details=new JSONArray();int read=0,materials=0,submitted=0,required=0,graded=0;
         JSONArray items=orderedItems(s.getString("id"));for(int n=0;n<items.length();n++){JSONObject i=items.getJSONObject(n);if(!i.getString("subject_id").equals(s.getString("id"))||i.optBoolean("archived")||!i.optBoolean("published"))continue;
             JSONObject r=record(a,i);boolean material=i.getString("kind").equals("material"),quiz=i.getString("kind").equals("quiz"),done=r!=null&&r.optBoolean("completed"),scored=done&&!r.isNull("score");if(material){materials++;if(done)read++;}else{required++;if(done)submitted++;if(scored)graded++;}
-            JSONObject detail=obj("id",i.getString("id"),"title",i.getString("title"),"kind",i.getString("kind"),"revision",i.getInt("revision"),"assessment_type",i.getString("assessment_type"),"completed",done,"status",material?(done?"Read (self-reported)":"Unread"):!done?"Not submitted":scored?"Graded":"Awaiting assessment","score",scored?r.get("score"):JSONObject.NULL,"max_score",quiz?1:100,"feedback",r==null?"":r.optString("feedback"),"output",r==null?"":r.optString("output"),"submission_id",r==null?JSONObject.NULL:r.getString("id"),"graded_at",r==null?JSONObject.NULL:r.opt("graded_at"));if(quiz&&done)detail.put("answer",i.getJSONArray("options").getString(r.getInt("choice")));details.put(detail);
+            JSONObject detail=obj("id",i.getString("id"),"title",i.getString("title"),"kind",i.getString("kind"),"revision",i.getInt("revision"),"assessment_type",i.getString("assessment_type"),"completed",done,"status",material?(done?"Read (self-reported)":"Unread"):!done?"Not submitted":scored?"Graded":"Awaiting assessment","score",scored?r.get("score"):JSONObject.NULL,"max_score",i.has("questions")?100:quiz?1:100,"feedback",r==null?"":r.optString("feedback"),"output",r==null?"":r.optString("output"),"submission_id",r==null?JSONObject.NULL:r.getString("id"),"graded_at",r==null?JSONObject.NULL:r.opt("graded_at"));if(i.has("questions"))detail.put("response_mode","choice");if(i.has("questions")&&done){detail.put("form_result",obj("answers",r.getJSONArray("answers"),"correct",r.getInt("correct"),"total",r.getInt("total"),"score",r.getDouble("score")));StringBuilder output=new StringBuilder();for(int k=0;k<r.getJSONArray("answers").length();k++)output.append(k+1).append(". ").append(i.getJSONArray("questions").getJSONObject(k).getJSONArray("options").getString(r.getJSONArray("answers").getInt(k))).append("\n");detail.put("output",output.toString());}else if(quiz&&done)detail.put("answer",i.getJSONArray("options").getString(r.getInt("choice")));details.put(detail);
         }
         return obj("student",publicAccount(a),"items",details,"summary",obj("read",read,"materials",materials,"read_percent",percent(read,materials),"submitted",submitted,"required",required,"compliance_percent",percent(submitted,required),"graded",graded,"awaiting_assessment",submitted-graded,"completed",read+submitted,"total",materials+required,"completion_percent",percent(read+submitted,materials+required)));
     }
@@ -186,7 +213,7 @@ public final class TestWorkspace {
         JSONObject a=actor(token);
         if(path.equals("/v1/auth/logout")&&method.equals("POST")){remove("sessions",s->s.getString("token").equals(token));return obj("signed_out",true);}
         if(path.equals("/v1/auth/password")&&method.equals("POST")){require(passwordMatches(a,d.optString("current_password")),400,"Check your current password.");setPassword(a,d.optString("new_password"));a.put("must_change_password",false);revoke(a);return obj("sign_in_again",true);}
-        if(path.equals("/v1/me")&&method.equals("GET"))return obj("account",publicAccount(a),"capabilities",obj("material_upload",true));
+        if(path.equals("/v1/me")&&method.equals("GET"))return obj("account",publicAccount(a),"capabilities",obj("material_upload",true,"choice_forms",true));
         require(!a.optBoolean("must_change_password"),403,"Change the temporary password first.");
         String[] p=path.split("/");
         if(path.startsWith("/v1/admin/")){
@@ -240,12 +267,20 @@ public final class TestWorkspace {
         if(p.length>=4&&p[2].equals("items")){
             JSONObject i=itemFor(a,p[3],false);
             if(p.length==4&&method.equals("GET"))return obj("item",present(a,i));
-            if(p.length==4&&method.equals("POST")){require(manages(a,i),403,"Only the creator or administrator can edit this material.");require(d.optInt("expected_edit_version")==i.getInt("edit_version"),409,"Item changed. Refresh first.");for(String field:new String[]{"owner_id","subject_id","kind","correct_index","assessment_type"})require(!d.has(field),400,"Create a new item to change its type or answer.");String title=d.has("title")?text(d,"title",160,false):i.getString("title"),body=d.has("body")?text(d,"body",12000,false):i.getString("body");if(!title.equals(i.getString("title"))||!body.equals(i.getString("body")))i.put("revision",i.getInt("revision")+1);if(d.optBoolean("archived")){JSONObject subject=byId("subjects",i.getString("subject_id"));subject.put("order_revision",subject.optInt("order_revision",1)+1);}i.put("title",title).put("body",body).put("published",d.optBoolean("published",i.getBoolean("published"))).put("archived",d.optBoolean("archived",false)).put("edit_version",i.getInt("edit_version")+1);return obj("saved",true);}
+            if(p.length==4&&method.equals("POST")){require(manages(a,i),403,"Only the creator or administrator can edit this material.");require(d.optInt("expected_edit_version")==i.getInt("edit_version"),409,"Item changed. Refresh first.");for(String field:new String[]{"owner_id","subject_id","kind","correct_index","assessment_type","questions"})require(!d.has(field),400,"Create a new item to change its type or answer.");String title=d.has("title")?text(d,"title",160,false):i.getString("title"),body=d.has("body")?text(d,"body",12000,false):i.getString("body");if(!title.equals(i.getString("title"))||!body.equals(i.getString("body")))i.put("revision",i.getInt("revision")+1);if(d.optBoolean("archived")){JSONObject subject=byId("subjects",i.getString("subject_id"));subject.put("order_revision",subject.optInt("order_revision",1)+1);}i.put("title",title).put("body",body).put("published",d.optBoolean("published",i.getBoolean("published"))).put("archived",d.optBoolean("archived",false)).put("edit_version",i.getInt("edit_version")+1);return obj("saved",true);}
             if(p.length==5&&p[4].equals("open-link")&&method.equals("POST")){require(d.optInt("expected_revision")==i.getInt("revision"),409,"Item changed. Refresh first.");return link(i.getString("body"),d.optString("url"));}
             if(p.length==5&&method.equals("POST")){
                 require(student(a),403,"Student access required.");String kind=i.getString("kind"),action=p[4];JSONObject old=record(a,i);
                 if(action.equals("complete")){require(kind.equals("material"),403,"Submit assessed work instead of marking it read.");if(old==null){old=newRecord(a,i);rows("records").put(old);}old.put("completed",d.optBoolean("completed"));return obj("saved",true);}
+                if(action.equals("answers")){
+                    require(i.has("questions"),403,"A choice form is required.");require(d.opt("expected_revision") instanceof Integer&&d.getInt("expected_revision")==i.getInt("revision"),409,"This form changed. Refresh before answering.");require(key!=null&&key.matches("[a-f0-9-]{36}"),400,"Provide a unique submission key.");
+                    JSONObject result;try{result=ChoiceAssessment.score(i.getJSONArray("questions"),d.optJSONArray("answers"));}catch(Exception e){throw new Failure(400,e.getMessage());}
+                    for(int n=0;n<rows("records").length();n++){JSONObject prior=rows("records").getJSONObject(n);if(prior.optString("student_id").equals(a.getString("id"))&&prior.optString("request_key").equals(key))require(prior.optString("item_id").equals(i.getString("id"))&&prior.optInt("revision")==i.getInt("revision"),409,"This submission key was used for different work.");}
+                    if(old!=null){require(key.equals(old.optString("request_key"))&&old.getJSONArray("answers").toString().equals(result.getJSONArray("answers").toString()),409,"This form has already been submitted.");return obj("result",obj("answers",old.getJSONArray("answers"),"correct",old.getInt("correct"),"total",old.getInt("total"),"score",old.getDouble("score")));}
+                    JSONObject saved=newRecord(a,i).put("completed",true).put("request_key",key).put("submitted_at",System.currentTimeMillis()).put("graded_at",System.currentTimeMillis());for(String field:new String[]{"answers","correct","total","score"})saved.put(field,result.get(field));rows("records").put(saved);return obj("result",result);
+                }
                 if(action.equals("quiz")||action.equals("submission")){
+                    require(!i.has("questions"),403,"Use the choice-form submission.");
                     require(kind.equals(action.equals("quiz")?"quiz":"activity"),400,"Wrong submission type.");require(key!=null&&key.matches("[a-f0-9-]{36}"),400,"Provide a unique submission key.");int choice=d.optInt("choice",-1);String output=action.equals("submission")?text(d,"output",12000,false):"";if(kind.equals("quiz"))require(choice>=0&&choice<i.getJSONArray("options").length(),400,"Choose an answer.");
                     if(old!=null){require(key.equals(old.optString("request_key"))&&(kind.equals("quiz")?old.optInt("choice")==choice:old.optString("output").equals(output)),409,"Work has already been submitted for this version.");return obj("submitted",true);}
                     JSONObject r=newRecord(a,i).put("completed",true).put("request_key",key).put("submitted_at",System.currentTimeMillis());if(kind.equals("quiz"))r.put("choice",choice).put("score",choice==i.getInt("correct_index")?1:0);else r.put("output",output);rows("records").put(r);return obj("submitted",true);
@@ -253,7 +288,7 @@ public final class TestWorkspace {
             }
         }
         if(p.length==5&&p[2].equals("submissions")&&p[4].equals("grade")&&method.equals("POST")){
-            JSONObject r=byId("records",p[3]),i=itemFor(a,r.getString("item_id"),false);subjectFor(a,i.getString("subject_id"),true);JSONObject x=byId("accounts",r.getString("student_id"));require(student(x)&&x.optString("status").equals("active")&&enrolled(x,byId("subjects",i.getString("subject_id"))),404,"Student is no longer active and enrolled.");require(i.getString("kind").equals("activity")&&r.getInt("revision")==i.getInt("revision"),409,"Work belongs to a different item version.");require(Objects.equals(d.opt("expected_graded_at"),r.opt("graded_at")),409,"Assessment changed. Refresh first.");double score=d.optDouble("score",Double.NaN);require(Double.isFinite(score)&&score>=0&&score<=100,400,"Score must be 0–100.");r.put("score",score).put("feedback",text(d,"feedback",1000,true)).put("graded_at",Math.max(System.currentTimeMillis(),r.optLong("graded_at")+1));return obj("graded",true);
+            JSONObject r=byId("records",p[3]),i=itemFor(a,r.getString("item_id"),false);subjectFor(a,i.getString("subject_id"),true);JSONObject x=byId("accounts",r.getString("student_id"));require(student(x)&&x.optString("status").equals("active")&&enrolled(x,byId("subjects",i.getString("subject_id"))),404,"Student is no longer active and enrolled.");require(!i.has("questions")&&i.getString("kind").equals("activity")&&r.getInt("revision")==i.getInt("revision"),409,"Work belongs to a different item version.");require(Objects.equals(d.opt("expected_graded_at"),r.opt("graded_at")),409,"Assessment changed. Refresh first.");double score=d.optDouble("score",Double.NaN);require(Double.isFinite(score)&&score>=0&&score<=100,400,"Score must be 0–100.");r.put("score",score).put("feedback",text(d,"feedback",1000,true)).put("graded_at",Math.max(System.currentTimeMillis(),r.optLong("graded_at")+1));return obj("graded",true);
         }
         throw new Failure(404,"This action is unavailable in the local test workspace.");
     }

@@ -37,7 +37,7 @@ final class LearningApi {
         if(!path.matches("/v1/[a-z0-9/?=&-]+"))throw new IllegalArgumentException("Invalid API action.");
         if(vault.token().startsWith("demo-"))throw new Failure(401,"Sign in with an organization account for server access.");
         String base=validateBase(vault.base());HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
-        c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setRequestMethod(method);c.setInstanceFollowRedirects(false);c.setRequestProperty("Accept","application/json");c.setRequestProperty("Accept-Encoding","identity");
+        c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setRequestMethod(method);c.setInstanceFollowRedirects(false);c.setRequestProperty("Accept","application/json");c.setRequestProperty("X-Academy-Features","choice-forms-v1");c.setRequestProperty("Accept-Encoding","identity");
         if(authenticated){String token=vault.token();if(token.isEmpty())throw new Failure(401,"Sign in to continue.");c.setRequestProperty("Authorization","Bearer "+token);}
         return c;
     }

@@ -1,4 +1,4 @@
-# Known issues and verification limits — 0.9.1-alpha.1
+# Known issues and verification limits — 0.10.0-alpha.1
 
 No confirmed critical/high defect remains in the current self-review/host tests. Compilation, device, and deployment evidence must be read separately; test coverage is not proof of production security.
 
@@ -59,3 +59,7 @@ Schema v6 requires the matching backend and a consistent backup before deploymen
 ### 0.9.1 subject template and local compatibility
 
 The practice template is original classroom content requiring instructor review against the intended syllabus. Eight quizzes use the current one-question item format; written examinations contain four prompts but one submitted/graded /100 response. Suggested weights and durations are not automatically enforced. Local v3 state is incompatible with older APKs without restoring the pre-migration workspace/files backup; migration retains unchanged factory IDs/history and preserves edited subjects. Public handouts mirror questions, not answer indices. Previously saved B/C PDFs remain until removed; customized organization catalogs are preserved. Actual PDF rendering, physical-device upgrade, signing compatibility and complete UI acceptance remain NOT TESTED until observed.
+
+### 0.10.0 forms and compatibility
+
+New choice forms need the matching backend with schema v7 and choice_forms capability. Installing only the APK does not upgrade a hosted service. Local test mode includes the feature with schema v4; pre-upgrade snapshots remain private in workspace-before-forms.json. Existing written work and old quiz attempts are preserved. New template forms use 40 original synthetic questions; PDFs now include lessons only, while already downloaded older assessment handouts remain removable in Downloads. No weighted course grade, retakes or timer is introduced. Physical layout, form/editor rotation, keyboard, TalkBack and signed installation/upgrade remain NOT TESTED.
