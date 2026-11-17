@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Streamlit materials portal
+
+- Add a Python 3.12 Streamlit client for shared Academy accounts, subjects, material drafts, private PDF uploads/replacements, publication, student reading/progress, enrollment eligibility and existing inline assessments.
+- Reuse the existing API/storage/authorization without database or Android changes. Keep subject/progress above a scrolling content area; use the white/navy/gold theme.
+- Add bounded transport, per-session state cleanup, PDF integrity checks, web integration CI and deployment documentation. Live Streamlit/API/Drive setup and real-browser checks remain operator gates.
+
 ## 0.11.0-alpha.1
 
 - Pin the current subject title and student progress outside the scrolling content; keep public subject context fixed too. Move the description to Subject details and retain the fixed navigation/Results destination.

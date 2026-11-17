@@ -21,3 +21,5 @@ server/data/
 *.db
 *.pem
 node_modules/
+.venv/
+.streamlit/secrets.toml

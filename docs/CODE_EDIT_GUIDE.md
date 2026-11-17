@@ -1,5 +1,13 @@
 # Focused edit guide
 
+| Desired result | File | Section/symbol/property | Edit and units/scope | Related settings and check |
+| --- | --- | --- | --- | --- |
+| Change web colors | `.streamlit/config.toml` | `[theme]` | Hex colors; Streamlit portal | Contrast, keyboard focus and mobile browser |
+| Change web paragraph spacing and scroll area | `web/portal.py` | `STYLE` / `workspace` | CSS rem spacing; 480 px content region and 400 px PDF viewer | AppTest plus actual mobile scrolling/zoom |
+| Change web API destination | Private Streamlit Secrets | `ACADEMY_API_URL` | HTTPS origin only; operator setting | `/v1/me` capability and sign-in; never commit real secrets |
+| Change web PDF limits/timeouts | `web/api.py` | `MAX_PDF_BYTES` / `AcademyAPI.request` | Bytes and seconds | Keep server 50 MiB and Streamlit maxUploadSize aligned; checksum/conflict tests |
+| Change web draft/upload/publish workflow | `web/portal.py` | `add_material` / `edit_material` | Existing item edit-version guards; API-owned records | `web/tests/test_portal.py`; real file picker/Drive checks |
+
 Edit authored sources by stable symbols, then run affected checks. Keep settings authoritative; do not edit generated APKs or build output.
 
 | Desired result | File | Section / symbol | Edit, units and scope | Related check |
