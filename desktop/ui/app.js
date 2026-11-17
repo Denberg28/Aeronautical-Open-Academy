@@ -171,7 +171,8 @@ function shell() {
         .map((s) => s[0])
         .slice(0, 2)
         .join(""),
-    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><main class="center" id="center" aria-label="Learning workspace"></main><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+  if(a.role!=="admin")$(".sidebar details").insertAdjacentHTML("beforeend",nav("Announcements","announcements","bell",state.view==="announcements"));
   $("#app").hidden = false;
   renderRight();
 }
@@ -191,6 +192,7 @@ async function loadSubject(id) {
   state.items = data.items;
   state.treeSupported = data.tree_version >= 1;
   state.quizSupported = data.quiz_version >= 1;
+  state.formsSupported = data.choice_forms === true;
   state.summary = data.summary || null;
   state.compose = null;
   state.dirty = false;
@@ -222,9 +224,19 @@ function header(title, subtitle, actions = "") {
 function empty(title, description) {
   return `<div class="empty">${icon("book")}<h3>${escape(title)}</h3><p>${escape(description)}</p></div>`;
 }
+// UI — real paragraphs and hanging lists; escape every author-supplied character.
+function readingText(value) {
+  return String(value||"").split(/\r?\n/).filter(line=>line.trim()).map(line=>{
+    const marker=line.match(/^(Q?\d+[.)]|[A-H][.)]|[-•])\s+(.*)$/);
+    if(marker)return `<p class="reading-list"><span>${escape(marker[1])}</span><span>${escape(marker[2])}</span></p>`;
+    const prefix=line.match(/^(Outcome O\d+|Worked(?: classroom)? example|Synthetic dataset|Practice):/i);
+    const content=prefix?`<strong>${escape(prefix[0])}</strong>${escape(line.slice(prefix[0].length))}`:escape(line);
+    return `<p>${content}</p>`;
+  }).join("");
+}
 function bodyParts(item) {
   const material = item.material || { text: item.body, links: [] };
-  return `${material.text ? `<p class="preserve">${escape(material.text)}</p>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
+  return `${material.text ? `<div class="reading-copy">${readingText(material.text)}</div>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
 }
 const siblingsOf = (item) => state.items.filter((other) => (other.parent_id || null) === (item.parent_id || null));
 const childrenOf = (id) => state.items.filter((item) => item.parent_id === id);
@@ -274,31 +286,33 @@ function treeMarkup(items = rootsOf(), prefix = "") {
 }
 function itemCard(item, index, number) {
   const editable = manage() && owned(item);
+  const selectable=item.kind==="quiz"||Array.isArray(item.questions);
   const kind =
     item.assessment_type === "examination"
-      ? "Written examination"
+      ? (selectable?"Examination":"Written examination")
       : item.kind === "quiz"
         ? "Quiz"
         : item.kind === "activity"
-          ? "Written activity"
+          ? (selectable?"Activity":"Written activity")
           : "Material";
   let student = "";
   if (!manage()) {
     if (item.kind === "material")
       student = `<div class="material-tools">${button(`${icon(item.completed ? "check" : "book")}${item.completed ? "Read · mark unread" : "Mark as read"}`, "complete", `data-id="${escape(item.id)}"`, item.completed ? "quiet" : "")}<span class="compose-hint">Self-reported reading</span></div>`;
-    if (item.kind === "quiz") {
+    if (selectable) {
       const questions = item.questions || [{prompt:item.body,options:item.options}];
-      const total = item.attempt?.max_score || questions.length;
-      student = item.attempt
-        ? `<div class="result"><strong>Done · ${item.attempt.score} / ${total} correct</strong><span class="small">Quiz submitted</span></div><details class="quiz-review"><summary>Expand quiz</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map(o=>`<p class="small">${escape(o)}</p>`).join("")}</div>`).join("")}</details>`
-        : `<div class="quiz-intro" ${state.readyQuizzes.has(item.id)?"hidden":""}><span class="tag">${total} ${total===1?"question":"questions"}</span><p class="small muted">One submission. One point for each correct answer.</p>${button("Start quiz", "start-quiz", `data-id="${escape(item.id)}"`, "primary")}</div><details class="quiz-attempt" data-quiz="${escape(item.id)}" ${state.readyQuizzes.has(item.id)?"open":""} ${!state.readyQuizzes.has(item.id)?"hidden":""}><summary>Quiz questions · minimize / expand</summary><form data-form="quiz" data-id="${escape(item.id)}" data-revision="${item.revision}">${questions.map((q,i)=>`<fieldset class="quiz-question"><legend>${i+1}. ${escape(q.prompt)}</legend>${q.options.map((option,j)=>`<label class="choice"><input type="radio" name="answer-${i}" value="${j}" required>${escape(option)}</label>`).join("")}</fieldset>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit quiz</button></div></form></details>`;
+      const attempt=item.form_result?{score:item.form_result.correct,max_score:item.form_result.total}:item.attempt;
+      const total = attempt?.max_score || questions.length;
+      student = attempt
+        ? `<div class="result"><strong>Done · ${attempt.score} / ${total} correct · ${Math.round(attempt.score*10000/total)/100}%</strong><span class="small">Assessment submitted</span></div><details class="quiz-review"><summary>Review</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${item.form_result?.answers?.[i]===j?"Selected · ":""}${escape(o)}</p>`).join("")}</div>`).join("")}</details>`
+        : `<div class="quiz-intro" ${state.readyQuizzes.has(item.id)?"hidden":""}><span class="tag">${total} ${total===1?"question":"questions"}</span><p class="small muted">One submission. One point for each correct answer.</p>${button(item.kind==="quiz"?"Take quiz":item.assessment_type==="examination"?"Take examination":"Take activity", "start-quiz", `data-id="${escape(item.id)}"`, "primary")}</div><details class="quiz-attempt" data-quiz="${escape(item.id)}" ${state.readyQuizzes.has(item.id)?"open":""} ${!state.readyQuizzes.has(item.id)?"hidden":""}><summary>Questions · minimize / expand</summary><form data-form="${item.kind==="quiz"?"quiz":"answers"}" data-id="${escape(item.id)}" data-revision="${item.revision}">${questions.map((q,i)=>`<fieldset class="quiz-question"><legend>${i+1}. ${escape(q.prompt)}</legend>${q.options.map((option,j)=>`<label class="choice"><input type="radio" name="answer-${i}" value="${j}" required>${escape(option)}</label>`).join("")}</fieldset>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit answers</button></div></form></details>`;
     }
-    if (item.kind === "activity")
+    if (item.kind === "activity"&&!selectable)
       student = item.submission
-        ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<p class="preserve">${escape(item.submission.feedback)}</p>` : ""}<details><summary>Your response</summary><p class="preserve">${escape(item.submission.output)}</p></details></div>`
+        ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<div class="reading-copy">${readingText(item.submission.feedback)}</div>` : ""}<details><summary>Your response</summary><div class="reading-copy">${readingText(item.submission.output)}</div></details></div>`
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${bodyParts(item)}${student}${manage() && item.kind==="quiz" ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -322,9 +336,11 @@ function renderSubject() {
   const materials = state.items.filter((i) => i.kind === "material").length;
   const assessments = state.items.filter((i) => i.kind !== "material" && i.assessment_type !== "examination").length;
   const examinations = state.items.filter((i) => i.assessment_type === "examination").length;
+  const context=$("#subject-context");context.hidden=false;
+  context.innerHTML=`<section class="subject-hero"><div class="row between"><h1>${escape(s.title)}</h1>${manage()?button(icon("edit")+"Edit","edit-subject",'aria-label="Edit subject"',"quiet"):""}</div>${!manage()?`<div class="subject-progress"><progress max="100" value="${state.summary?.completion_percent||0}" aria-label="Subject completion"></progress><span>${state.summary?.completion_percent||0}% complete</span></div>`:`<span class="small muted">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations</span>`}</section>`;
   center.innerHTML =
     utility() +
-    `<section class="subject-hero"><div class="row between"><span class="tag">${manage() ? "INSTRUCTOR WORKSPACE" : "MY SUBJECT"}</span>${manage() ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject" title="Edit title or delete subject"', "quiet") : ""}</div><div class="eyebrow">AERONAUTICAL OPEN ACADEMY</div><h1>${escape(s.title)}</h1><p class="preserve">${escape(s.description)}</p><div class="hero-toolbar"><span>${materials} ${materials === 1 ? "material" : "materials"}</span><span>·</span><span>${assessments} activities & quizzes</span><span>·</span><span>${examinations} ${examinations === 1 ? "examination" : "examinations"}</span>${!manage() ? `<span>· ${state.summary?.completion_percent || 0}% complete</span>` : ""}</div></section><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", manage() ? "Add a material or an examination to begin." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${manage() ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
+    `<details class="subject-details"><summary>About this subject</summary>${readingText(s.description)}</details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", manage() ? "Add a material or an examination to begin." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${manage() ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
   if (manage()) renderComposer();
   applySubjectSearch();
   renderRight();
@@ -374,7 +390,7 @@ function renderComposer() {
     text = lines.join("\n") || item.title;
   }
   if (item) { state.compose.initialText = text; state.compose.initialLinks = [...links]; }
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${kind === "quiz" && !item ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
   slot.querySelectorAll("input[name=link]").forEach(inspectLinkField);
   renderQuizBuilder();
   syncMaterialSections();
@@ -395,7 +411,7 @@ function renderQuizBuilder() {
   if (!host) return;
   state.compose.questions ||= [blankQuestion()];
   const questions = state.compose.questions;
-  host.innerHTML = `<div class="quiz-count-row"><label>Number of questions<input id="quiz-count" type="number" min="1" max="${state.quizSupported?50:1}" value="${questions.length}" aria-label="Number of quiz questions"></label>${button("Apply", "quiz-count", "", "quiet")}</div>${!state.quizSupported?'<p class="small muted">Update your organization server to create multiple-question quizzes.</p>':""}<p class="small muted">Click the circle beside the correct answer. One point per question. Editing choices clears that question’s key.</p>${questions.map((q,i)=>`<details class="question-editor" data-question-editor="${i}" ${q.open===false?"":"open"}><summary>Question ${i+1}</summary><label>Question text<textarea data-question-prompt rows="2" maxlength="1000">${escape(q.prompt)}</textarea></label><fieldset class="answer-picker"><legend>Choices · select the correct answer</legend>${q.options.map((option,j)=>`<div class="quiz-option-row"><input type="radio" name="key-${i}" value="${j}" aria-label="Question ${i+1} correct answer ${j+1}" ${q.correct_index===j?"checked":""}><input data-question-option="${j}" maxlength="300" value="${escape(option)}" aria-label="Question ${i+1} option ${j+1}" placeholder="Option ${j+1}">${q.options.length>2?button("×", "remove-quiz-choice", `data-question="${i}" data-option="${j}" aria-label="Remove question ${i+1} option ${j+1}"`, "quiet"):""}</div>`).join("")}${q.options.length<6?button("+ Add option", "add-quiz-choice", `data-question="${i}"`, "quiet"):""}</fieldset></details>`).join("")}`;
+  host.innerHTML = `<div class="quiz-count-row"><label>Number of questions<input id="quiz-count" type="number" min="1" max="${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1}" value="${questions.length}" aria-label="Number of quiz questions"></label>${button("Apply", "quiz-count", "", "quiet")}</div>${!state.quizSupported?'<p class="small muted">Update your organization server to create multiple-question quizzes.</p>':""}<p class="small muted">Click the circle beside the correct answer. One point per question. Editing choices clears that question’s key.</p>${questions.map((q,i)=>`<details class="question-editor" data-question-editor="${i}" ${q.open===false?"":"open"}><summary>Question ${i+1}</summary><label>Question text<textarea data-question-prompt rows="2" maxlength="1000">${escape(q.prompt)}</textarea></label><fieldset class="answer-picker"><legend>Choices · select the correct answer</legend>${q.options.map((option,j)=>`<div class="quiz-option-row"><input type="radio" name="key-${i}" value="${j}" aria-label="Question ${i+1} correct answer ${j+1}" ${q.correct_index===j?"checked":""}><input data-question-option="${j}" maxlength="300" value="${escape(option)}" aria-label="Question ${i+1} option ${j+1}" placeholder="Option ${j+1}">${q.options.length>2?button("×", "remove-quiz-choice", `data-question="${i}" data-option="${j}" aria-label="Remove question ${i+1} option ${j+1}"`, "quiet"):""}</div>`).join("")}${q.options.length<6?button("+ Add option", "add-quiz-choice", `data-question="${i}"`, "quiet"):""}</fieldset></details>`).join("")}`;
 }
 function quizPreview(item) {
   const questions = item.questions || [{prompt:item.body,options:item.options,correct_index:item.correct_index}];
@@ -407,12 +423,12 @@ function renderRight() {
     manage() ? !i.published : !i.completed && i.kind !== "material",
   );
   $("#rightbar").innerHTML =
-    `<section><div class="section-heading"><h2>Announcements</h2>${state.account.role === "admin" ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><p class="preserve">${escape(n.body)}</p></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>${manage() ? "Teaching tasks" : "Your tasks"}</h2><span class="tag">${tasks.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
+    `<section><div class="section-heading"><h2>Announcements</h2>${state.account.role === "admin" ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>${manage() ? "Teaching tasks" : "Your tasks"}</h2><span class="tag">${tasks.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
       tasks
         .slice(0, 5)
         .map(
           (t) =>
-            `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon(manage() ? "edit" : "tasks")}</span><span><strong>${escape(t.title)}</strong><small>${manage() ? "Draft · finish and publish" : t.kind === "quiz" ? "Quiz · not submitted" : "Written work · not submitted"}</small></span></button>`,
+            `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon(manage() ? "edit" : "tasks")}</span><span><strong>${escape(t.title)}</strong><small>${manage() ? "Draft · finish and publish" : t.kind === "quiz" ? "Quiz · not submitted" : t.questions ? "Selection form · not submitted" : "Written work · not submitted"}</small></span></button>`,
         )
         .join("") ||
       '<p class="small-info">No pending tasks in this subject.</p>'
@@ -477,7 +493,7 @@ async function renderAllWork(view) {
     items
       .map(
         (item) =>
-          `<article class="material"><div class="material-content"><span class="small muted">${escape(item.subject.title)}</span><h3>${escape(item.title)}</h3><p>${item.kind === "material" ? "Reading · self-reported" : item.attempt ? `Quiz score: ${item.attempt.score} / ${item.attempt.max_score || item.question_count || 1}` : item.submission?.score != null ? `Written score: ${item.submission.score} / 100` : item.submission ? "Submitted · awaiting assessment" : manage() ? "Draft · unpublished" : "Not submitted"}</p>${button("Open subject " + icon("arrow"), "subject", `data-id="${escape(item.subject.id)}"`, "quiet")}</div></article>`,
+          `<article class="material"><div class="material-content"><span class="small muted">${escape(item.subject.title)}</span><h3>${escape(item.title)}</h3><p>${item.kind === "material" ? "Reading · self-reported" : item.form_result ? `Result: ${item.form_result.correct} / ${item.form_result.total} correct · ${item.form_result.score}%` : item.attempt ? `Quiz score: ${item.attempt.score} / ${item.attempt.max_score || item.question_count || 1}` : item.submission?.score != null ? `Written score: ${item.submission.score} / 100` : item.submission ? "Submitted · awaiting assessment" : manage() ? "Draft · unpublished" : "Not submitted"}</p>${button("Open subject " + icon("arrow"), "subject", `data-id="${escape(item.subject.id)}"`, "quiet")}</div></article>`,
       )
       .join("") +
     (items.length
@@ -521,7 +537,7 @@ async function renderLearner(id) {
     data.items
       .map(
         (item) =>
-          `<article class="material" data-item="${escape(item.id)}"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag" data-work-status>${escape(item.status)}</span>${item.submission_id ? `<details class="work-instructions"><summary>Instructions</summary><p class="preserve">${escape(item.body)}</p></details><p class="small muted">Submitted ${escape(new Date(item.submitted_at).toLocaleString())}</p>` : ""}${item.output ? `<p class="preserve">${escape(item.output)}</p>` : ""}${item.answer ? `<p>Answer: ${escape(item.answer)}</p>` : ""}${item.submission_id ? `<form data-form="grade" data-dirty="false" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save grade</button><span class="small grade-status" role="status" aria-live="polite">${item.graded_at ? "Saved · " + escape(new Date(item.graded_at).toLocaleString()) : "Awaiting grade"}</span></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}</p>` : ""}</div></article>`,
+          `<article class="material" data-item="${escape(item.id)}"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag" data-work-status>${escape(item.status)}</span>${item.submission_id ? `<details class="work-instructions"><summary>Instructions</summary><div class="reading-copy">${readingText(item.body)}</div></details><p class="small muted">Submitted ${escape(new Date(item.submitted_at).toLocaleString())}</p>` : ""}${item.output ? `<div class="reading-copy">${readingText(item.output)}</div>` : ""}${item.answer ? `<div class="reading-copy">${readingText(item.answer)}</div>` : ""}${item.submission_id&&item.response_mode!=="choice" ? `<form data-form="grade" data-dirty="false" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save grade</button><span class="small grade-status" role="status" aria-live="polite">${item.graded_at ? "Saved · " + escape(new Date(item.graded_at).toLocaleString()) : "Awaiting grade"}</span></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}</p>` : ""}</div></article>`,
       )
       .join("");
 }
@@ -582,7 +598,7 @@ function renderAnnouncements() {
     state.announcements
       .map(
         (n) =>
-          `<article class="material"><div class="material-content"><span class="small muted">${new Date(n.created_at).toLocaleDateString()}</span><h3>${escape(n.title)}</h3><p class="preserve">${escape(n.body)}</p>${state.account.role === "admin" ? button("Delete", "delete-announcement", `data-id="${escape(n.id)}"`, "quiet danger") : ""}</div></article>`,
+          `<article class="material"><div class="material-content"><span class="small muted">${new Date(n.created_at).toLocaleDateString()}</span><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div>${state.account.role === "admin" ? button("Delete", "delete-announcement", `data-id="${escape(n.id)}"`, "quiet danger") : ""}</div></article>`,
       )
       .join("");
 }
@@ -915,7 +931,7 @@ document.addEventListener("click", (event) => {
       const questions = state.compose.questions;
       if (action === "quiz-count") {
         const count = Number($("#quiz-count").value);
-        if (!Number.isInteger(count) || count<1 || count>(state.quizSupported?50:1)) throw new Error(`Enter 1–${state.quizSupported?50:1} questions.`);
+        if (!Number.isInteger(count) || count<1 || count>(state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1)) throw new Error(`Enter 1–${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1} questions.`);
         if (count<questions.length && questions.slice(count).some(q=>q.prompt.trim()||q.options.some(o=>o.trim())) && !(await confirmAction("Remove questions?", "Questions beyond the new count and their answer choices will be discarded.", "Remove questions"))) return;
         state.compose.questions = Array.from({length:count},(_,i)=>questions[i]||blankQuestion());
       } else {
@@ -930,9 +946,9 @@ document.addEventListener("click", (event) => {
     }
     if (action === "start-quiz") {
       const item=state.items.find(i=>i.id===id);
-      if (!item || item.attempt) return;
+      if (!item || item.attempt||item.form_result) return;
       const total=item.question_count||1;
-      if (!(await confirmAction("Ready to start?", `${total} ${total===1?"question":"questions"}. Answer every question before submitting. You can minimize and expand the quiz while working. You have one submission for this version.`, "Start quiz"))) return;
+      if (!(await confirmAction("Ready to start?", `${total} ${total===1?"question":"questions"}. Answer every question before submitting. You can minimize and expand the quiz while working. You have one submission for this version.`, "Start"))) return;
       state.readyQuizzes.add(id);
       const card=document.querySelector(`[data-item="${id}"]`);
       card.querySelector(".quiz-intro").hidden=true;
@@ -1061,7 +1077,7 @@ document.addEventListener("submit", (event) => {
         payload.kind = kind;
         if (state.compose.parentId) payload.parent_id = state.compose.parentId;
         if (kind === "material") payload.material_mode = "text";
-        if (kind === "quiz") {
+        if (kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) {
           if (Number($("#quiz-count").value)!==state.compose.questions.length) throw new Error("Apply the question count before saving.");
           captureQuizDraft();
           const questions=state.compose.questions.map((q,i)=>{
@@ -1111,7 +1127,7 @@ document.addEventListener("submit", (event) => {
       }
       toast("Subject saved.");
     }
-    if (form.dataset.form === "quiz" || form.dataset.form === "submission") {
+    if (["quiz","answers","submission"].includes(form.dataset.form)) {
       const position = capturePosition(id);
       if (
         !(await confirmAction(
@@ -1122,9 +1138,9 @@ document.addEventListener("submit", (event) => {
       )
         return;
       form.dataset.key ||= crypto.randomUUID();
-      await post(
-        `/v1/items/${id}/${form.dataset.form === "quiz" ? "quiz" : "submission"}`,
-        form.dataset.form === "quiz"
+      const submitted=await post(
+        `/v1/items/${id}/${form.dataset.form === "quiz" ? "quiz" : form.dataset.form === "answers" ? "answers" : "submission"}`,
+        form.dataset.form !== "submission"
           ? { answers:(state.items.find(i=>i.id===id).questions||[{}]).map((_,i)=>Number(d[`answer-${i}`])), expected_revision:Number(form.dataset.revision), ...(!state.quizSupported?{choice:Number(d["answer-0"])}:{}) }
           : { output: d.output },
         form.dataset.key,
@@ -1132,7 +1148,7 @@ document.addEventListener("submit", (event) => {
       state.dirty = false;
       state.readyQuizzes.delete(id);
       // Acknowledged submission: prevent another write if the following refresh fails.
-      form.replaceChildren(Object.assign(document.createElement("p"),{textContent:"Submitted. Refresh to view your result."}));
+      form.replaceChildren(Object.assign(document.createElement("p"),{textContent:submitted.result?`${submitted.result.correct} / ${submitted.result.total} correct · ${submitted.result.score}%`:submitted.attempt?`${submitted.attempt.score} / ${submitted.attempt.max_score||1} correct`:"Submitted. Refresh to view your result."}));
       await reloadActive({position,feedbackId:id});
       toast("Work submitted.");
     }
@@ -1257,6 +1273,11 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#app form")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
+  if(event.target.id==="response-mode"){
+    captureQuizDraft();state.compose.responseMode=event.target.value;
+    const composer=$("#composer"),existing=$("#quiz-builder");if(existing)existing.remove();
+    if(event.target.value==="choice"){const host=document.createElement("div");host.id="quiz-builder";composer.querySelector(".form-actions").before(host);renderQuizBuilder();}state.dirty=true;return;
+  }
   if (event.target.id === "entry-kind") {
     captureQuizDraft();
     const form = $("#composer");

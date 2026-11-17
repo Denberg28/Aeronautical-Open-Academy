@@ -5,7 +5,8 @@ export function openDatabase(path){
   if(path!==':memory:')mkdirSync(dirname(path),{recursive:true,mode:0o700});
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>9){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>10){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>=6&&!db.prepare('PRAGMA table_info(items)').all().some(column=>column.name==='parent_id')){db.close();throw new Error('This is not a PC backend database. Use its matching server and a validated migration.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
   if(version<2){
@@ -141,6 +142,7 @@ export function openDatabase(path){
         COMMIT;`);
     } catch(error) { db.exec('ROLLBACK;'); db.close(); throw error; }
   }
+  if(version<10)db.exec(`BEGIN IMMEDIATE; CREATE TABLE desktop_templates(template_key TEXT PRIMARY KEY,subject_id TEXT NOT NULL REFERENCES subjects(id),version INTEGER NOT NULL) STRICT; PRAGMA user_version=10; COMMIT;`);
   db.exec('PRAGMA busy_timeout=5000;');
   if(path!==':memory:')chmodSync(path,0o600);
   return db;

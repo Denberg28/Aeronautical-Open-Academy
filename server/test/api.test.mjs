@@ -389,7 +389,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});

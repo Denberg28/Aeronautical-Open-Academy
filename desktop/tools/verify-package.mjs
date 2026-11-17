@@ -16,6 +16,8 @@ for (const file of [
   "resources/app/desktop/main.mjs",
   "resources/app/desktop/preload.cjs",
   "resources/app/desktop/bridge.mjs",
+  "resources/app/desktop/template.mjs",
+  "resources/app/desktop/assets/subject-template.json",
   "resources/app/desktop/materials.mjs",
   "resources/app/desktop/enrollment.mjs",
   "resources/app/desktop/vendor/qrcode.mjs",

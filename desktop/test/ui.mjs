@@ -17,7 +17,7 @@ try {
       "--disable-gpu",
       "--disable-dev-shm-usage",
     ],
-    env: { ...process.env, ACADEMY_TEST_DATA: directory },
+    env: { ...process.env, ACADEMY_TEST_LEGACY_SEED: "1", ACADEMY_TEST_DATA: directory },
     timeout: 30000,
   });
   console.log("Electron launched");
@@ -40,7 +40,9 @@ try {
       !(await page.locator(`[data-action="${name}"]`).first().isVisible())
     )
       await page.getByText("MORE", { exact: true }).click();
-    await page.locator(`[data-action="${name}"]${extra}`).first().click();
+    const control=page.locator(`[data-action="${name}"]${extra}`).first();
+    await control.evaluate(el=>{const reader=el.closest("details.reading-entry");if(reader)reader.open=true;});
+    await control.click();
     await page.waitForFunction(
       () => !document.body.classList.contains("working"),
     );
@@ -419,7 +421,7 @@ try {
   });
   await action("results");
   assert.ok(
-    (await page.locator("#center").textContent()).includes("Quiz score: 2 / 3"),
+    (await page.locator("#center").textContent()).includes("Result: 2 / 3 correct · 66.67%"),
   );
   await action("tasks");
   await action("discover");
