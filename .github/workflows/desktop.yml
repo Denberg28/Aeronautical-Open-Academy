@@ -102,7 +102,7 @@ jobs:
         with:
           name: Academy-PC-Windows-${{ github.sha }}
           path: out/verified
-      - name: Verify and publish the original Windows candidate artifact
+      - name: Verify the original Windows candidate artifact
         run: |
           python3 - <<'PY'
           import hashlib,json,os,re,zipfile
@@ -128,4 +128,7 @@ jobs:
           (root/'release-verification.json').write_text(json.dumps({'source':os.environ['GITHUB_SHA'],'windows_native_ui_package_audit':'PASS','paired_android':'PASS','package_sha256':digest,'physical_windows_accessibility':'NOT TESTED','organization_deployment':'NOT TESTED','tier':'unsigned Windows x64 prerelease'},indent=2))
           with open(os.environ['GITHUB_ENV'],'a') as env:env.write(f'RELEASE_TAG=pc-v{version}\n')
           PY
+      - name: Publish the verified Windows candidate
+        run: |
+          test -n "$RELEASE_TAG"
           gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Academy PC $RELEASE_TAG — forms and reading layout" --notes-file docs/DESKTOP_RELEASE_NOTES.md
