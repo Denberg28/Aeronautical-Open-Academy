@@ -21,12 +21,12 @@ class SubjectTemplateChecks(unittest.TestCase):
                 self.assertTrue(entry['published'])
                 self.assertTrue(entry['body'].strip())
                 counts[entry['kind']] += 1
-                if entry['kind'] == 'quiz':
-                    self.assertEqual(len(entry['options']), 4)
-                    self.assertEqual(len(set(entry['options'])), 4)
-                    self.assertIn(entry['correct_index'], range(4))
-                elif entry['kind'] in ('activity', 'examination'):
-                    self.assertIn('Rubric' if entry['kind']=='activity' else '25 points each', entry['body'])
+                if entry['kind'] != 'material':
+                    self.assertEqual(len(entry['questions']), 1 if entry['kind']=='quiz' else 4)
+                    for question in entry['questions']:
+                        self.assertEqual(len(question['options']), 4)
+                        self.assertEqual(len(set(question['options'])), 4)
+                        self.assertIn(question['correct_index'], range(4))
             self.assertEqual(counts, dict(material=2,quiz=2,activity=1,examination=1))
         self.assertEqual(len(keys), 25)
 
@@ -36,6 +36,12 @@ class SubjectTemplateChecks(unittest.TestCase):
         self.assertEqual([s['id'] for s in catalog['subjects']], ['a'])
         self.assertEqual(len(catalog['subjects'][0]['resources']), 5)
         self.assertNotIn('correct_index', json.dumps(catalog))
+        subject = json.loads((ROOT/'app/src/main/assets/subject-template.json').read_text())
+        exported = '\n'.join(r['text'] for r in catalog['subjects'][0]['resources'])
+        for period in subject['periods']:
+            for entry in period['entries']:
+                for question in entry.get('questions', []):
+                    self.assertNotIn(question['prompt'], exported)
         self.assertFalse((ROOT/'app/src/main/assets/materials/b-learning-guide.pdf').exists())
         self.assertFalse((ROOT/'app/src/main/assets/materials/c-learning-guide.pdf').exists())
 

@@ -1,3 +1,4 @@
+import { questions, publicQuestions, scoreAnswers } from './assessments.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -80,9 +81,11 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
   else if(a.role==='student')requireThat(item.published,404,'Material or activity unavailable.');return item;
  }
- function presentItem(a,item){
+ function presentItem(a,item,supportsForms=false){
+  requireThat(!item.questions_json||supportsForms,409,'Update Academy to open this selection form.');
   const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
-  if(item.kind==='quiz'){
+  if(item.questions_json){copy.questions=publicQuestions(JSON.parse(item.questions_json),canManage(a,item.owner_id));const work=get('SELECT id,revision,output,score FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);if(work)copy.form_result={id:work.id,revision:work.revision,...JSON.parse(work.output),score:work.score};}
+  else if(item.kind==='quiz'){
    copy.options=JSON.parse(item.options_json);
    if(canManage(a,item.owner_id))copy.correct_index=item.correct_index;
    const attempt=get('SELECT id,revision,score,created_at FROM attempts WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);
@@ -90,8 +93,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   }
   const progress=get('SELECT completed,revision FROM progress WHERE student_id=? AND item_id=?',a.id,item.id);
   copy.assessment_type=item.assessment_type;
-  if(item.kind==='activity')copy.submission=get('SELECT id,revision,output,score,feedback,submitted_at,graded_at FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision)||null;
-  copy.completed=item.kind==='quiz'?!!copy.attempt:item.kind==='activity'?!!copy.submission:!!(progress?.completed&&progress.revision===item.revision);
+  if(item.kind==='activity'&&!item.questions_json)copy.submission=get('SELECT id,revision,output,score,feedback,submitted_at,graded_at FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision)||null;
+  copy.completed=item.questions_json?!!copy.form_result:item.kind==='quiz'?!!copy.attempt:item.kind==='activity'?!!copy.submission:!!(progress?.completed&&progress.revision===item.revision);
   return copy;
  }
  // Published current revisions form the denominator; self-reported reading is never a grade.
@@ -102,10 +105,11 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   let read=0,materials=0,submitted=0,required=0,graded=0;
   const states=items.map(item=>{
    const p=progress.get(item.id),q=attempts.get(item.id),w=submissions.get(item.id);
-   const done=item.kind==='material'?!!(p?.completed&&p.revision===item.revision):item.kind==='quiz'?!!q:!!w;
+   const done=item.kind==='material'?!!(p?.completed&&p.revision===item.revision):item.questions_json?!!w:item.kind==='quiz'?!!q:!!w;
    if(item.kind==='material'){materials++;if(done)read++;}else{required++;if(done)submitted++;if(q||w?.score!=null)graded++;}
-   const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.kind==='quiz'?1:item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
-   if(detail){result.body=item.body;result.output=w?.output||'';if(q)result.answer=JSON.parse(item.options_json)[q.choice];}
+   const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.questions_json?100:item.kind==='quiz'?1:item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
+   if(item.questions_json){result.response_mode="choice";if(w)result.form_result=JSON.parse(w.output);}
+   if(detail){result.body=item.body;result.output=item.questions_json&&w?JSON.parse(w.output).answers.map((choice,n)=>(n+1)+'. '+JSON.parse(item.questions_json)[n].options[choice]).join('\n'):w?.output||'';if(q)result.answer=JSON.parse(item.options_json)[q.choice];}
    return result;
   });
   const pct=(n,d)=>d?Math.round(n*100/d):0;
@@ -124,7 +128,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.9.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.10.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -141,7 +145,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials,choice_forms:true}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/password'&&method==='POST'){
     throttle('password-change:'+a.id);
@@ -236,11 +240,24 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent,student.student_number||'']);
      for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'']);
     }
-    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz 0–1; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
+    const bytes=workbook([{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Choice forms 0–100; legacy quiz 0–1; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
     audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
    }
+   // Assessment — check enrollment, publication and current revision before trusted scoring.
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/answers$/))&&method==='POST'){
+    const item=itemFor(a,match[1]),d=payload,key=String(req.headers['idempotency-key']||'');
+    requireThat(a.role==='student'&&!!item.questions_json,403,'Student choice-form submission required.');
+    requireThat(d.expected_revision===item.revision,409,'This form changed. Refresh before answering.');
+    requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');
+    const result=scoreAnswers(JSON.parse(item.questions_json),d.answers),output=JSON.stringify(result);
+    const old=get('SELECT * FROM submissions WHERE student_id=? AND request_key=?',a.id,key);
+    if(old){requireThat(old.item_id===item.id&&old.revision===item.revision&&old.output===output,409,'This submission key was used for different work.');return send(200,{result:JSON.parse(old.output)});}
+    requireThat(!get('SELECT id FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision),409,'This form has already been submitted.');
+    transaction(()=>{run('INSERT INTO submissions(id,student_id,item_id,revision,output,score,submitted_at,graded_at,request_key) VALUES(?,?,?,?,?,?,?,?,?)',randomUUID(),a.id,item.id,item.revision,output,result.score,now(),now(),key);audit(a.id,'form-submit',item.id);});
+    return send(201,{result});
+   }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/submission$/))&&method==='POST'){
-    const item=itemFor(a,match[1]),d=payload;requireThat(a.role==='student'&&item.kind==='activity',403,'Student written submission required.');
+    const item=itemFor(a,match[1]),d=payload;requireThat(a.role==='student'&&item.kind==='activity'&&!item.questions_json,403,'Student written submission required.');
     const output=text(d.output,'written output',12000),key=String(req.headers['idempotency-key']||'');requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');
     const old=get('SELECT * FROM submissions WHERE student_id=? AND request_key=?',a.id,key);
     if(old){requireThat(old.item_id===item.id&&old.revision===item.revision&&old.output===output,409,'This submission key was used for different work.');return send(200,{submitted:true});}
@@ -249,7 +266,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/submissions\/([a-f0-9-]{36})\/grade$/))&&method==='POST'){
     const submission=get('SELECT * FROM submissions WHERE id=?',match[1]);requireThat(submission,404,'Submission unavailable.');
-    const item=itemFor(a,submission.item_id);subjectFor(a,item.subject_id,true);requireThat(submission.revision===item.revision,409,'This work belongs to an older item revision.');
+    const item=itemFor(a,submission.item_id);subjectFor(a,item.subject_id,true);requireThat(!item.questions_json,409,'Choice forms are scored automatically.');requireThat(submission.revision===item.revision,409,'This work belongs to an older item revision.');
     requireThat(get("SELECT 1 FROM enrolments e JOIN accounts a ON a.id=e.student_id WHERE e.subject_id=? AND e.student_id=? AND a.status='active' AND a.role='student'",item.subject_id,submission.student_id),404,'Student is no longer enrolled.');
     const d=payload;requireThat(typeof d.score==='number'&&Number.isFinite(d.score)&&d.score>=0&&d.score<=100,400,'Score must be 0–100.');
     const feedback=d.feedback===''?'':text(d.feedback,'feedback',1000);
@@ -267,7 +284,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     run('INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.description,'description',1000),owner,now());audit(a.id,'subject-create',id);return send(201,{id});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
-    const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i));
+    const subject=subjectFor(a,match[1]);const items=all('SELECT * FROM items WHERE subject_id=? AND archived=0 ORDER BY sort_order,created_at,id LIMIT 200',subject.id).filter(i=>a.role!=='student'||i.published).map(i=>presentItem(a,i,req.headers['x-academy-features']==='choice-forms-v1'));
     return send(200,{subject,items,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -287,7 +304,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
     subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
     let options=null,answer=null;
-    if(d.kind==='quiz'){
+    const form=d.questions===undefined?null:questions(d.questions);requireThat(!form||d.kind!=='material',400,'Only assessments can contain questions.');
+    if(d.kind==='quiz'&&!form){
      requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
      requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
     }
@@ -296,14 +314,14 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
     requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
     requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
-    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
+    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard');if(form)run('UPDATE items SET questions_json=? WHERE id=?',JSON.stringify(form),id);run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
    }
-   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]))});
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]),req.headers['x-academy-features']==='choice-forms-v1')});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const item=itemFor(a,match[1],true),d=payload;
     requireThat(d.expected_edit_version===undefined||d.expected_edit_version===item.edit_version,409,'This item changed. Refresh before editing.');
     // Ownership/kind/subject cannot be reassigned. Quiz answer changes require a new item.
-    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
+    requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('kind'in d)&&!('assessment_type'in d)&&!('questions'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
     const changed=title!==item.title||body!==item.body;
@@ -322,7 +340,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(typeof d.completed==='boolean',400,'Set completed true or false.');run('INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(student_id,item_id) DO UPDATE SET completed=excluded.completed,revision=excluded.revision,updated_at=excluded.updated_at',a.id,item.id,item.revision,d.completed?1:0,now());return send(200,{completed:d.completed});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/quiz$/))&&method==='POST'){
-    const item=itemFor(a,match[1]);requireThat(a.role==='student'&&item.kind==='quiz',403,'Student quiz submission required.');const d=payload,key=String(req.headers['idempotency-key']||'');
+    const item=itemFor(a,match[1]);requireThat(a.role==='student'&&item.kind==='quiz'&&!item.questions_json,403,'Student quiz submission required.');const d=payload,key=String(req.headers['idempotency-key']||'');
     requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');requireThat(Number.isInteger(d.choice)&&d.choice>=0&&d.choice<JSON.parse(item.options_json).length,400,'Choose one answer.');
     const repeated=get('SELECT id,item_id,revision,choice,score,created_at FROM attempts WHERE student_id=? AND request_key=?',a.id,key);
     if(repeated){requireThat(repeated.item_id===item.id&&repeated.revision===item.revision&&repeated.choice===d.choice,409,'Submission key was already used for another answer.');return send(200,{attempt:repeated});}

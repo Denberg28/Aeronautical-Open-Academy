@@ -50,3 +50,7 @@ For link-only deployment use MATERIAL_STORAGE=links; service-account credentials
 ## Reference subject build
 
 Use [the AE 101 subject template](SUBJECT_TEMPLATE.md) as the complete practice example: course guide, four periods, eight lessons, eight quizzes, four activities and four written exams. Its canonical authoring asset is app/src/main/assets/subject-template.json. Change that source, then regenerate the public catalog/PDF handouts with tools/generate_samples.py; do not hand-edit generated outputs. Institutional content still requires approved objectives, enrollment policy, permissions and assessment review.
+
+### Selection forms (0.10.0)
+
+Quiz, Activity and Examination can now be authored as native choice forms with correct-answer selection and automatic score display. Students use Start → answer → Submit → result, then Review. PDF/text downloads are for lessons; canonical generated handouts exclude assessment questions. Existing/custom written outputs retain their old workflow. The matching server must advertise choice_forms; see [forms compatibility and validation](FORMS_RELEASE.md).

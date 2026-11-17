@@ -3,7 +3,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+<< /Type /Pages /Count 1 /Kids [4 0 R] >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 2655 >>
+<< /Length 2351 >>
 stream
 BT
 /F1 10 Tf
@@ -60,24 +60,6 @@ T*
 T*
 () Tj
 T*
-(Midterm - Quiz 3: Resultant force) Tj
-T*
-() Tj
-T*
-(A model cart has 20 N acting right and 8 N acting left. What is the net horizontal) Tj
-T*
-(force?) Tj
-T*
-(A. 28 N right) Tj
-T*
-(B. 12 N right) Tj
-T*
-(C. 12 N left) Tj
-T*
-(D. 0 N) Tj
-T*
-() Tj
-T*
 (Midterm - Lesson 4: Motion and assumptions) Tj
 T*
 () Tj
@@ -108,12 +90,6 @@ T*
 T*
 (a trial can reveal variability.) Tj
 T*
-() Tj
-T*
-(Midterm - Quiz 4: Average speed) Tj
-T*
-() Tj
-T*
 ET
 BT
 /F1 9 Tf
@@ -122,104 +98,16 @@ BT
 ET
 endstream
 endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
-endobj
-7 0 obj
-<< /Length 2025 >>
-stream
-BT
-/F1 10 Tf
-14 TL
-46 785 Td
-(A model cart travels 45 m in 15 s. What is its average speed?) Tj
-T*
-(A. 0.33 m/s) Tj
-T*
-(B. 30 m/s) Tj
-T*
-(C. 60 m/s) Tj
-T*
-(D. 3 m/s) Tj
-T*
-() Tj
-T*
-(Midterm - Activity 2: Model and measurement) Tj
-T*
-() Tj
-T*
-(Outcomes O2-O3 | Individual written output | 350-500 words plus a labelled sketch.) Tj
-T*
-(Use only this supplied model: horizontal pull 16 N right, resistance 10 N left;) Tj
-T*
-(measured travel 36 m in 12 s.) Tj
-T*
-(Submit: \(1\) a text-described or externally linked free-body sketch with positive) Tj
-T*
-(direction, \(2\) net force, \(3\) average speed, \(4\) three model/measurement assumptions,) Tj
-T*
-(and \(5\) a repeatable validation plan with one rejection condition.) Tj
-T*
-(Do not infer acceleration from speed alone; identify missing data. A labelled text) Tj
-T*
-(diagram is acceptable because the app accepts written output.) Tj
-T*
-(Rubric /100: model representation 25; calculations/units 30; assumptions and limits) Tj
-T*
-(20; validation plan 25.) Tj
-T*
-() Tj
-T*
-(Midterm - Examination 2) Tj
-T*
-() Tj
-T*
-(Outcomes O1-O3 | Individual written examination | Four questions, 25 points each.) Tj
-T*
-(Q1. Describe the four named forces in the simplified steady-level-flight model and) Tj
-T*
-(state the balances assumed by that model.) Tj
-T*
-(Q2. A cart has 28 N rightward pull and 13 N leftward resistance. Determine the net) Tj
-T*
-(force using a declared sign convention.) Tj
-T*
-(Q3. Trial A covers 64 m in 16 s; trial B covers 75 m in 15 s. Find each average speed) Tj
-T*
-(and compare them with units.) Tj
-T*
-(Q4. A student claims these average speeds prove constant speed throughout each trial.) Tj
-T*
-(Evaluate the claim and propose the extra evidence needed.) Tj
-T*
-(Submit numbered reasoning and calculations. Suggested duration: 60 minutes; no) Tj
-T*
-(app-enforced timer.) Tj
-T*
-(Each question /25: reasoning 10; correct method/evidence 8; units or assumptions 4;) Tj
-T*
-(clarity 3.) Tj
-T*
-ET
-BT
-/F1 9 Tf
-46 35 Td
-(Original Academy practice template | Page 2) Tj
-ET
-endstream
-endobj
 xref
-0 8
+0 6
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
-0000000121 00000 n 
-0000000191 00000 n 
-0000000317 00000 n 
-0000003023 00000 n 
-0000003149 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 6 /Root 1 0 R >>
 startxref
-5225
+2713
 %%EOF

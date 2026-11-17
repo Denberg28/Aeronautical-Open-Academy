@@ -3,7 +3,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+<< /Type /Pages /Count 1 /Kids [4 0 R] >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 2665 >>
+<< /Length 2358 >>
 stream
 BT
 /F1 10 Tf
@@ -60,24 +60,6 @@ T*
 T*
 () Tj
 T*
-(Semifinals - Quiz 5: Mass estimate) Tj
-T*
-() Tj
-T*
-(A fictional material has density 1500 kg/m3 and volume 0.002 m3. What is its estimated) Tj
-T*
-(mass?) Tj
-T*
-(A. 3 kg) Tj
-T*
-(B. 0.003 kg) Tj
-T*
-(C. 750 kg) Tj
-T*
-(D. 3000 kg) Tj
-T*
-() Tj
-T*
 (Semifinals - Lesson 6: Resource decisions) Tj
 T*
 () Tj
@@ -108,12 +90,6 @@ T*
 T*
 (neither option meets all limits, request a revised brief rather than claiming success.) Tj
 T*
-() Tj
-T*
-(Semifinals - Quiz 6: Constraint check) Tj
-T*
-() Tj
-T*
 ET
 BT
 /F1 9 Tf
@@ -122,106 +98,16 @@ BT
 ET
 endstream
 endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
-endobj
-7 0 obj
-<< /Length 2109 >>
-stream
-BT
-/F1 10 Tf
-14 TL
-46 785 Td
-(Four kits cost PHP 220 each. With a PHP 1000 budget, how much budget remains?) Tj
-T*
-(A. PHP 80) Tj
-T*
-(B. PHP 120) Tj
-T*
-(C. PHP 780) Tj
-T*
-(D. PHP 880) Tj
-T*
-() Tj
-T*
-(Semifinals - Activity 3: Evidence-based selection) Tj
-T*
-() Tj
-T*
-(Outcomes O1/O2/O4 | Individual written output | 400-600 words plus a comparison table.) Tj
-T*
-(Fictional candidates for one classroom model support:) Tj
-T*
-(P: density 1800 kg/m3, volume 0.001 m3, cost PHP 450, assembly 2 h.) Tj
-T*
-(Q: density 2500 kg/m3, volume 0.001 m3, cost PHP 380, assembly 4 h.) Tj
-T*
-(Constraints: estimated mass no more than 2 kg, cost no more than PHP 500, assembly no) Tj
-T*
-(more than 3 h.) Tj
-T*
-(Submit masses, a requirement/evidence/pass-fail table, a recommendation, three missing) Tj
-T*
-(evidence items and one sensitivity check with a changed limit. Treat material figures) Tj
-T*
-(as supplied data, not real certification properties.) Tj
-T*
-(Rubric /100: calculations 25; constraint matrix 30; justified recommendation 25;) Tj
-T*
-(uncertainty and sensitivity 20.) Tj
-T*
-() Tj
-T*
-(Semifinals - Examination 3) Tj
-T*
-() Tj
-T*
-(Outcomes O1/O2/O4 | Individual written examination | Four questions, 25 points each.) Tj
-T*
-(Q1. Estimate mass for a fictional component of volume 0.0015 m3 and supplied density) Tj
-T*
-(2000 kg/m3. Show units.) Tj
-T*
-(Q2. Six kits cost PHP 175 each. Find total cost and compare with the fictional PHP) Tj
-T*
-(1100 budget.) Tj
-T*
-(Q3. Candidate A has mass 1.8 kg and cost PHP 600; B has mass 2.2 kg and cost PHP 450.) Tj
-T*
-(Limits are 2 kg and PHP 550. Explain whether either qualifies and identify the next) Tj
-T*
-(decision.) Tj
-T*
-(Q4. Explain why selecting the lowest-density candidate alone is insufficient for a) Tj
-T*
-(real engineering recommendation. List four additional evidence categories.) Tj
-T*
-(Submit numbered responses. Suggested duration: 60 minutes; no app-enforced timer.) Tj
-T*
-(Each question /25: reasoning 10; correct method/evidence 8; units or assumptions 4;) Tj
-T*
-(clarity 3.) Tj
-T*
-ET
-BT
-/F1 9 Tf
-46 35 Td
-(Original Academy practice template | Page 2) Tj
-ET
-endstream
-endobj
 xref
-0 8
+0 6
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
-0000000121 00000 n 
-0000000191 00000 n 
-0000000317 00000 n 
-0000003033 00000 n 
-0000003159 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 6 /Root 1 0 R >>
 startxref
-5319
+2720
 %%EOF

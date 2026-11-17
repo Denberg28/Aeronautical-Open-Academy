@@ -22,8 +22,15 @@ public class TestWorkspaceTest {
     private JSONObject course(String token)throws Exception{return call(token,"GET","/v1/subjects/"+subject,null);}
     private JSONObject item(String kind)throws Exception{JSONArray all=course(teacher).getJSONArray("items");for(int i=0;i<all.length();i++)if(all.getJSONObject(i).getString("kind").equals(kind))return all.getJSONObject(i);throw new AssertionError(kind);}
     private JSONObject submit(String item,JSONObject body,String key)throws Exception{return app.request("POST","/v1/items/"+item+"/submission",body,student,key);}
+    // Retain the published written/single-quiz fixture to verify backward compatibility.
+    private static String legacyTemplate()throws Exception{
+        JSONObject template;try(InputStream in=TestWorkspaceTest.class.getResourceAsStream("/subject-template.json")){template=new JSONObject(new String(in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));}
+        template.put("templateVersion",1);JSONObject overview=template.getJSONObject("overview");overview.put("body",overview.getString("legacy_body"));
+        JSONArray periods=template.getJSONArray("periods");for(int n=0;n<periods.length();n++){JSONArray entries=periods.getJSONObject(n).getJSONArray("entries");for(int j=0;j<entries.length();j++){JSONObject entry=entries.getJSONObject(j);if(!entry.has("questions"))continue;entry.put("body",entry.getString("legacy_body"));entry.remove("questions");if(entry.getString("kind").equals("quiz"))entry.put("options",entry.getJSONArray("legacy_options")).put("correct_index",entry.getInt("legacy_correct_index"));}}
+        return template.toString();
+    }
     @Before public void setup()throws Exception{
-        root=folder.newFolder();app=new TestWorkspace(root);admin=login(0);teacher=login(1);student=login(2);subject=call(student,"GET","/v1/subjects",null).getJSONArray("subjects").getJSONObject(0).getString("id");studentId=call(student,"GET","/v1/me",null).getJSONObject("account").getString("id");
+        root=folder.newFolder();app=new TestWorkspace(root,legacyTemplate());admin=login(0);teacher=login(1);student=login(2);subject=call(student,"GET","/v1/subjects",null).getJSONArray("subjects").getJSONObject(0).getString("id");studentId=call(student,"GET","/v1/me",null).getJSONObject("account").getString("id");
     }
     @Test public void defaultsAndHashesAndPersistence()throws Exception{
         assertEquals(3,call(admin,"GET","/v1/admin/accounts",null).getJSONArray("accounts").length());
@@ -141,7 +148,7 @@ public class TestWorkspaceTest {
         app=new TestWorkspace(root);assertEquals(1,call(student,"GET","/v1/subjects",null).getJSONArray("subjects").length());assertEquals(subject,course(student).getJSONObject("subject").getString("id"));assertEquals(25,course(student).getJSONArray("items").length());
         for(String id:new String[]{material,activity,quiz})assertEquals(2,call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item").getInt("revision"));
         assertEquals(0,course(student).getJSONObject("summary").getInt("read"));
-        JSONObject saved=new JSONObject(new String(Files.readAllBytes(new File(root,"workspace.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));assertEquals(3,saved.getInt("version"));assertEquals(1,saved.getJSONArray("records").length());
+        JSONObject saved=new JSONObject(new String(Files.readAllBytes(new File(root,"workspace.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));assertEquals(4,saved.getInt("version"));assertEquals(1,saved.getJSONArray("records").length());
         assertEquals(legacy.toString(),new String(Files.readAllBytes(new File(root,"workspace-before-template.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));
         app=new TestWorkspace(root);assertEquals(25,course(student).getJSONArray("items").length());
     }

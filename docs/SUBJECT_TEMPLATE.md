@@ -13,7 +13,7 @@
 
 O1: define requirements/evidence. O2: trace calculations and units. O3: interpret force models. O4: compare resources/materials. O5: communicate defensible recommendations and uncertainty.
 
-There are **25 app entries**: one course guide; two lessons, two quizzes, one activity and one examination per period. Period names prefix entry titles so the current flat course list remains understandable without a new hierarchy/schema. Every lesson has an outcome, explanation, supplied example and practice task. Activities specify outputs and a 100-point rubric. Each examination contains four questions worth 25 points each with review criteria.
+There are **25 app entries**: one course guide; two lessons, two quizzes, one activity and one examination per period. Period names prefix entry titles so the current flat course list remains understandable without a new hierarchy/schema. Every lesson has an outcome, explanation, supplied example and practice task. Activities and examinations each contain four selection questions; quizzes each contain one. All are scored automatically after submission.
 
 ## Build and review workflow
 
@@ -25,17 +25,17 @@ There are **25 app entries**: one course guide; two lessons, two quizzes, one ac
 6. Publish and set eligible IDs. Test enrolled/ineligible student access, each submission and instructor assessment. Verify exported results before institutional use.
 7. Review feedback before advancing to the next period. Revision changes affect which work counts as current; do not silently replace assessed tasks.
 
-## Current scoring limits
+## In-app scoring
 
-Each of the eight quiz entries contains **one** four-choice question and is scored /1. This release creates a complete subject rather than adding a multi-question quiz engine. Each of four written exams contains four prompts but is submitted and graded as one /100 output; four activities are also /100. The app does not enforce durations, schedule releases, aggregate period/category weights or determine passing readiness.
+All sixteen assessments are native choice forms: eight one-question quizzes, four four-question activities and four four-question exams (40 questions). Students select answers, review and submit once per revision. Results show correct/total and percentage, then cards collapse to a compact score with Review. New authoring supports 1–20 questions and 2–8 choices per question. Answer keys are creator/admin-only; calculations happen on the trusted server/local workspace.
 
-The course guide suggests 20% quiz average + 30% activity average + 50% examination average for instructor planning only. Confirm approved policy and calculate externally if adopted. Completion tracks reading/submission, not achievement.
+The course guide suggests category weights for instructor planning only; no timer, weighted course grade or passing-readiness claim is introduced. Existing written submissions remain supported for older or custom items.
 
 ## Authoring and generated handouts
 
 The single content source is [subject-template.json](../app/src/main/assets/subject-template.json). Keep JSON keys unique and preserve the six-entry pattern in each period. Synthetic quiz correct indices are authoring data; do not insert real protected assessment keys into public source. Student responses and credentials never belong in this asset.
 
-Run `python3 tools/generate_samples.py` after changing the template. It regenerates the catalog plus five deterministic, original PDF handouts (overview and four periods) using the standard library. Run `python3 tools/generate_samples.py --check` to verify synchronization. Public PDFs contain questions and rubrics, not answer indices. Keep resource IDs stable and increment revisions/catalog version when published PDF bytes change; constants controlling the original revisions are in `outputs()`. The new A guide is revision 2; the four period guides start at revision 1. B/C catalog entries and bundled handouts are removed.
+Run `python3 tools/generate_samples.py` after changing the template. It regenerates the catalog plus five deterministic, original PDF handouts (overview and four periods) using the standard library. Run `python3 tools/generate_samples.py --check` to verify synchronization. Public PDFs contain only course overview and lessons. Assessment prompts/choices and their old written equivalents are excluded from catalog text and PDFs; sign in to open the forms. Keep resource IDs stable and increment revisions/catalog version when published PDF bytes change; constants controlling the original revisions are in `outputs()`. The A guide is revision 3; the four period guides are revision 2, with catalog version 3. B/C catalog entries and bundled handouts are removed.
 
 The instructor/local test workspace imports the same asset through `TestWorkspace.installTemplate`; it uses the ordinary role, content-validation, enrollment, submission and assessment paths. Public handouts are read-only; sign in to submit work. Organization databases receive no seeded course from an APK install; build approved organization content through its instructor workflow.
 
@@ -46,3 +46,5 @@ Local workspace schema v1/v2 upgrades atomically to v3 after making `local-test/
 Edited/extended factory content, other instructor subjects, custom accounts, passwords, notices, files and results are retained. If the old demo was edited, it is treated as instructor work and a new template is added. Migration runs once; reopening does not add copies or undo later edits. Reset explicitly deletes local data, restores the new template/default accounts and removes the migration backup.
 
 Older APKs reject v3. To downgrade test data, restore a consistent pre-upgrade workspace/files backup with its matching APK/signing identity; do not feed the v3 file to an older APK. Physical installation/upgrade and PDF appearance remain unverified until tested on a phone.
+
+Current schema/upgrade instructions are in [FORMS_RELEASE.md](FORMS_RELEASE.md): server v7 and local v4 preserve legacy work. The v3 migration description above records the previous content upgrade; new form conversion adds another private snapshot and revision changes. Source edits affect future seeds; existing teacher-edited content is not silently replaced.

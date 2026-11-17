@@ -3,7 +3,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Count 2 /Kids [4 0 R 6 0 R] >>
+<< /Type /Pages /Count 1 /Kids [4 0 R] >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 2993 >>
+<< /Length 2457 >>
 stream
 BT
 /F1 10 Tf
@@ -56,24 +56,6 @@ T*
 T*
 () Tj
 T*
-(Finals - Quiz 7: Verification evidence) Tj
-T*
-() Tj
-T*
-(A design calculation passes, but the required physical check has not been performed.) Tj
-T*
-(Which report statement is appropriate?) Tj
-T*
-(A. All field performance is proven.) Tj
-T*
-(B. The missing check can be marked passed.) Tj
-T*
-(C. Calculation reviewed; physical check not tested.) Tj
-T*
-(D. No assumptions need to be recorded.) Tj
-T*
-() Tj
-T*
 (Finals - Lesson 8: Technical communication) Tj
 T*
 () Tj
@@ -106,14 +88,6 @@ T*
 T*
 (criterion.) Tj
 T*
-() Tj
-T*
-(Finals - Quiz 8: Reporting) Tj
-T*
-() Tj
-T*
-(Which conclusion gives the most useful engineering decision record?) Tj
-T*
 ET
 BT
 /F1 9 Tf
@@ -122,114 +96,16 @@ BT
 ET
 endstream
 endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
-endobj
-7 0 obj
-<< /Length 2587 >>
-stream
-BT
-/F1 10 Tf
-14 TL
-46 785 Td
-(A. It is the best because it looks good.) Tj
-T*
-(B. The recommendation is final even without evidence.) Tj
-T*
-(C. The cheapest option is always acceptable.) Tj
-T*
-(D. Candidate P meets the supplied limits; the listed untested checks remain pending.) Tj
-T*
-() Tj
-T*
-(Finals - Activity 4: Integrated subject portfolio) Tj
-T*
-() Tj
-T*
-(Outcomes O1-O5 | Individual written output | 600-900 words with tables.) Tj
-T*
-(Fictional model carrier brief: hold four classroom models of 0.8 kg each; carrier) Tj
-T*
-(width no more than 900 mm; planning budget PHP 1200. Candidate P: width 0.85 m, cost) Tj
-T*
-(PHP 1100, carrier mass 1.6 kg. Candidate Q: width 0.95 m, cost PHP 950, carrier mass) Tj
-T*
-(1.3 kg. No load-test evidence is supplied.) Tj
-T*
-(Submit: requirements and units table; total model mass and total carried mass for each) Tj
-T*
-(candidate; pass/fail matrix for the supplied dimensional/budget limits; conditional) Tj
-T*
-(recommendation; four-check validation plan; unresolved evidence; reflection on one) Tj
-T*
-(earlier feedback point.) Tj
-T*
-(Do not claim load-carrying safety from these figures. This is an academic planning) Tj
-T*
-(portfolio.) Tj
-T*
-(Rubric /100: requirements and traceability 20; calculations 25;) Tj
-T*
-(comparison/recommendation 25; validation and limits 20; reflection and clarity 10.) Tj
-T*
-() Tj
-T*
-(Finals - Examination 4) Tj
-T*
-() Tj
-T*
-(Outcomes O1-O5 | Individual cumulative written examination | Four questions, 25 points) Tj
-T*
-(each.) Tj
-T*
-(Q1. A fictional carrier holds five models of 0.6 kg each and has mass 1.2 kg.) Tj
-T*
-(Calculate model mass and combined mass; state what those numbers do not establish.) Tj
-T*
-(Q2. Candidate A: width 0.88 m, cost PHP 1050; B: width 940 mm, cost PHP 900. Limits:) Tj
-T*
-(width 900 mm and cost PHP 1100. Compare both on the same units and justify a) Tj
-T*
-(provisional choice.) Tj
-T*
-(Q3. For that choice, write three measurable verification checks, giving the setup,) Tj
-T*
-(evidence and pass/fail criterion. Identify missing inputs rather than inventing safety) Tj
-T*
-(limits.) Tj
-T*
-(Q4. Write a concise recommendation that separates calculations, supplied data,) Tj
-T*
-(assumptions and untested physical behavior. Describe how a failed required check) Tj
-T*
-(changes the recommendation.) Tj
-T*
-(Submit one numbered response. Suggested duration: 90 minutes; no app-enforced timer.) Tj
-T*
-(Each question /25: reasoning 10; correct method/evidence 8; units or assumptions 4;) Tj
-T*
-(clarity 3.) Tj
-T*
-ET
-BT
-/F1 9 Tf
-46 35 Td
-(Original Academy practice template | Page 2) Tj
-ET
-endstream
-endobj
 xref
-0 8
+0 6
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
-0000000121 00000 n 
-0000000191 00000 n 
-0000000317 00000 n 
-0000003361 00000 n 
-0000003487 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 6 /Root 1 0 R >>
 startxref
-6125
+2819
 %%EOF

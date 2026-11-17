@@ -94,7 +94,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout brand=column();brand.setPadding(dp(12),0,dp(4),0);
         brand.addView(text("AERONAUTICAL",11,INK,true));brand.addView(text("Open Academy",19,INK,true));
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));header.addView(account);root.addView(header);
+        Button account=button("Sign in",false,v->startActivity(new Intent(this,WorkspaceActivity.class)));account.setGravity(Gravity.CENTER);header.addView(account);root.addView(header);
         scroll=new ScrollView(this);scroll.setFillViewport(true);
         body=column();body.setPadding(dp(20),dp(16),dp(20),dp(24));scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);android.widget.FrameLayout.LayoutParams pane=new android.widget.FrameLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels>dp(760)?dp(760):-1,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);scroll.addView(body,pane);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
@@ -136,9 +136,8 @@ public final class MainActivity extends AppCompatActivity {
             boolean match=(subject.code+" "+subject.title+" "+subject.description).toLowerCase(Locale.ROOT).contains(q);
             for(Catalog.Resource r:subject.resources)match|=(r.title+" "+r.module).toLowerCase(Locale.ROOT).contains(q);
             if(!match)continue;count++;
-            LinearLayout card=card(Color.WHITE);card.addView(text(subject.code+(subject.retired?" · Retired":""),12,MUTED,true));
-            card.addView(text(subject.title,21,INK,true));gap(card,5);card.addView(text(subject.description,14,MUTED,false));
-            card.addView(button("Open subject · "+subject.resources.size()+" materials",false,v->{subjectId=subject.id;scrollPosition=0;hideKeyboard();render();scroll.scrollTo(0,0);}));
+            LinearLayout card=card(Color.WHITE);card.addView(text(subject.title,20,INK,true));gap(card,8);card.addView(text("Code "+subject.code+" · "+subject.resources.size()+" materials"+(subject.retired?" · Retired":""),12,MUTED,false));gap(card,12);TextView summary=text(subject.description,14,MUTED,false);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);gap(card,8);
+            card.addView(button("Open subject",false,v->{subjectId=subject.id;scrollPosition=0;hideKeyboard();render();scroll.scrollTo(0,0);}));
             results.addView(card);gap(results,12);
         }
         searchCount.setText(count+" "+(count==1?"subject":"subjects")+(q.isEmpty()?" available":" found"));
@@ -148,20 +147,20 @@ public final class MainActivity extends AppCompatActivity {
         Catalog.Subject subject=repo.catalog.subject(subjectId);
         if(subject==null){subjectId="";subjectsScreen();return;}
         body.addView(button("‹  All subjects",false,v->navigate("subjects")));gap(body,12);
-        body.addView(text(subject.code,12,MUTED,true));body.addView(text(subject.title,29,INK,true));gap(body,8);
+        body.addView(text("Code "+subject.code,12,MUTED,false));gap(body,8);body.addView(text(subject.title,26,INK,true));gap(body,12);
         body.addView(text(subject.description,16,MUTED,false));gap(body,14);
-        body.addView(text("Code "+subject.code,12,MUTED,false));gap(body,20);
+        if(repo.catalog.demo&&BuildConfig.DEBUG)body.addView(button("Open assessments",true,v->startActivity(new Intent(this,WorkspaceActivity.class).putExtra("open_practice",true))));gap(body,12);
         if(subject.retired)body.addView(text("This subject is retired. Your previously saved PDFs remain in Downloads.",16,MUTED,false));
         String module="";
         for(Catalog.Resource r:subject.resources) {
-            if(!module.equals(r.module)){module=r.module;body.addView(text(module,17,INK,true));gap(body,10);}
+            if(!module.equals(r.module)){module=r.module;gap(body,24);body.addView(text(module,18,INK,true));gap(body,12);}
             LinearLayout card=card(Color.WHITE);card.addView(text(r.title,20,INK,true));gap(card,6);card.addView(text(r.description,14,MUTED,false));gap(card,10);
             AcademyRepository.Download d=repo.download(r.id);WorkInfo info=work.get(r.id);boolean active=info!=null&&!info.getState().isFinished();
             String status=d==null?"Not saved":d.revision==r.revision?"Available offline · "+size(d.bytes):"Saved revision "+d.revision+" · Update available";
-            card.addView(text(status+" · Revision "+r.revision,12,MUTED,true));
+            card.addView(text(status+" · Revision "+r.revision,12,MUTED,false));gap(card,12);
             if(d!=null)card.addView(button("Read PDF",true,v->openPdf(d)));
             if(!r.plainText.isEmpty())card.addView(button("Read text",false,v->{
-                TextView notes=text(r.plainText,18,INK,false);notes.setTextIsSelectable(true);notes.setPadding(dp(20),dp(16),dp(20),dp(16));
+                TextView notes=text(r.plainText,18,INK,false);notes.setTextIsSelectable(true);notes.setPadding(dp(20),dp(16),dp(20),dp(16));ReadingText.apply(notes);
                 ScrollView reader=new ScrollView(this);reader.addView(notes);
                 new AlertDialog.Builder(this).setTitle(r.title).setView(reader).setPositiveButton("Close",null).show();
             }));
@@ -173,7 +172,7 @@ public final class MainActivity extends AppCompatActivity {
             if(active)card.addView(button("Cancel download",false,v->WorkManager.getInstance(this).cancelUniqueWork("download-"+r.id)));
             if(info!=null&&info.getState()==WorkInfo.State.FAILED&&(d==null||d.revision!=r.revision))card.addView(text(info.getOutputData().getString("error")==null?"Download failed. Try again.":info.getOutputData().getString("error"),14,0xff943b26,false));
             if(!r.source.startsWith("asset://"))card.addView(button("Open online ↗",false,v->openOnline(r.source)));
-            card.addView(text(r.license,11,MUTED,false));body.addView(card);gap(body,14);
+            gap(card,12);card.addView(text(r.license,12,MUTED,false));body.addView(card);gap(body,14);
         }
 
     }
@@ -249,18 +248,29 @@ public final class MainActivity extends AppCompatActivity {
             catch(IllegalArgumentException e){input.setError(e.getMessage());}
         }));dialog.show();
     }
+    // UI — section spacing and hanging numbered steps; build diagnostics stay separate.
     private void showHelp() {
-        new AlertDialog.Builder(this).setTitle("Learn, wherever you are").setMessage(repo.notice+"\n\n1. Choose a subject or scan its Academy QR.\n2. Save eligible public PDFs while connected.\n3. Sign in to access your enrolled subjects and learning records.\n\nTemplate subject code: A. Practice content is not an approved syllabus.\n\nCamera is used only to scan. No analytics or advertising. Android uninstall or Clear storage removes saved copies. An offline copy already exported cannot be remotely revoked.\n\nVersion "+BuildConfig.VERSION_NAME+" · "+BuildConfig.SOURCE_COMMIT).setPositiveButton("Got it",null).setNeutralButton("Public catalog",(d,w)->configureCatalog()).show();
+        LinearLayout content=column();content.setPadding(dp(24),dp(8),dp(24),dp(20));
+        content.addView(text("Get started",18,INK,true));gap(content,12);
+        helpStep(content,"1.","Choose a subject or scan its QR.");helpStep(content,"2.","Save lesson PDFs to read offline.");helpStep(content,"3.","Sign in to answer assessments and view results.");
+        gap(content,24);content.addView(text("Practice template",18,INK,true));gap(content,8);content.addView(text("Code A opens AE 101. Practice content requires instructor review before institutional use.",15,MUTED,false));
+        gap(content,24);content.addView(text("Privacy and storage",18,INK,true));gap(content,8);content.addView(text("Camera access is used only for scanning. No advertising or analytics.",15,MUTED,false));gap(content,12);content.addView(text("Uninstalling or clearing app storage removes local copies. Exported copies cannot be revoked.",15,MUTED,false));
+        gap(content,24);content.addView(text("Catalog",18,INK,true));gap(content,8);content.addView(text(repo.notice,14,MUTED,false));
+        Button build=button("Build details",false,v->message("Build details","Version\n"+BuildConfig.VERSION_NAME+"\n\nSource\n"+BuildConfig.SOURCE_COMMIT));content.addView(build);
+        ScrollView reader=new ScrollView(this);reader.addView(content);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Help").setView(reader).setPositiveButton("Close",null).setNeutralButton("Catalog",(d,w)->configureCatalog()).create();dialog.setOnShowListener(d->{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setAllCaps(false);dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setAllCaps(false);});dialog.show();
+    }
+    private void helpStep(LinearLayout parent,String number,String instruction){
+        LinearLayout line=row();line.setGravity(Gravity.TOP);line.addView(text(number,16,INK,true),new LinearLayout.LayoutParams(dp(28),-2));line.addView(text(instruction,16,INK,false),new LinearLayout.LayoutParams(0,-2,1));LinearLayout.LayoutParams space=new LinearLayout.LayoutParams(-1,-2);space.setMargins(0,0,0,dp(12));parent.addView(line,space);
     }
     private void message(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK",null).show();}
-    private void navButton(String label,String target){Button b=button(label,false,v->navigate(target));b.setTag(target);nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}
+    private void navButton(String label,String target){Button b=button(label,false,v->navigate(target));b.setGravity(Gravity.CENTER);b.setTag(target);nav.addView(b,new LinearLayout.LayoutParams(0,-2,1));}
     private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
     private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
-    private LinearLayout card(int color){LinearLayout l=column();l.setPadding(dp(18),dp(18),dp(18),dp(18));l.setBackground(shape(color));return l;}
+    private LinearLayout card(int color){LinearLayout l=column();int pad=getResources().getDimensionPixelSize(R.dimen.academy_card_padding);l.setPadding(pad,pad,pad,pad);l.setBackground(shape(color));return l;}
     private android.graphics.drawable.Drawable ripple(int color){return new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x18102640),shape(color),shape(Color.WHITE));}
     private GradientDrawable shape(int color){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(12));if(color==Color.WHITE)d.setStroke(dp(1),LINE);return d;}
-    private TextView text(String value,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(sp>=28?28:sp>=20?20:sp);t.setTextColor(color);if(bold&&sp>=20)ViewCompat.setAccessibilityHeading(t,true);t.setIncludeFontPadding(false);t.setLineSpacing(dp(2),1.08f);if(bold)t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));return t;}
-    private Button button(String label,boolean primary,View.OnClickListener action){Button b=new Button(this);b.setText(label);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));b.setIncludeFontPadding(false);b.setPadding(dp(14),dp(10),dp(14),dp(10));b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{0xff7b8798,primary?Color.WHITE:INK}));b.setBackground(ripple(primary?INK:Color.TRANSPARENT));b.setOnClickListener(action);return b;}
+    private TextView text(String value,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(sp>=28?26:sp);t.setGravity(Gravity.START);t.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);t.setTextColor(color);if(bold&&sp>=20)ViewCompat.setAccessibilityHeading(t,true);t.setIncludeFontPadding(false);t.setLineSpacing(dp(2),1.16f);if(bold)t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));return t;}
+    private Button button(String label,boolean primary,View.OnClickListener action){Button b=new Button(this);b.setText(label);b.setGravity(primary?Gravity.CENTER:Gravity.START|Gravity.CENTER_VERTICAL);b.setTextSize(15);b.setMinWidth(0);b.setMinimumWidth(0);b.setAllCaps(false);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));b.setIncludeFontPadding(false);b.setPadding(primary?dp(16):0,dp(10),primary?dp(16):0,dp(10));LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.setMargins(0,dp(4),0,dp(4));b.setLayoutParams(spacing);b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{0xff7b8798,primary?Color.WHITE:INK}));b.setBackground(ripple(primary?INK:Color.TRANSPARENT));b.setOnClickListener(action);return b;}
     private EditText input(String hint,String value){EditText e=new EditText(this);e.setText(value);e.setHint(hint);e.setTextSize(16);e.setSingleLine(true);e.setMinHeight(dp(52));e.setIncludeFontPadding(false);e.setPadding(dp(14),dp(14),dp(14),dp(14));GradientDrawable outline=shape(0xfffafbfd);outline.setStroke(dp(1),0xffb6c2d2);e.setBackground(outline);e.setOnFocusChangeListener((v,focused)->outline.setStroke(dp(focused?2:1),focused?INK:0xffb6c2d2));e.setTextColor(INK);e.setHintTextColor(MUTED);return e;}
     private void gap(LinearLayout parent,int height){View spacer=new View(this);parent.addView(spacer,new LinearLayout.LayoutParams(1,dp(height)));}
     private void hideKeyboard(){View focus=getCurrentFocus();if(focus!=null)((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);}

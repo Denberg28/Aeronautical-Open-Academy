@@ -98,6 +98,7 @@ jobs:
           cp docs/KNOWN_ISSUES.md out/release/
           git archive --format=zip --output="out/release/Aeronautical-Open-Academy-$RELEASE_TAG-source.zip" "$GITHUB_SHA"
           cp docs/SECURITY_RELEASE.md out/release/
+          cp docs/FORMS_RELEASE.md out/release/
           python3 - <<'PY'
           import hashlib
           from pathlib import Path
