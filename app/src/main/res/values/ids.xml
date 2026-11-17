@@ -1,0 +1,8 @@
+<resources>
+    <item name="subject_header" type="id" />
+    <item name="subject_title" type="id" />
+    <item name="subject_progress" type="id" />
+    <item name="subject_percent" type="id" />
+    <item name="subject_content" type="id" />
+    <item name="reading_text" type="id" />
+</resources>

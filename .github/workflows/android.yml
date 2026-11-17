@@ -145,11 +145,11 @@ jobs:
           import hashlib,json
           from pathlib import Path
           root=Path('out/release')
-          for image in ('subjects.png','header-large-font.png','subject-actions.png','quiz-result.png'):
+          for image in ('subjects.png','header-large-font.png','subject-actions.png','quiz-result.png','pinned-subject.png','reader-paragraphs.png'):
               assert (root/image).is_file(), 'Missing successful emulator evidence: '+image
           evidence=root/'verification.json'
           result=json.loads(evidence.read_text())
-          result['emulator_smoke']='PASS: Android 35, 360 dp, header at 200% fonts, Read, public quiz through sign-in, submit/result/review'
+          result['emulator_smoke']='PASS: Android 35, 360 dp, header at 200% fonts, Read, quiz/sign-in/submit/result/review, pinned subject/progress during scroll, paragraph spacing/link preservation'
           evidence.write_text(json.dumps(result,indent=2))
           files=sorted(p for p in root.iterdir() if p.is_file() and p.name!='SHA256SUMS.txt')
           (root/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files))

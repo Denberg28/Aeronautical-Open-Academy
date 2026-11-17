@@ -56,12 +56,18 @@ public class SubjectFlowSmokeTest {
     }
     @Test public void readAndQuizWorkFromPublicSubjectThroughSignIn()throws Exception {
         launch();waitFor(By.text("Open subject"));compactHeader();assertTrue(device.takeScreenshot(new File(SHOTS,"subjects.png")));
-        button("Open subject");button("Read");waitFor(By.textContains("Learning outcomes"));button("Close");
+        button("Open subject");Rect publicTitle=waitFor(By.res(context.getPackageName(),"subject_title")).getVisibleBounds();button("Read");waitFor(By.textContains("Learning outcomes"));button("Close");
         assertNull(device.findObject(By.text("Save PDF")));assertNull(device.findObject(By.text("Read PDF")));
         assertTrue(device.takeScreenshot(new File(SHOTS,"subject-actions.png")));
-        button("Take quiz");waitFor(By.desc("Username")).setText("student");waitFor(By.desc("Password")).setText("student");button("Sign in");
+        UiObject2 takeQuiz=findButton("Take quiz");assertEquals("Public subject title scrolled away",publicTitle,waitFor(By.res(context.getPackageName(),"subject_title")).getVisibleBounds());takeQuiz.click();waitFor(By.desc("Username")).setText("student");waitFor(By.desc("Password")).setText("student");button("Sign in");
         waitFor(By.clazz("android.widget.RadioButton")).click();button("Submit");waitFor(By.text("Submit answers?"));button("Submit");
         waitFor(By.text("Result"));waitFor(By.textContains(" / 1 correct"));assertTrue(device.takeScreenshot(new File(SHOTS,"quiz-result.png")));button("Close");
         findButton("Review");button("Take activity");waitFor(By.clazz("android.widget.RadioButton"));button("Cancel");button("Take examination");waitFor(By.clazz("android.widget.RadioButton"));button("Cancel");assertNull(device.findObject(By.text("Save PDF")));
+        Rect title=waitFor(By.res(context.getPackageName(),"subject_title")).getVisibleBounds(),progress=waitFor(By.res(context.getPackageName(),"subject_progress")).getVisibleBounds();
+        UiScrollable content=new UiScrollable(new UiSelector().resourceId(context.getPackageName()+":id/subject_content"));assertTrue("Course content did not scroll",content.scrollForward());
+        assertEquals("Subject title moved with the content",title,waitFor(By.res(context.getPackageName(),"subject_title")).getVisibleBounds());assertEquals("Progress moved with the content",progress,waitFor(By.res(context.getPackageName(),"subject_progress")).getVisibleBounds());
+        assertTrue(device.takeScreenshot(new File(SHOTS,"pinned-subject.png")));
+        String lesson="Prelim - Lesson 2: Units and records";content.scrollIntoView(new UiSelector().description("Read "+lesson));waitFor(By.desc("Read "+lesson)).click();
+        waitFor(By.res(context.getPackageName(),"reading_text"));assertTrue(device.takeScreenshot(new File(SHOTS,"reader-paragraphs.png")));button("Close");
     }
 }
