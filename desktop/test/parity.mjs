@@ -44,6 +44,6 @@ try{
  await mkdir('out/desktop-qa',{recursive:true});await page.screenshot({path:'out/desktop-qa/pc-reader-paragraphs.png'});
  const before=await page.locator('#subject-context').boundingBox();await page.locator('#center').evaluate(el=>{el.scrollTop+=300;});assert.deepEqual(await page.locator('#subject-context').boundingBox(),before);assert.ok(await page.locator('.subject-progress progress').isVisible());
  await page.screenshot({path:'out/desktop-qa/pc-pinned-progress.png'});
- await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(900,700));await page.screenshot({path:'out/desktop-qa/pc-compact-layout.png'});assert.ok(await page.locator('.subject-progress').isVisible());
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(900,700));await page.screenshot({path:'out/desktop-qa/pc-compact-layout.png'});assert.ok(await page.locator('.subject-progress').isVisible());assert.ok(await page.locator('.sidebar [data-action=announcements]').isVisible());
  assert.deepEqual(errors,[]);console.log('PASS: native PC canonical template, activity/exam authoring, five scored selections, 75% mixed result, Read paragraphs and fixed context at desktop/compact widths');
 }finally{await app?.close();await rm(directory,{recursive:true,force:true});}

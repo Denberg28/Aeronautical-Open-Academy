@@ -421,7 +421,7 @@ try {
   });
   await action("results");
   assert.ok(
-    (await page.locator("#center").textContent()).includes("Quiz score: 2 / 3"),
+    (await page.locator("#center").textContent()).includes("Result: 2 / 3 correct · 66.67%"),
   );
   await action("tasks");
   await action("discover");

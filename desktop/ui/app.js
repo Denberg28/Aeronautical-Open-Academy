@@ -172,6 +172,7 @@ function shell() {
         .slice(0, 2)
         .join(""),
     )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+  if(a.role!=="admin")$(".sidebar details").insertAdjacentHTML("beforeend",nav("Announcements","announcements","bell",state.view==="announcements"));
   $("#app").hidden = false;
   renderRight();
 }

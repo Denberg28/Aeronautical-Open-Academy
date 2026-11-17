@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.mjs",
-    "test:ui": "node test/ui.mjs && node test/motion.mjs && node test/subject-delete.mjs && node test/grading.mjs && node test/parity.mjs",
+    "test:ui": "node test/run-ui.mjs",
     "package:win": "node tools/package-win.mjs"
   },
   "devDependencies": {
