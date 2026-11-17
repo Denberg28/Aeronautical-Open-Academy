@@ -1,4 +1,7 @@
 <resources>
     <!-- UI — shared inset and spacing values, in dp; text continues to scale in sp. -->
     <dimen name="academy_card_padding">18dp</dimen>
+    <dimen name="academy_screen_inset">20dp</dimen>
+    <dimen name="academy_content_gap">16dp</dimen>
+    <dimen name="academy_paragraph_gap">12dp</dimen>
 </resources>

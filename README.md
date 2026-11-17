@@ -2,7 +2,7 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
-Version: **0.10.1-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.11.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -119,3 +119,7 @@ Student: open a subject → Start an assessment → select one choice per questi
 Instructor: + → Quiz / Activity / Examination → enter a title/instructions → add questions and choices → select each correct answer → Done. Existing form questions/keys are immutable; create a new form to change them. Legacy written entries retain their previous editor and grading route. New-form authoring requires the matching service advertising choice_forms.
 
 Server schema v7 adds a nullable questions column and automatically scored form submissions; do not downgrade a v7 database to an older server. Local schema v4 preserves a private workspace-before-forms.json migration backup. No live organization database is changed by this source update. See [forms and layout acceptance](docs/FORMS_RELEASE.md).
+
+### Subject layout and text
+
+The subject title and student progress stay visible above scrollable entries. Use the back arrow to return to subjects and the information icon to read the full title/description. Public subjects retain a pinned title without inventing account progress. Results remain in the bottom navigation. Body text uses 1.4 line height, headings 1.2, and separate paragraphs have a 12 dp gap; wrapped lines stay together. Lessons use 16 sp text. Shared typography covers screens, native dialogs, reading, choices, editors and saved-PDF controls; it does not rewrite PDF document pages or stored content.

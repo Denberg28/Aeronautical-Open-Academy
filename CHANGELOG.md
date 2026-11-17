@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0-alpha.1
+
+- Pin the current subject title and student progress outside the scrolling content; keep public subject context fixed too. Move the description to Subject details and retain the fixed navigation/Results destination.
+- Standardize text across screens, readers, choices, editors and native dialogs: start alignment, medium headings, 1.4 body line height, 1.2 heading line height, and 12 dp paragraph spacing without altering original text or links.
+- Use 16 sp lesson text, consistent card headings/insets, paragraph lead-in emphasis and hanging lists. Preserve existing blank lines and avoid compounding spacing on refresh.
+- Add native rendered paragraph/link checks and scroll-position assertions for the fixed subject/progress; release includes reader and pinned-header screenshots.
+
 ## 0.10.1-alpha.1
 
 - Fix the public header's full-width Sign in button collapsing the brand into an oversized blank block; constrain brand labels to single lines.

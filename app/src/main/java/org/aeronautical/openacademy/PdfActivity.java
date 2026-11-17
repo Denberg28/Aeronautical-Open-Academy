@@ -39,8 +39,8 @@ public final class PdfActivity extends AppCompatActivity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xffffffff);setContentView(root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,i)->{androidx.core.graphics.Insets b=i.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});
         ViewCompat.requestApplyInsets(root);
-        TextView title=new TextView(this);title.setText(getIntent().getStringExtra("title"));title.setTextSize(20);title.setTextColor(0xff102640);title.setPadding(24,18,24,18);root.addView(title);
-        TextView hint=new TextView(this);hint.setText("Saved PDF · use page controls below. Rotate your phone for a wider view.");hint.setTextSize(14);hint.setPadding(24,0,24,12);root.addView(hint);
+        TextView title=new TextView(this);title.setText(getIntent().getStringExtra("title"));AcademyTypography.style(title,20,true);title.setTextColor(0xff102640);title.setPadding(AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap),AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(title);
+        TextView hint=new TextView(this);hint.setText("Saved PDF · use page controls below. Rotate your phone for a wider view.");AcademyTypography.style(hint,14,false);hint.setPadding(AcademyTypography.inset(this),0,AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(hint);
         Button external=new Button(this);external.setText("Open in another PDF reader");root.addView(external);
         external.setVisibility(allowExport?View.VISIBLE:View.GONE);
         external.setOnClickListener(v->{
@@ -49,11 +49,12 @@ public final class PdfActivity extends AppCompatActivity {
                 android.net.Uri uri=androidx.core.content.FileProvider.getUriForFile(this,BuildConfig.APPLICATION_ID+".files",file);
                 android.content.Intent view=new android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(uri,"application/pdf").addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 startActivity(android.content.Intent.createChooser(view,"Choose a PDF reader"));
-            } catch(Exception e) { new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("PDF reader unavailable").setMessage("Install or enable a PDF reader to use its accessibility and zoom tools. You can continue reading inside the Academy.").setPositiveButton("OK",null).show(); }
+            } catch(Exception e) { AcademyTypography.dialog(this).setTitle("PDF reader unavailable").setMessage("Install or enable a PDF reader to use its accessibility and zoom tools. You can continue reading inside the Academy.").setPositiveButton("OK",null).show(); }
         });
         ScrollView scroll=new ScrollView(this);image=new ImageView(this);image.setAdjustViewBounds(true);image.setBackgroundColor(Color.WHITE);scroll.addView(image,new ScrollView.LayoutParams(-1,-2));root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        status=new TextView(this);status.setText("Opening saved PDF…");status.setGravity(Gravity.CENTER);status.setPadding(18,14,18,14);root.addView(status);
+        status=new TextView(this);AcademyTypography.style(status,14,false);status.setText("Opening saved PDF…");status.setGravity(Gravity.CENTER);status.setPadding(AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap),AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(status);
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);previous=new Button(this);previous.setText("Previous");next=new Button(this);next.setText("Next");Button back=new Button(this);back.setText("Close");
+        for(Button action:new Button[]{external,previous,next,back}){action.setAllCaps(false);action.setTextSize(15);action.setLineSpacing(0,AcademyTypography.HEADING_LINE_HEIGHT);action.setMinHeight(Math.round(48*getResources().getDisplayMetrics().density));}
         controls.addView(previous,new LinearLayout.LayoutParams(0,-2,1));controls.addView(next,new LinearLayout.LayoutParams(0,-2,1));controls.addView(back,new LinearLayout.LayoutParams(0,-2,1));root.addView(controls);
         previous.setEnabled(false);next.setEnabled(false);previous.setOnClickListener(v->{if(!rendering&&page>0){page--;renderPage();scroll.scrollTo(0,0);}});next.setOnClickListener(v->{if(!rendering&&page<count-1){page++;renderPage();scroll.scrollTo(0,0);}});back.setOnClickListener(v->finish());
         renderer.execute(()->{

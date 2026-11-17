@@ -67,3 +67,7 @@ New choice forms need the matching backend with schema v7 and choice_forms capab
 ### 0.10.1 header/action repair
 
 Test.87 has a user-reported oversized public header and a PDF-first public subject. Do not promote it. The repair sets explicit wrap-content header action width, bounds brand wrapping, shows canonical Read/Take entry cards, and carries exact assessment selection through local sign-in. New emulator gates cover this path and 200% header fonts; final workflow evidence determines emulator status. Physical-phone/performance/accessibility/upgrade acceptance remains pending. No private records, saved files, schema or signing identity are reset by the repair.
+
+### 0.11.0 fixed subject context and typography
+
+The subject description is now under the information action to leave more height for scrolling content. Long pinned titles are limited to three portrait lines or one landscape line; Subject details exposes the full title and links. Public subjects have no account progress. Typography changes apply to native UI, not the pixels/text embedded in existing PDF files. Paragraphs retain original wording and blank lines. Device/large-font/landscape/TalkBack/performance/upgrade acceptance remains pending; final workflow records determine emulator status. No schema, records, saved files or signing identity are reset.
