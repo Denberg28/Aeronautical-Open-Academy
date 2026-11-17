@@ -1187,11 +1187,11 @@ h3,
 /* UI — shared reading rhythm. Change these values for app-wide typography and paragraph gaps. */
 :root { --body-leading: 1.4; --heading-leading: 1.2; --paragraph-gap: 12px; --content-gap: 16px; font-size: 16px; line-height: var(--body-leading); }
 h1,h2,h3,h4 { line-height: var(--heading-leading); }
-h1 { font-size: 26px; } h3 { font-size: 18px; }
+h1 { font-size: 26px; } h3,.material h3 { font-size: 18px; line-height: var(--heading-leading); }
 p { margin-bottom: var(--paragraph-gap); }
 textarea { line-height: var(--body-leading); }
 .reading-copy { font-size: 16px; line-height: var(--body-leading); overflow-wrap: anywhere; }
-.reading-copy p { margin: 0 0 var(--paragraph-gap); }
+.reading-copy p { font-size: inherit; line-height: inherit; color: inherit; margin: 0 0 var(--paragraph-gap); }
 .reading-copy p:last-child { margin-bottom: 0; }
 .reading-list { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 8px; }
 .reading-entry { margin-top: var(--content-gap); }

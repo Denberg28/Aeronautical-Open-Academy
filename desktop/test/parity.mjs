@@ -43,7 +43,7 @@ try{
  }
  const reading=teacher.items.find(i=>i.title.startsWith('Prelim - Lesson 2'));
  const reader=page.locator(`[data-item="${reading.id}"] .reading-entry`);await reader.locator('summary').click();
- assert.ok(await reader.locator('.reading-copy p').count()>=5);const rhythm=await reader.locator('.reading-copy p').first().evaluate(el=>({gap:parseFloat(getComputedStyle(el).marginBottom),leading:parseFloat(getComputedStyle(el).lineHeight)}));assert.equal(rhythm.gap,12);assert.ok(rhythm.leading>=22);
+ assert.ok(await reader.locator('.reading-copy p').count()>=5);const rhythm=await reader.locator('.reading-copy p').first().evaluate(el=>({size:parseFloat(getComputedStyle(el).fontSize),gap:parseFloat(getComputedStyle(el).marginBottom),leading:parseFloat(getComputedStyle(el).lineHeight)}));assert.equal(rhythm.size,16);assert.equal(rhythm.gap,12);assert.ok(rhythm.leading>=22);
  await mkdir(qa,{recursive:true});await page.screenshot({path:join(qa,'pc-reader-paragraphs.png')});
  const before=await page.locator('#subject-context').boundingBox();await page.locator('#center').evaluate(el=>{el.scrollTop+=300;});assert.deepEqual(await page.locator('#subject-context').boundingBox(),before);assert.ok(await page.locator('.subject-progress progress').isVisible());
  await page.screenshot({path:join(qa,'pc-pinned-progress.png')});
