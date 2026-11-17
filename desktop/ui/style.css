@@ -1189,6 +1189,9 @@ h3,
 h1,h2,h3,h4 { line-height: var(--heading-leading); }
 h1 { font-size: 26px; } h3,.material h3 { font-size: 18px; line-height: var(--heading-leading); }
 p { margin-bottom: var(--paragraph-gap); }
+progress { appearance: none; background: var(--pale); border-radius: 999px; overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--pale); border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--gold); border-radius: 999px; }
 textarea { line-height: var(--body-leading); }
 .reading-copy { font-size: 16px; line-height: var(--body-leading); overflow-wrap: anywhere; }
 .reading-copy p { font-size: inherit; line-height: inherit; color: inherit; margin: 0 0 var(--paragraph-gap); }
