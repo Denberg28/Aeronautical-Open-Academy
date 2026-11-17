@@ -1,3 +1,11 @@
+# 0.10.1 subject navigation repair
+
+The user reported test.87's header occupying most of the screen and PDF cards remaining in the public subject. The full-width card-button layout parameter was incorrectly inherited by the Sign in action in a horizontal header, starving the weighted brand of width and causing excessive wrapping. Header action width now wraps content; both brand labels stay on one line.
+
+The bundled public subject now reads canonical entry metadata directly and displays 9 Read actions, 8 Take quiz actions, 4 Take activity actions and 4 Take examination actions. Only reading text is exposed in the public entry model. Assessment selection passes its template/entry key across local sign-in and rotation; the workspace resolves it against the current authorized subject before opening the form. A foreign organization session is retained and receives local-practice guidance rather than an automatic account switch. Account text lessons are collapsed behind Read with a current-item authorization check. External catalogs and previously saved files retain their existing storage behavior.
+
+Verification: host content/source checks pass. Required CI now runs Android 35 UI smoke tests at 360 dp, checks the header at 200% fonts, opens Read without PDF controls, signs into the exact selected quiz, submits a choice and verifies result/review. CI collects screenshots, instrumentation reports and crash output before emulator shutdown. Final workflow/PR records are authoritative for pass/fail; physical-phone checks below remain pending. No schema or signing change is introduced by this repair.
+
 # 0.10.0 selection forms and layout
 
 The current user request combines screenshot-based alignment/spacing fixes with Google Forms-style assessments: clickable selection, submission, immediate result, compact completed cards, and no assessment questions in downloadable text/PDFs.

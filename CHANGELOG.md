@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1-alpha.1
+
+- Fix the public header's full-width Sign in button collapsing the brand into an oversized blank block; constrain brand labels to single lines.
+- Show all 25 practice entries with Read, Take quiz, Take activity and Take examination actions instead of the five PDF handout cards. Keep existing saved files intact.
+- Preserve the selected assessment through local sign-in and rotation, then authorize and open that exact form. Keep account lesson text behind Read; retain compact result/review cards.
+- Gate test publication on Android emulator checks for the header at 200% fonts and the public Read → quiz → sign-in → submit → result flow.
+
 ## 0.10.0-alpha.1
 
 - Add native selection forms for quizzes, activities and examinations, bounded question authoring, server/local trusted scoring, private answer drafts, idempotent submissions and compact result/review cards.

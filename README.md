@@ -2,7 +2,7 @@
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
-Version: **0.10.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.10.1-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 
@@ -26,7 +26,7 @@ Screen capture is temporarily enabled for development feedback, including accoun
 
 ## Complete subject practice template
 
-Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical Engineering**. The student is already enrolled in the local template. Admin can inspect the same subject. The anonymous library provides the course guide and lesson-only handouts under code **A**. Use **Open assessments** to sign in to the local practice subject; assessment questions are not included in text/PDF downloads.
+Sign in as instructor or student to open **AE 101 - Foundations of Aeronautical Engineering**. The student is already enrolled in the local template. Admin can inspect the same subject. Code **A** shows the course guide, eight lessons and sixteen assessment cards. Tap **Read**, **Take quiz**, **Take activity** or **Take examination**. Reading opens in the app. A selected assessment continues through local sign-in to its exact form; questions are not offered as text/PDF downloads. Existing saved handouts remain in Downloads.
 
 | Period | Lessons | Quizzes | Activity | Examination |
 | --- | --- | --- | --- | --- |

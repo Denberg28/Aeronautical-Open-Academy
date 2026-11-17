@@ -63,3 +63,7 @@ The practice template is original classroom content requiring instructor review 
 ### 0.10.0 forms and compatibility
 
 New choice forms need the matching backend with schema v7 and choice_forms capability. Installing only the APK does not upgrade a hosted service. Local test mode includes the feature with schema v4; pre-upgrade snapshots remain private in workspace-before-forms.json. Existing written work and old quiz attempts are preserved. New template forms use 40 original synthetic questions; PDFs now include lessons only, while already downloaded older assessment handouts remain removable in Downloads. No weighted course grade, retakes or timer is introduced. Physical layout, form/editor rotation, keyboard, TalkBack and signed installation/upgrade remain NOT TESTED.
+
+### 0.10.1 header/action repair
+
+Test.87 has a user-reported oversized public header and a PDF-first public subject. Do not promote it. The repair sets explicit wrap-content header action width, bounds brand wrapping, shows canonical Read/Take entry cards, and carries exact assessment selection through local sign-in. New emulator gates cover this path and 200% header fonts; final workflow evidence determines emulator status. Physical-phone/performance/accessibility/upgrade acceptance remains pending. No private records, saved files, schema or signing identity are reset by the repair.
