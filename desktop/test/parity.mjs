@@ -1,14 +1,14 @@
 import {_electron} from 'playwright';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,mkdir} from 'node:fs/promises';
+import {mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 
 // Native Windows parity: the real default template, authoring, choices, results and fixed context.
-const directory=await mkdtemp(join(tmpdir(),'academy-parity-'));let app;
+const directory=await mkdtemp(join(tmpdir(),'academy-parity-'));let app,page;
 try{
  app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu'],env:{...process.env,ACADEMY_TEST_DATA:directory},timeout:30000});
- const page=await app.firstWindow();page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{void dialog.dismiss();});
+ page=await app.firstWindow();page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{void dialog.dismiss();});
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1480,960));
  const idle=()=>page.waitForFunction(()=>!document.body.classList.contains('working'));
  const action=async(name,extra='')=>{await page.locator(`[data-action="${name}"]${extra}`).first().click();await idle();};
@@ -27,10 +27,12 @@ try{
  const teacher=await request(`/v1/subjects/${subject.id}`),samples=[
   teacher.items.find(i=>i.kind==='quiz'),teacher.items.find(i=>i.kind==='activity'&&i.assessment_type!=='examination'&&i.questions),teacher.items.find(i=>i.assessment_type==='examination'),teacher.items.find(i=>i.title==='UI selection activity'),teacher.items.find(i=>i.title==='UI selection examination')
  ];
- assert.ok(samples.every(Boolean));await action('logout');await login('student');
+ assert.ok(samples.every(item=>item&&item.questions?.length),'All selected assessments must have questions');await action('logout');await login('student');
  assert.ok((await request(`/v1/subjects/${subject.id}`)).items.every(i=>!JSON.stringify(i).includes('correct_index')));
  for(const [n,item] of samples.entries()){
-  const card=page.locator(`[data-item="${item.id}"]`);await card.locator('[data-action="start-quiz"]').click();await page.locator('#confirm-yes').click();await idle();
+  console.log(`Assessment ${n+1}: ${item.title}`);
+  const card=page.locator(`[data-item="${item.id}"]`);
+  console.log('Rendered assessment',await card.count(),await card.locator('[data-action="start-quiz"]').count());await card.locator('[data-action="start-quiz"]').click();await page.locator('#confirm-yes').click();await idle();
   const form=card.locator('form');assert.equal(await form.evaluate(form=>form.checkValidity()),false);
   const answers=item.questions.map(q=>q.correct_index);if(n===1)answers[0]=(answers[0]+1)%item.questions[0].options.length;
   for(let q=0;q<answers.length;q++)await form.locator(`input[name="answer-${q}"][value="${answers[q]}"]`).check();
@@ -46,4 +48,7 @@ try{
  await page.screenshot({path:'out/desktop-qa/pc-pinned-progress.png'});
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(900,700));await page.screenshot({path:'out/desktop-qa/pc-compact-layout.png'});assert.ok(await page.locator('.subject-progress').isVisible());assert.ok(await page.locator('.sidebar [data-action=announcements]').isVisible());
  assert.deepEqual(errors,[]);console.log('PASS: native PC canonical template, activity/exam authoring, five scored selections, 75% mixed result, Read paragraphs and fixed context at desktop/compact widths');
+}catch(error){
+ if(page){await mkdir('out/desktop-qa',{recursive:true});await page.screenshot({path:'out/desktop-qa/pc-parity-failure.png'});await writeFile('out/desktop-qa/pc-parity-failure.html',await page.content());console.error('Parity state',await page.evaluate(()=>({role:state.account?.role,active:state.active?.title,view:state.view,loginError:document.querySelector('#login-error')?.textContent,toast:document.querySelector('#toast')?.textContent,items:state.items.map(i=>({id:i.id,title:i.title,kind:i.kind,questions:i.questions?.length,completed:i.completed}))})));}
+ throw error;
 }finally{await app?.close();await rm(directory,{recursive:true,force:true});}
