@@ -29,7 +29,12 @@ public class SubjectFlowSmokeTest {
         new AccountVault(context).clear();new LearningApi(context).resetTest();device.executeShellCommand("settings put system font_scale 1.0");device.executeShellCommand("mkdir -p "+SHOTS);
     }
     @After public void cleanup()throws Exception {device.executeShellCommand("settings put system font_scale 1.0");device.pressBack();}
-    private void launch(){context.startActivity(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));}
+    private void launch()throws Exception {
+        // Emulator setup — density/font reconfiguration can leave Pixel Launcher's own ANR over the app.
+        // Stop only that background test-image launcher; Academy errors remain visible and fail the checks.
+        device.executeShellCommand("am force-stop com.google.android.apps.nexuslauncher");
+        context.startActivity(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));
+    }
     private UiObject2 waitFor(BySelector selector){UiObject2 view=device.wait(Until.findObject(selector),15000);assertNotNull("Missing UI: "+selector,view);return view;}
     private UiObject2 findButton(String text)throws Exception {
         // Native dialogs transform button labels to uppercase; match the same action in either case.
