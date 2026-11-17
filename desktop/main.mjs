@@ -45,6 +45,7 @@ async function boot() {
     try {
       local = await startLocal(
         join(app.getPath("userData"), "local-test-workspace"),
+        {legacyFixture:Boolean(automated&&process.env.ACADEMY_TEST_LEGACY_SEED==="1")},
       );
       bridge = new AcademyBridge(local, {
         openExternal: (url) =>

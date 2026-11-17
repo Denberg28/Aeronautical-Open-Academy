@@ -7,6 +7,7 @@ export function validateQuestions(value){
   const prompt=text(q.prompt,'question',1000);
   requireThat(Array.isArray(q.options)&&q.options.length>=2&&q.options.length<=6,400,`Question ${index+1} needs 2–6 choices.`);
   const options=q.options.map(o=>text(o,'choice',300));
+  requireThat(new Set(options.map(option=>option.toLowerCase())).size===options.length,400,'Use distinct answer choices.');
   requireThat(Number.isInteger(q.correct_index)&&q.correct_index>=0&&q.correct_index<options.length,400,`Select the correct answer for question ${index+1}.`);
   return {prompt,options,correct_index:q.correct_index};
  });

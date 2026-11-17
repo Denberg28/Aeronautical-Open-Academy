@@ -1,6 +1,9 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { DatabaseSync, backup } from "node:sqlite";
+import { installPracticeTemplate } from "./template.mjs";
 import { createAcademy } from "../server/src/server.mjs";
 import { hashPassword } from "../server/src/security.mjs";
 import { externalUrl } from "../server/src/links.mjs";
@@ -9,8 +12,13 @@ import { enrollmentQr } from "./enrollment.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
-export async function startLocal(directory) {
+export async function startLocal(directory, {legacyFixture=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.7.sqlite");
+  if(existsSync(database)&&!existsSync(snapshot)){
+    const previous=new DatabaseSync(database,{readOnly:true});
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<10)await backup(previous,snapshot);}finally{previous.close();}
+  }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),
   });
@@ -102,6 +110,7 @@ export async function startLocal(directory) {
       throw error;
     }
   }
+  if(!legacyFixture)try{await installPracticeTemplate(academy.db);}catch(error){await academy.close();throw error;}
   // A private random header also prevents other local browser tabs from reaching this test API.
   const accessKey = randomBytes(32).toString("hex");
   const handler = academy.server.listeners("request")[0];
@@ -176,7 +185,7 @@ export class AcademyBridge {
   }
   async fetch(path, options = {}, binary = false) {
     const method = validateRequest(path, options);
-    const headers = {};
+    const headers = {"X-Academy-Features":"choice-forms-v1"};
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (this.mode === "local")
       headers["X-Academy-Desktop"] = this.local.accessKey;
