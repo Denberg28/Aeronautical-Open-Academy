@@ -1,5 +1,19 @@
 # Verification — 0.5.0-alpha.1
 
+## Streamlit web addition — 18 November 2026 (Asia/Manila)
+
+Baseline `655847a`; branch `feat/streamlit-materials`; final implementation source is the PR commit. Local environment Python 3.12.14, Streamlit 1.67.0 + streamlit-pdf 2.1.0, Requests 2.32.5, Node 24.22.1. CI uses Node 24.19.0. No Android/backend source or schema changes.
+
+| Gate | Status | Actual evidence |
+| --- | --- | --- |
+| A/B/D — Web source/behavior/integration | PASS, simulator tested | 8 unittest/AppTest tests against a real temporary loopback Node API/SQLite: sign-in/out/password cleanup, create/publish/read/revoke, draft isolation, PDF byte/hash round trip, stale upload, student/outsider denies, viewer component emission, incomplete-choice rejection and trusted score; transport origin/network/redirect/corrupt PDF checks |
+| C — Existing API regression | PASS, host tested | 40 Node tests; 12 existing Python catalog/release/template tests; project configuration/content checks |
+| E — Physical actuator HIL | N/A | Education portal controls no equipment |
+| F — Live deployment / browser UI / real Drive | BLOCKED / NOT TESTED | Streamlit dashboard requires sign-in; persistent HTTPS API host/Drive configuration absent. No real-browser PDF pages/file-picker event or production restart/restore claims |
+| Android compilation / physical phone | NOT TESTED locally | Android unchanged; existing CI and real-device gates still apply |
+
+Run `python -m unittest discover -s web/tests -p 'test_*.py' -v` after installing root requirements; `npm test --prefix server` covers backend regressions. `.github/workflows/web.yml` repeats both. See STREAMLIT.md for acceptance, local setup, failure/recovery and operator verification. These checks do not establish stable production readiness.
+
 Evidence must distinguish host checks, Android compilation/lint, local HTTP backend integration, mocked Drive adapter behavior, physical devices, and real organization access.
 
 ## Current matrix

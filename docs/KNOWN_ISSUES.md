@@ -4,6 +4,8 @@ No confirmed critical/high defect remains in the current self-review/host tests.
 
 | Severity | Issue | Consequence / next action |
 | --- | --- | --- |
+| BLOCKER | Streamlit portal requires an authenticated Cloud deployment and a persistent HTTPS Academy API origin | Source/configuration ready; Streamlit dashboard is signed out and no live API host or Drive setup is available. See STREAMLIT.md |
+| UNVERIFIED | Streamlit mobile/desktop rendering, PDF file picker and real Drive upload | AppTest/loopback integration is automated; actual browser/device and deployment acceptance remains pending |
 | BLOCKER | Account backend is not deployed to a public HTTPS origin | Organization accounts need a configured service; local test accounts in the test APK work without it |
 | OPTIONAL / UNVERIFIED | Private Drive upload credentials/folder are not configured | Not required for link-only mode; validate if enabling the optional stored-PDF adapter |
 | BLOCKER | Persistent release signing key is not configured | CI debug APK is for testing; unsigned release cannot be installed |

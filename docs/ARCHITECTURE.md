@@ -1,5 +1,9 @@
 # Architecture
 
+## Streamlit web client
+
+`streamlit_app.py` invokes `web/portal.py` for role-aware forms and in-page reading. `web/api.py` owns bounded HTTPS requests, redirect rejection, PDF validation and digest verification. The browser connects to Streamlit; Streamlit calls the same `/v1` Node API as Android, which alone authorizes account roles, enrollment, publication, writes and scoring. Tokens stay in per-browser Streamlit session state; private content is not globally cached. SQLite and material storage remain exclusively with the single API instance. There is no schema change or embedded API process on Community Cloud. See [web deployment and failure behavior](STREAMLIT.md).
+
 ## Android
 
 Native Java/framework views, AppCompat, WorkManager, and ZXing Embedded. MainActivity offers the public sample catalog, QR/manual entry, and public Downloads. WorkspaceActivity provides the signed-in role workflow. AccountVault encrypts an opaque session token with Android Keystore AES-GCM; passwords are never retained. The same device key encrypts written drafts, cleared with the session. A left PopupMenu groups navigation; signed-in relaunch enters enrolled subjects with revision-aware progress bars. LearningApi uses an explicitly configured HTTPS origin, fixed API routes, bounded transfers, and no redirects. Debug-only cleartext exceptions are limited to emulator/loopback hosts.

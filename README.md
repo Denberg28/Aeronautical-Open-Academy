@@ -1,5 +1,11 @@
 # Aeronautical Open Academy
 
+## Streamlit web portal
+
+The web portal supports instructor material drafts/PDF uploads, publishing and enrollment access, plus student reading, progress and inline assessment submissions. It uses the existing Academy account API so subjects and results stay shared with the app. Run `pip install -r requirements.txt` then `streamlit run streamlit_app.py` from this directory. Configure `ACADEMY_API_URL` in private Streamlit Secrets; production PDF uploads use the API's existing Drive adapter.
+
+See [Streamlit setup and deployment](docs/STREAMLIT.md) for local startup, Community Cloud settings, material workflow and live-host requirements. The portal needs a running persistent HTTPS API; adding the Python client alone does not deploy that service.
+
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
 Version: **0.11.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
