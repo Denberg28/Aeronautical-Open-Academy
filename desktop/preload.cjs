@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld(
     openLink: (data) => call("academy:link", data),
     inspectLink: (url) => call("academy:inspect-link", url),
     exportReport: (id, offset) => call("academy:export", id, offset),
+    sync: () => call("academy:sync"),
+    readMaterial: (id, revision) => call("academy:read-material", id, revision),
+    uploadMaterial: (id, version) => call("academy:upload-material", id, version),
     subjectQr: (id, save) => call("academy:subject-qr", id, save),
   }),
 );

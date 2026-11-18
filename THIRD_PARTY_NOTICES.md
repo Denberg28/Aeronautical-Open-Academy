@@ -11,3 +11,7 @@ This application uses Android/AndroidX, WorkManager, and ZXing Embedded. Source 
 - ReportLab (authoring tool only; not an Android runtime dependency): https://hg.reportlab.com/hg-public/reportlab/file/default/LICENSE.txt.
 
 No organization Drive content is included. Bundled demonstration text is original content. The Gradle wrapper binary was retrieved from Gradle's v8.11.1 source tree and verified against the publisher's SHA-256 reference.
+
+## PDF.js
+
+PDF.js (pdfjs-dist 6.5.438) is provided under Apache-2.0. Pinned upstream viewer/worker/font/WASM assets are copied verbatim by desktop/tools/prepare-pdf.mjs and included with their LICENSE in Windows packages. Source: https://github.com/mozilla/pdf.js .

@@ -1,6 +1,6 @@
 "use strict";
 const desktopApi = Object.fromEntries(
-  ["login", "request", "logout", "openLink", "inspectLink", "exportReport", "subjectQr"].map((method) => [method, async (...args) => {
+  ["login", "request", "logout", "openLink", "inspectLink", "exportReport", "subjectQr", "sync", "uploadMaterial"].map((method) => [method, async (...args) => {
     const result = await window.academy[method](...args);
     if (!result.ok) {
       const error = new Error(result.error);
@@ -57,6 +57,7 @@ const state = {
   active: null,
   items: [],
   summary: null,
+  capabilities: {},
   view: "subject",
   search: "",
   compose: null,
@@ -95,6 +96,8 @@ async function act(fn) {
     if (error.status === 401) {
       if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
+      state.items=[];state.subjects=[];state.active=null;
+      await window.academyReader.close();$("#app").replaceChildren();
       showLogin();
     }
   } finally {
@@ -103,6 +106,9 @@ async function act(fn) {
     $("#app").inert = false;
   }
 }
+document.addEventListener("academy-reader-error",event=>{
+  void act(async()=>{const error=new Error(event.detail.message);error.status=event.detail.status;throw error;});
+});
 function confirmAction(title, text, yes = "Continue") {
   $("#confirm-title").textContent = title;
   $("#confirm-text").textContent = text;
@@ -171,12 +177,14 @@ function shell() {
         .map((s) => s[0])
         .slice(0, 2)
         .join(""),
-    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button("Sync", "sync", 'title="Refresh shared materials, results and progress"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
   if(a.role!=="admin")$(".sidebar details").insertAdjacentHTML("beforeend",nav("Announcements","announcements","bell",state.view==="announcements"));
   $("#app").hidden = false;
   renderRight();
 }
 async function refreshData() {
+  const me=await api("/v1/me");
+  state.account=me.account;state.capabilities=me.capabilities||{};
   const [subjects, announcements] = await Promise.all([
     api("/v1/subjects"),
     api("/v1/announcements"),
@@ -192,7 +200,8 @@ async function loadSubject(id) {
   state.items = data.items;
   state.treeSupported = data.tree_version >= 1;
   state.quizSupported = data.quiz_version >= 1;
-  state.formsSupported = data.choice_forms === true;
+  state.maxQuestions=state.quizSupported?(state.capabilities.max_quiz_questions||50):state.capabilities.choice_forms?20:1;
+  state.formsSupported = data.choice_forms === true || state.capabilities.choice_forms === true;
   state.summary = data.summary || null;
   state.compose = null;
   state.dirty = false;
@@ -236,7 +245,7 @@ function readingText(value) {
 }
 function bodyParts(item) {
   const material = item.material || { text: item.body, links: [] };
-  return `${material.text ? `<div class="reading-copy">${readingText(material.text)}</div>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
+  return `${item.has_file ? button("Read PDF", "read-pdf", `data-id="${escape(item.id)}"`, "quiet") : ""}${material.text ? `<div class="reading-copy">${readingText(material.text)}</div>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
 }
 const siblingsOf = (item) => state.items.filter((other) => (other.parent_id || null) === (item.parent_id || null));
 const childrenOf = (id) => state.items.filter((item) => item.parent_id === id);
@@ -305,14 +314,14 @@ function itemCard(item, index, number) {
       const total = attempt?.max_score || questions.length;
       student = attempt
         ? `<div class="result"><strong>Done · ${attempt.score} / ${total} correct · ${Math.round(attempt.score*10000/total)/100}%</strong><span class="small">Assessment submitted</span></div><details class="quiz-review"><summary>Review</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${item.form_result?.answers?.[i]===j?"Selected · ":""}${escape(o)}</p>`).join("")}</div>`).join("")}</details>`
-        : `<div class="quiz-intro" ${state.readyQuizzes.has(item.id)?"hidden":""}><span class="tag">${total} ${total===1?"question":"questions"}</span><p class="small muted">One submission. One point for each correct answer.</p>${button(item.kind==="quiz"?"Take quiz":item.assessment_type==="examination"?"Take examination":"Take activity", "start-quiz", `data-id="${escape(item.id)}"`, "primary")}</div><details class="quiz-attempt" data-quiz="${escape(item.id)}" ${state.readyQuizzes.has(item.id)?"open":""} ${!state.readyQuizzes.has(item.id)?"hidden":""}><summary>Questions · minimize / expand</summary><form data-form="${item.kind==="quiz"?"quiz":"answers"}" data-id="${escape(item.id)}" data-revision="${item.revision}">${questions.map((q,i)=>`<fieldset class="quiz-question"><legend>${i+1}. ${escape(q.prompt)}</legend>${q.options.map((option,j)=>`<label class="choice"><input type="radio" name="answer-${i}" value="${j}" required>${escape(option)}</label>`).join("")}</fieldset>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit answers</button></div></form></details>`;
+        : `<div class="quiz-intro" ${state.readyQuizzes.has(item.id)?"hidden":""}><span class="tag">${total} ${total===1?"question":"questions"}</span><p class="small muted">One submission. One point for each correct answer.</p>${button(item.kind==="quiz"?"Take quiz":item.assessment_type==="examination"?"Take examination":"Take activity", "start-quiz", `data-id="${escape(item.id)}"`, "primary")}</div><details class="quiz-attempt" data-quiz="${escape(item.id)}" ${state.readyQuizzes.has(item.id)?"open":""} ${!state.readyQuizzes.has(item.id)?"hidden":""}><summary>Questions · minimize / expand</summary><form data-form="${item.kind==="quiz"&&(!item.questions||state.quizSupported)?"quiz":"answers"}" data-id="${escape(item.id)}" data-revision="${item.revision}">${questions.map((q,i)=>`<fieldset class="quiz-question"><legend>${i+1}. ${escape(q.prompt)}</legend>${q.options.map((option,j)=>`<label class="choice"><input type="radio" name="answer-${i}" value="${j}" required>${escape(option)}</label>`).join("")}</fieldset>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit answers</button></div></form></details>`;
     }
     if (item.kind === "activity"&&!selectable)
       student = item.submission
         ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<div class="reading-copy">${readingText(item.submission.feedback)}</div>` : ""}<details><summary>Your response</summary><div class="reading-copy">${readingText(item.submission.output)}</div></details></div>`
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.published ? "green" : "gold"}">${item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -390,7 +399,7 @@ function renderComposer() {
     text = lines.join("\n") || item.title;
   }
   if (item) { state.compose.initialText = text; state.compose.initialLinks = [...links]; }
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `${!item&&state.capabilities.material_upload?'<label>Format<select name="format"><option value="text">Text and links</option><option value="file">PDF upload · save draft first</option></select></label>':""}<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
   slot.querySelectorAll("input[name=link]").forEach(inspectLinkField);
   renderQuizBuilder();
   syncMaterialSections();
@@ -411,7 +420,7 @@ function renderQuizBuilder() {
   if (!host) return;
   state.compose.questions ||= [blankQuestion()];
   const questions = state.compose.questions;
-  host.innerHTML = `<div class="quiz-count-row"><label>Number of questions<input id="quiz-count" type="number" min="1" max="${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1}" value="${questions.length}" aria-label="Number of quiz questions"></label>${button("Apply", "quiz-count", "", "quiet")}</div>${!state.quizSupported?'<p class="small muted">Update your organization server to create multiple-question quizzes.</p>':""}<p class="small muted">Click the circle beside the correct answer. One point per question. Editing choices clears that question’s key.</p>${questions.map((q,i)=>`<details class="question-editor" data-question-editor="${i}" ${q.open===false?"":"open"}><summary>Question ${i+1}</summary><label>Question text<textarea data-question-prompt rows="2" maxlength="1000">${escape(q.prompt)}</textarea></label><fieldset class="answer-picker"><legend>Choices · select the correct answer</legend>${q.options.map((option,j)=>`<div class="quiz-option-row"><input type="radio" name="key-${i}" value="${j}" aria-label="Question ${i+1} correct answer ${j+1}" ${q.correct_index===j?"checked":""}><input data-question-option="${j}" maxlength="300" value="${escape(option)}" aria-label="Question ${i+1} option ${j+1}" placeholder="Option ${j+1}">${q.options.length>2?button("×", "remove-quiz-choice", `data-question="${i}" data-option="${j}" aria-label="Remove question ${i+1} option ${j+1}"`, "quiet"):""}</div>`).join("")}${q.options.length<6?button("+ Add option", "add-quiz-choice", `data-question="${i}"`, "quiet"):""}</fieldset></details>`).join("")}`;
+  host.innerHTML = `<div class="quiz-count-row"><label>Number of questions<input id="quiz-count" type="number" min="1" max="${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.maxQuestions||1}" value="${questions.length}" aria-label="Number of quiz questions"></label>${button("Apply", "quiz-count", "", "quiet")}</div>${!state.quizSupported&&!state.formsSupported?'<p class="small muted">Update your organization server to create multiple-question quizzes.</p>':""}<p class="small muted">Click the circle beside the correct answer. One point per question. Editing choices clears that question’s key.</p>${questions.map((q,i)=>`<details class="question-editor" data-question-editor="${i}" ${q.open===false?"":"open"}><summary>Question ${i+1}</summary><label>Question text<textarea data-question-prompt rows="2" maxlength="1000">${escape(q.prompt)}</textarea></label><fieldset class="answer-picker"><legend>Choices · select the correct answer</legend>${q.options.map((option,j)=>`<div class="quiz-option-row"><input type="radio" name="key-${i}" value="${j}" aria-label="Question ${i+1} correct answer ${j+1}" ${q.correct_index===j?"checked":""}><input data-question-option="${j}" maxlength="300" value="${escape(option)}" aria-label="Question ${i+1} option ${j+1}" placeholder="Option ${j+1}">${q.options.length>2?button("×", "remove-quiz-choice", `data-question="${i}" data-option="${j}" aria-label="Remove question ${i+1} option ${j+1}"`, "quiet"):""}</div>`).join("")}${q.options.length<6?button("+ Add option", "add-quiz-choice", `data-question="${i}"`, "quiet"):""}</fieldset></details>`).join("")}`;
 }
 function quizPreview(item) {
   const questions = item.questions || [{prompt:item.body,options:item.options,correct_index:item.correct_index}];
@@ -605,12 +614,12 @@ function renderAnnouncements() {
 function renderSettings() {
   $("#center").innerHTML =
     header("Settings", "Your account and workspace.") +
-    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the Android test app." : "Your account and subjects are managed by your organization’s Academy server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · " + escape(state.account.student_number) : ""}</p></div><form id="password" class="inline-form"><h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the Android test app." : "Your account and subjects are managed by your organization’s Academy server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · " + escape(state.account.student_number) : ""}</p></div><form id="password" class="inline-form">${button("Sign out all devices", "logout-all", "", "quiet")}<h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
 }
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in one workspace.") +
-    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. When creating a quiz, set the question count and select Apply, then enter each question and its choices. Click the circle beside each correct answer. Students confirm readiness, can minimize or expand their quiz, and receive correct answers / total questions after submission. In Students &amp; progress, open View work to rate submitted activities out of 100 and add feedback, then Export Excel for the current roster page. The Quiz scores sheet has dated quiz columns and numeric correct-answer counts; blank means not submitted. Dates are quiz creation dates in this PC’s time zone. Other sheets retain full assessment details. Minimize its activities and quizzes with the chevron beside the material title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, unpublish or delete an entry using the controls in its top bar.</p><h3>Delete a subject</h3><p>Select Edit beside the subject heading, choose Delete subject, then confirm. Instructors can delete their own subjects; administrators can delete any subject. The subject and its contents leave active workspaces while saved learner records are retained.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Select Generate QR code to display and save the subject QR. Students join using the Academy mobile scanner, Find a subject or a subject code. Both apps must use the same organization server; local workspaces do not sync. A code does not bypass sign-in or eligibility. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. This version is designed for links; upload and protected PDF viewing use the Android app.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes support 1–50 multiple-choice questions, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment supports generated QR images and pasted subject codes; this desktop has no camera scanner.</p></div>`;
+    `<div class="inline-form"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. When creating a quiz, set the question count and select Apply, then enter each question and its choices. Click the circle beside each correct answer. Students confirm readiness, can minimize or expand their quiz, and receive correct answers / total questions after submission. In Students &amp; progress, open View work to rate submitted activities out of 100 and add feedback, then Export Excel for the current roster page. The Quiz scores sheet has dated quiz columns and numeric correct-answer counts; blank means not submitted. Dates are quiz creation dates in this PC’s time zone. Other sheets retain full assessment details. Minimize its activities and quizzes with the chevron beside the material title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, unpublish or delete an entry using the controls in its top bar.</p><h3>Delete a subject</h3><p>Select Edit beside the subject heading, choose Delete subject, then confirm. Instructors can delete their own subjects; administrators can delete any subject. The subject and its contents leave active workspaces while saved learner records are retained.</p><h3>Learn and keep track</h3><p>Open a material link in your browser. Mark reading as done, answer a quiz or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Select Generate QR code to display and save the subject QR. Students join using the Academy mobile scanner, Find a subject or a subject code. Both apps must use the same organization server; local workspaces do not sync. A code does not bypass sign-in or eligibility. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. Protected PDFs can be uploaded when server storage is enabled and read in the Academy page viewer. Student save/export actions are disabled.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh before opening an old link.</p><h3>Desktop release candidate limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Quizzes support 1–50 multiple-choice questions, written work accepts text, and tasks do not have scheduled deadlines. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment supports generated QR images and pasted subject codes; this desktop has no camera scanner.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -802,6 +811,12 @@ document.addEventListener("click", (event) => {
       ].includes(action)
     )
       return navigate(action, id);
+    if (action === "logout-all") {
+      if(!(await leaveDraft()))return;
+      await post("/v1/auth/logout-all",{});
+      state.account=null;state.items=[];state.subjects=[];state.active=null;resumeWorkspace=null;
+      await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
+    }
     if (action === "logout") {
       if (!(await leaveDraft())) return;
       await desktopApi.logout();
@@ -835,6 +850,27 @@ document.addEventListener("click", (event) => {
     if (action === "remove-link") {
       target.closest(".link-field").remove();
       state.dirty = true;
+    }
+    if (action === "upload-pdf") {
+      const item=state.items.find(item=>item.id===target.dataset.id);
+      if(!item)throw new Error("Sync before uploading.");
+      const result=await desktopApi.uploadMaterial(item.id,item.edit_version);
+      if(!result.canceled){await reloadActive();toast("PDF uploaded. Review it before publishing.");}
+    }
+    if (action === "read-pdf") {
+      const item=state.items.find(item=>item.id===target.dataset.id);
+      if(!item)throw new Error("Sync before opening this material.");
+      await window.academyReader.open(item.id,item.revision);
+    }
+    if (action === "sync") {
+      if(state.dirty){toast("Finish or save your draft before syncing.");return;}
+      const position=capturePosition(),id=state.active?.id;
+      const receipt=await desktopApi.sync();state.account=receipt.account;
+      await refreshData();
+      if(id&&state.subjects.some(subject=>subject.id===id))await loadSubject(id);
+      else{state.active=null;state.items=[];state.summary=null;}
+      await navigate(state.view,id);restorePosition(position);
+      toast(state.mode==="local"?"Local test data refreshed. Organization sharing uses the server workspace.":"Synced · materials, results and progress refreshed.");
     }
     if (action === "refresh") {
       if (!(await leaveDraft())) return;
@@ -931,7 +967,7 @@ document.addEventListener("click", (event) => {
       const questions = state.compose.questions;
       if (action === "quiz-count") {
         const count = Number($("#quiz-count").value);
-        if (!Number.isInteger(count) || count<1 || count>(state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1)) throw new Error(`Enter 1–${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.quizSupported?50:1} questions.`);
+        if (!Number.isInteger(count) || count<1 || count>(state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.maxQuestions||1)) throw new Error(`Enter 1–${state.compose?.kind!=="quiz"&&state.compose?.responseMode==="choice"?20:state.maxQuestions||1} questions.`);
         if (count<questions.length && questions.slice(count).some(q=>q.prompt.trim()||q.options.some(o=>o.trim())) && !(await confirmAction("Remove questions?", "Questions beyond the new count and their answer choices will be discarded.", "Remove questions"))) return;
         state.compose.questions = Array.from({length:count},(_,i)=>questions[i]||blankQuestion());
       } else {
@@ -1076,7 +1112,7 @@ document.addEventListener("submit", (event) => {
       } else {
         payload.kind = kind;
         if (state.compose.parentId) payload.parent_id = state.compose.parentId;
-        if (kind === "material") payload.material_mode = "text";
+        if (kind === "material") {payload.material_mode = d.format||"text";if(payload.material_mode==="file")payload.published=false;}
         if (kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) {
           if (Number($("#quiz-count").value)!==state.compose.questions.length) throw new Error("Apply the question count before saving.");
           captureQuizDraft();
@@ -1085,7 +1121,7 @@ document.addEventListener("submit", (event) => {
             if (!Number.isInteger(q.correct_index) || q.correct_index<0 || q.correct_index>=q.options.length) throw new Error(`Select the correct answer for question ${i+1}.`);
             return {prompt:q.prompt.trim(),options:q.options.map(o=>o.trim()),correct_index:q.correct_index};
           });
-          if (state.quizSupported) payload.questions=questions;
+          if (state.quizSupported||state.formsSupported) payload.questions=questions;
           else {payload.options=questions[0].options;payload.correct_index=questions[0].correct_index;payload.body=questions[0].prompt;}
 
         }

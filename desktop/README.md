@@ -1,3 +1,11 @@
+# Academy PC 0.8.0 development candidate
+
+Use Organization server mode with the same HTTPS Academy API configured in the APK and Streamlit portal. Sync reloads shared materials, progress and results; local test data remains on this PC. Protected PDFs are read in a canvas page viewer without file export controls. Instructors can choose PDF upload when the organization backend has private storage enabled, save the draft, upload and review it, then publish.
+
+See ../docs/SHARED_ACCESS_SYNC.md for compatibility, download limits, global sign-out and migration/rollback. Existing PC databases are backed up consistently before schema 11; never copy a PC database to the main organization API. Close and restore the complete matching backup/backend before downgrading. Tokens stay in the main process in memory; no organization password/token is saved to disk.
+
+Development: Node 24, `npm ci --prefix desktop`, `npm test --prefix server`, `npm test --prefix desktop`, `npm run test:ui --prefix desktop`, `npm run package:win --prefix desktop`. Postinstall prepares pinned PDF.js vendor assets; regenerate them with `node desktop/tools/prepare-pdf.mjs`, never edit copied files. Source builds and native Windows CI are separate from real organization/Drive/accessibility testing. Prior usage details follow.
+
 # Aeronautical Open Academy for PC — 0.7.0-rc.1
 
 ## Mobile feature adaptation (0.7)

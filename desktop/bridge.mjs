@@ -1,4 +1,6 @@
-import { randomUUID, randomBytes } from "node:crypto";
+import { responseBytes } from './transport.mjs';
+import { LocalMaterials } from '../server/src/materials.mjs';
+import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -12,15 +14,16 @@ import { enrollmentQr } from "./enrollment.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
-export async function startLocal(directory, {legacyFixture=false}={}) {
+export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.7.sqlite");
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.8.sqlite");
   if(existsSync(database)&&!existsSync(snapshot)){
     const previous=new DatabaseSync(database,{readOnly:true});
-    try{if(previous.prepare('PRAGMA user_version').get().user_version<10)await backup(previous,snapshot);}finally{previous.close();}
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<11)await backup(previous,snapshot);}finally{previous.close();}
   }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),
+    materials: materialsForTests ? new LocalMaterials(join(directory,"files")) : undefined,
   });
   // Seed only a completely empty LOCAL demonstration database; never touch a remote service.
   if (!academy.db.prepare("SELECT id FROM accounts LIMIT 1").get()) {
@@ -185,6 +188,7 @@ export class AcademyBridge {
   }
   async fetch(path, options = {}, binary = false) {
     const method = validateRequest(path, options);
+    const identity = this.origin + "|" + this.token;
     const headers = {"X-Academy-Features":"choice-forms-v1"};
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (this.mode === "local")
@@ -207,20 +211,23 @@ export class AcademyBridge {
         "Cannot reach the learning service. Your unsaved text is still here. Try again.",
       );
     }
+    if(identity!==this.origin+"|"+this.token){const error=new Error("The session changed. Sign in again.");error.status=401;throw error;}
     if (response.status === 401) {
       this.token = "";
       this.account = null;
     }
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = JSON.parse((await responseBytes(response,65536)).toString("utf8"));
       const err = new Error(
         error.error || error.message || `Request failed (${response.status}).`,
       );
       err.status = response.status;
       throw err;
     }
-    if (binary) return Buffer.from(await response.arrayBuffer());
-    return response.json();
+    const bytes=await responseBytes(response,binary?50*1024*1024:2*1024*1024);
+    if(identity!==this.origin+"|"+this.token){const error=new Error("The session changed. Sign in again.");error.status=401;throw error;}
+    if(binary){const digest=response.headers.get("X-Content-SHA256");if(path.endsWith("/content")&&(!digest||createHash("sha256").update(bytes).digest("hex")!==digest||bytes.subarray(0,5).toString()!=="%PDF-"||!bytes.subarray(-1024).includes(Buffer.from("%%EOF"))))throw new Error("Material integrity check failed.");return bytes;}
+    return JSON.parse(bytes.toString("utf8"));
   }
   async login({ mode = "local", origin, username, password }) {
     if (!["local", "organization"].includes(mode))
@@ -260,12 +267,44 @@ export class AcademyBridge {
     )
       throw new Error("Use the dedicated sign-in or export action.");
     const result = await this.fetch(path, options);
-    if (path === "/v1/auth/password") {
+    if (["/v1/auth/password","/v1/auth/logout-all"].includes(path)) {
       this.token = "";
       this.account = null;
     }
     if (Array.isArray(result.items))
       result.items = result.items.map((item) => ({ ...item, material: materialPresentation(item) }));
+    return result;
+  }
+  // Sync — No local-demo uploads; all shared edits/results already save through the API.
+  async sync() {
+    const me=await this.request('/v1/me');
+    if(me.capabilities?.sync!=='refresh-v1')throw new Error('Update the Academy backend to enable sync.');
+    const receipt=await this.request('/v1/sync');
+    this.account=receipt.account;
+    return {...receipt,mode:this.mode,capabilities:me.capabilities};
+  }
+  async readMaterial(id, revision) {
+    if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('Choose a material.');
+    const {item}=await this.request(`/v1/items/${id}`);
+    if(item.kind!=='material'||!item.has_file||item.revision!==revision)throw new Error('Material changed. Sync before reading.');
+    const bytes=await this.fetch(`/v1/items/${id}/content`,{},true);
+    const current=await this.request(`/v1/items/${id}`);
+    if(current.item.revision!==revision)throw new Error('Material changed. Sync before reading.');
+    return {data:bytes.toString('base64'),title:item.title,revision};
+  }
+  async uploadMaterial(id, version, bytes) {
+    if(!/^[a-f0-9-]{36}$/.test(id)||!Number.isInteger(version)||!Buffer.isBuffer(bytes)||bytes.length>50*1024*1024||bytes.subarray(0,5).toString()!=='%PDF-'||!bytes.subarray(-1024).includes(Buffer.from('%%EOF')))
+      throw new Error('Choose a complete PDF up to 50 MiB.');
+    const {item}=await this.request(`/v1/items/${id}`);
+    if(item.material_mode!=='file'||item.edit_version!==version)throw new Error('Material changed. Sync before uploading.');
+    const identity=this.origin+'|'+this.token;
+    const response=await this.fetcher(this.origin+`/v1/items/${id}/file`,{
+      method:'POST',redirect:'error',signal:AbortSignal.timeout(150000),body:bytes,
+      headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/pdf','X-Item-Version':String(version),
+        ...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})}});
+    if(identity!==this.origin+'|'+this.token)throw new Error('The session changed during upload.');
+    const result=JSON.parse((await responseBytes(response,65536)).toString('utf8'));
+    if(!response.ok){const error=new Error(result.error||'Upload failed.');error.status=response.status;if(response.status===401){this.token='';this.account=null;}throw error;}
     return result;
   }
   inspectLink(raw) {

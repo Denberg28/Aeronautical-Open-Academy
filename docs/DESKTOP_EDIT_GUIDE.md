@@ -9,3 +9,13 @@
 | Change conservative template upgrade | desktop/template.mjs and desktop/bridge.mjs | installPracticeTemplate / startLocal | Exact factory fingerprint, transaction, marker and consistent pre-upgrade snapshot | Upgrade, edited work, archive/idempotence tests |
 | Change selection scoring and limits | server/src/server.mjs and server/src/quizzes.mjs | answers route / validateQuestions / gradeAnswers | Server-authoritative correct/total and normalized activity score; current revision and idempotency | Permissions/key/retry/grade protection tests |
 | Change question authoring | desktop/ui/app.js | renderComposer / renderQuizBuilder / response-mode | Existing quiz editor reused for selection activities/exams; written mode preserved | Native authoring and legacy grading tests |
+
+## Shared access and PDF reader
+
+| Desired result | File | Symbol/section | Edit and check |
+| --- | --- | --- | --- |
+| Change sync and capability routing | desktop/bridge.mjs; desktop/ui/app.js | sync / refreshData / loadSubject | Same API origin/account; do not import local DBs; shared integration test |
+| Change reader limits/actions | desktop/ui/reader.js | open / page / close | 2000 pages, max 1400×2000 canvas; no export toolbar; native reader test |
+| Change response bounds | desktop/transport.mjs | responseBytes | 2 MiB JSON, 50 MiB PDF at caller; size/stale-session tests |
+| Change authentication budgets | server/src/server.mjs | throttle | 10/account, 100/peer per 15 minutes, hashed durable state; reopen test |
+| Refresh PDF.js | desktop/package.json; desktop/tools/prepare-pdf.mjs | pinned dependency / asset copy | Regenerate via npm, retain upstream LICENSE; audit/package/reader gates |
