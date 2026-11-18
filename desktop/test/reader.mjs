@@ -25,8 +25,19 @@ try{
  const page=await application.firstWindow();page.setDefaultTimeout(20000);
  const login=async role=>{await page.locator(`[data-demo="${role}"]`).click();await page.locator('#login-form button[type=submit]').click();await page.waitForSelector('#app:not([hidden]) .center');await page.waitForFunction(()=>!document.body.classList.contains('working'));};
  await login('instructor');
+ // Expiry locks the editor; signing back into the same authorized account restores it.
+ await page.locator('[data-action="add"][data-parent=""]').first().click();
+ await page.locator('#composer textarea[name=text]').fill('Recoverable instructor draft\nSynthetic text.');
+ const database=join(directory,'local-test-workspace','academy.sqlite');
+ const expire=new DatabaseSync(database);expire.prepare('DELETE FROM sessions').run();expire.close();
+ await page.evaluate(()=>act(()=>desktopApi.request('/v1/me')));
+ assert.equal(await page.locator('#app').isVisible(),false);
+ await login('instructor');
+ assert.match(await page.locator('#composer textarea[name=text]').inputValue(),/Recoverable instructor draft/);
+ await page.locator('#composer button[type=submit]').click();
+ await page.waitForSelector('#composer',{state:'detached'});
  const {id}=await page.evaluate(async()=>{const list=await window.academy.request('/v1/subjects');return window.academy.request(`/v1/subjects/${list.value.subjects[0].id}/items`,{method:'POST',body:{kind:'material',material_mode:'file',title:'Private PDF fixture',body:'Read inside Academy.',published:true}}).then(result=>result.value);});
- const database=join(directory,'local-test-workspace','academy.sqlite'),file=randomUUID(),bytes=fixturePdf();
+ const file=randomUUID(),bytes=fixturePdf();
  await mkdir(join(directory,'local-test-workspace','files'),{recursive:true});await writeFile(join(directory,'local-test-workspace','files',file+'.pdf'),bytes);
  const db=new DatabaseSync(database);db.prepare('UPDATE items SET file_ref=?,file_sha256=?,file_bytes=? WHERE id=?').run(file,createHash('sha256').update(bytes).digest('hex'),bytes.length,id);db.close();
  await page.locator('[data-action=logout]').click();await login('student');
@@ -49,5 +60,5 @@ try{
  const revoke=new DatabaseSync(database);revoke.prepare("UPDATE accounts SET status='suspended' WHERE role='student'").run();revoke.close();
  await page.locator('.pdf-reader [data-next]').click();await page.locator('#signin').waitFor({state:'visible'});
  assert.equal(await page.locator('.pdf-reader canvas').count(),0);
- console.log('PASS: native private PDF pages, no export controls, page-turn revocation');
+ console.log('PASS: locked draft recovery, private PDF pages, cancellation and page-turn revocation');
 }finally{await application?.close();await rm(directory,{recursive:true,force:true});}

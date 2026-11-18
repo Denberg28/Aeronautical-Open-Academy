@@ -96,8 +96,10 @@ async function act(fn) {
     if (error.status === 401) {
       if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
-      state.items=[];state.subjects=[];state.active=null;
-      await window.academyReader.close();$("#app").replaceChildren();
+      await window.academyReader.close();
+      // Recovery — Lock a dirty form behind sign-in; discard other private views.
+      // Resume below rechecks subject access before revealing the retained editor.
+      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;$("#app").replaceChildren();}
       showLogin();
     }
   } finally {
@@ -736,7 +738,11 @@ $("#login-form").addEventListener("submit", (e) => {
       const session = await desktopApi.login(
         Object.fromEntries(new FormData(form)),
       );
-      const resume = resumeWorkspace && resumeWorkspace.id === session.account.id && resumeWorkspace.role === session.account.role && resumeWorkspace.mode === session.mode && resumeWorkspace.origin === session.origin && !session.account.must_change_password;
+      let resume = resumeWorkspace && resumeWorkspace.id === session.account.id && resumeWorkspace.role === session.account.role && resumeWorkspace.mode === session.mode && resumeWorkspace.origin === session.origin && !session.account.must_change_password;
+      if (resume && state.active) {
+        try {await desktopApi.request(`/v1/subjects/${state.active.id}`);}
+        catch (error) {if (![403,404].includes(error.status)) throw error; resume=false;}
+      }
       state.account = session.account;
       state.version = session.version;
       state.mode = session.mode;
