@@ -11,7 +11,7 @@ export function openDatabase(path){
   const db=new DatabaseSync(path);
   try{
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>7){throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>8){throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   db.exec('BEGIN IMMEDIATE;');
   // Storage — All version migrations commit together; failures roll back before serving requests.
@@ -79,6 +79,11 @@ export function openDatabase(path){
   }
   // Storage — v7 adds optional choice questions; prior records remain unchanged.
   if(version<7)db.exec('ALTER TABLE items ADD COLUMN questions_json TEXT; PRAGMA user_version=7;');
+  // Scheduling — Nullable dates preserve existing immediate publication and all learning revisions.
+  if(version<8)db.exec(`ALTER TABLE items ADD COLUMN publish_at INTEGER;
+    ALTER TABLE items ADD COLUMN due_at INTEGER;
+    CREATE INDEX items_release ON items(subject_id,archived,published,publish_at);
+    PRAGMA user_version=8;`);
   if(db.prepare('PRAGMA quick_check').all().some(row=>row.quick_check!=='ok')||db.prepare('PRAGMA foreign_key_check').all().length)
     throw new Error('Database integrity check failed. Restore a verified backup before starting the service.');
   db.exec('COMMIT; PRAGMA busy_timeout=5000;');

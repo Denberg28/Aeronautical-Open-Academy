@@ -42,3 +42,5 @@ Edit authored sources by stable symbols, then run affected checks. Keep settings
 | Change paragraph gaps and emphasis | app/src/main/java/org/aeronautical/openacademy/ReadingText.java and app/src/main/res/values/dimens.xml | ParagraphGap / PREFIX / academy_paragraph_gap | 12 dp after a paragraph, beyond normal wrapped-line spacing; skip extra gap before existing blank lines; preserve original text/spans | TypographyLayoutTest and reader screenshot |
 | Change fixed subject context | app/src/main/java/org/aeronautical/openacademy/SubjectHeader.java | bind / title / progress | Mounted above scroll; title up to 3 lines portrait, 1 landscape; full title/description via information action; student progress only | Compare title/bar bounds after scrolling; large-font/landscape phone checks |
 | Change screen spacing | app/src/main/res/values/dimens.xml | academy_screen_inset / academy_content_gap / academy_card_padding | 20 dp horizontal viewport, 16 dp content gap, 18 dp inside cards | Screenshot review; keep layout touch targets at least 48 dp |
+
+Scheduling controls, UTC/PHT conversion, access timing and deadline reporting: see [SCHEDULING.md](SCHEDULING.md).

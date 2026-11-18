@@ -1,8 +1,7 @@
-# 0.12.0-alpha.1 — shared sync and protected reading
+# 0.13.0-alpha.1 — scheduled publishing and completion dates
 
-Streamlit sessions are bound to their issuing API origin. Retained editor versions reject stale saves; changed assessments require review, and reading actions preserve the displayed intent. Deploy the matching API advertising `revision_writes` before the portal. Optional revision fields preserve older clients without a database migration.
+Instructors can set Draft / Publish now / Scheduled and an optional completion due date for every material, quiz, activity and examination. Android entry menu and Streamlit expose Publishing and due date. Pickers and captions use Philippine time (Asia/Manila); the server owns release time and hidden-entry authorization. Create a draft first when scheduling later.
 
+Students see due dates and overdue/late labels. Late work remains accepted without automatic grade penalties. Date edits preserve grades and content revisions; stale edits are rejected. Excel learner reports include due dates and deadline status. Deploy the matching schema-8 API first with a consistent tested backup. No live database or signing identity changed here. See SCHEDULING.md for procedures, compatibility and rollback.
 
-Add Sync in the APK header and web portal, shared authenticated sync receipts, and Sign out all devices. The service rejects student protected-file download requests even for legacy offline grants. The Streamlit reader displays authorized PNG pages instead of delivering the original PDF to its browser viewer. Existing IDs, grades, progress, account credentials, schema 7 and signing identity are preserved.
-
-Use the same updated HTTPS Academy API for APK, Windows organization mode and Streamlit. Local test workspaces remain separate and are never silently imported. See [shared access/sync contract](SHARED_ACCESS_SYNC.md) for compatibility, error/recovery behavior, verification and copy-prevention limits. Current CI gates control development-candidate delivery; actual production login/Drive, physical devices and signed upgrades remain unverified. No live service or database was modified here.
+Development test release. Automated build/regression/emulator evidence is tied to the exact release commit. Physical-phone date pickers, accessibility/rotation, live hosting/clock synchronization and production backup/restore remain NOT TESTED. Public bundled practice samples remain independent from organization scheduling.

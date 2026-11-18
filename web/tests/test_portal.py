@@ -115,6 +115,36 @@ class PortalTests(unittest.TestCase):
     def button(self, app, label):
         return next(button for button in app.button if button.label == label)
 
+    def test_instructor_schedules_quiz_and_student_sees_advisory_deadline(self):
+        from datetime import date, time, datetime
+        from zoneinfo import ZoneInfo
+        _, author = self.account("instructor")
+        learner, student = self.account("student")
+        sid = author.post("/v1/subjects", {"title": "Scheduled class", "description": "Synthetic"})["id"]
+        self.admin.post("/v1/admin/enrolments", {"subject_id": sid, "student_id": learner["id"]})
+        iid = author.post(f"/v1/subjects/{sid}/items", {"kind": "quiz", "title": "Scheduled quiz", "body": "Choose A", "options": ["A", "B"], "correct_index": 0})["id"]
+        app = self.app(author)
+        next(b for b in app.button if b.label.startswith("Take quiz · Scheduled quiz")).click().run()
+        next(s for s in app.selectbox if s.label == "Publication").select("Scheduled")
+        next(d for d in app.date_input if d.label == "Publish date").set_value(date(2030, 1, 1))
+        next(t for t in app.time_input if t.label == "Publish time").set_value(time(9, 0))
+        next(c for c in app.checkbox if c.label == "Set completion due date").check()
+        next(d for d in app.date_input if d.label == "Due date").set_value(date(2030, 1, 2))
+        next(t for t in app.time_input if t.label == "Due time").set_value(time(23, 59))
+        self.assertEqual(next(s for s in app.selectbox if s.label == "Publication").value,"Scheduled")
+        self.button(app, "Save schedule").click().run()
+        self.assertFalse(app.error, [e.value for e in app.error])
+        self.assertFalse(app.exception)
+        current = author.get(f"/v1/items/{iid}")["item"]
+        self.assertEqual(current["publish_at"], int(datetime(2030, 1, 1, 9, tzinfo=ZoneInfo("Asia/Manila")).timestamp()*1000))
+        self.assertEqual(current["publication_state"], "scheduled")
+        self.assertEqual(student.get(f"/v1/subjects/{sid}")["items"], [])
+        author.post(f"/v1/items/{iid}/schedule", {"expected_edit_version": current["edit_version"], "published": True, "publish_at": None, "due_at": 1700000000000})
+        app = self.app(student)
+        self.assertTrue(any("overdue" in w.value for w in app.warning))
+        self.assertTrue(any("Overdue" in c.value for c in app.caption))
+        self.assertFalse(any(b.label == "Save schedule" for b in app.button))
+
     def test_configuration_and_login_logout(self):
         with patch.dict(os.environ, {"ACADEMY_API_URL": ""}):
             app = self.app()
