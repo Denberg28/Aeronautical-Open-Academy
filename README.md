@@ -99,3 +99,5 @@ This is a focused learning workflow inspired by common open-university LMS patte
 ## Windows PC 0.7 feature adaptation
 
 The PC branch now adapts the newer mobile Read/Take assessment flow, the complete AE 101 template, fixed subject/progress context and paragraph typography. See [PC README](desktop/README.md), [PC release notes](docs/DESKTOP_RELEASE_NOTES.md) and [verification](docs/DESKTOP_TESTING.md). This branch preserves the existing Windows editor/grouping/report features; it does not replace the current Android main branch. Database lineages and local test storage remain independent.
+
+Scheduled publication and completion dates: see [Scheduling](docs/SCHEDULING.md). Instructor controls use Philippine time; late work is accepted and marked late.

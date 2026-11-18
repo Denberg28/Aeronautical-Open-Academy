@@ -9,7 +9,7 @@ export function openDatabase(path){
   }
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>11){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>12){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   if(version>=6&&!db.prepare('PRAGMA table_info(items)').all().some(column=>column.name==='parent_id')){db.close();throw new Error('This is not a PC backend database. Use its matching server and a validated migration.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
@@ -153,6 +153,11 @@ export function openDatabase(path){
     CREATE INDEX security_limits_expiry ON security_limits(expires_at);
     CREATE INDEX sessions_expiry ON sessions(expires_at);
     PRAGMA user_version=11; COMMIT;`);
+  // Scheduling — Nullable dates preserve existing immediate publication and all learning revisions.
+  if(version<12){try{db.exec(`BEGIN IMMEDIATE; ALTER TABLE items ADD COLUMN publish_at INTEGER;
+    ALTER TABLE items ADD COLUMN due_at INTEGER;
+    CREATE INDEX items_release ON items(subject_id,archived,published,publish_at);
+    PRAGMA user_version=12; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
   if(db.prepare('PRAGMA quick_check').all().some(row=>row.quick_check!=='ok')||db.prepare('PRAGMA foreign_key_check').all().length){db.close();throw new Error('Database integrity check failed. Restore a verified backup.');}
   db.exec('PRAGMA busy_timeout=5000;');
 

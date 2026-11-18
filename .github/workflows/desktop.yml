@@ -26,7 +26,7 @@ jobs:
       - run: npm test --prefix server
       - uses: actions/checkout@v4
         with:
-          ref: e3d272485c26ddfe95ded508eb5e8ce967adfcfa
+          ref: 6ba4d72c84f1a5742e1076405825ced0e8b3700e
           path: shared-api
       - run: npm test --prefix desktop
         env:
@@ -58,7 +58,7 @@ jobs:
         run: |
           $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
           $channel = if ($version -match '-') { 'prerelease' } else { 'stable' }
-          $evidence = @{shared_api_commit='e3d272485c26ddfe95ded508eb5e8ce967adfcfa'; commit=$env:GITHUB_SHA; version=$version; windows_runner='windows-2025'; desktop_tests='PASS'; native_ui_workflows='PASS'; packaged_startup_ipc='PASS'; package_integrity='PASS'; backend_regression='PASS'; dependency_audit='PASS'; real_provider_sign_in='NOT TESTED'; physical_windows_accessibility='NOT TESTED'; github_release_channel=$channel; physical_acceptance='NOT TESTED'; production_readiness='NOT CLAIMED'; tier='Windows desktop build'}
+          $evidence = @{shared_api_commit='6ba4d72c84f1a5742e1076405825ced0e8b3700e'; commit=$env:GITHUB_SHA; version=$version; windows_runner='windows-2025'; desktop_tests='PASS'; native_ui_workflows='PASS'; packaged_startup_ipc='PASS'; package_integrity='PASS'; backend_regression='PASS'; dependency_audit='PASS'; real_provider_sign_in='NOT TESTED'; physical_windows_accessibility='NOT TESTED'; github_release_channel=$channel; physical_acceptance='NOT TESTED'; production_readiness='NOT CLAIMED'; tier='Windows desktop build'}
           $evidence | ConvertTo-Json | Set-Content out/windows-verification.json
           Compress-Archive -Path "out/Academy-PC-$version-win32-x64",out/windows-verification.json -DestinationPath "out/Aeronautical-Open-Academy-PC-v$version-Windows-x64.zip"
           Get-ChildItem out/*.zip | Get-FileHash -Algorithm SHA256 | Format-List | Out-File out/SHA256SUMS.txt
@@ -138,5 +138,5 @@ jobs:
         run: |
           test -n "$RELEASE_TAG"
           git archive --format=zip --output="out/verified/Academy-PC-$RELEASE_TAG-source.zip" "$GITHUB_SHA"
-          sha256sum out/verified/*.zip > out/verified/SHA256SUMS.txt
+          (cd out/verified && sha256sum *.zip > SHA256SUMS.txt)
           gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Academy PC $RELEASE_TAG — shared access and protected reading" --notes-file docs/DESKTOP_RELEASE_NOTES.md

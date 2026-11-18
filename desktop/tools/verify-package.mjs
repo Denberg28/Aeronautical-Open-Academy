@@ -18,6 +18,7 @@ for (const file of [
   "resources/app/desktop/bridge.mjs",
   "resources/app/desktop/transport.mjs",
   "resources/app/desktop/ui/reader.js",
+  "resources/app/desktop/ui/schedule.js",
   "resources/app/desktop/vendor/pdfjs/pdf.mjs",
   "resources/app/desktop/vendor/pdfjs/pdf.worker.mjs",
   "resources/app/desktop/vendor/pdfjs/LICENSE",
