@@ -4,6 +4,9 @@ No confirmed critical/high defect remains in the current self-review/host tests.
 
 | Severity | Issue | Consequence / next action |
 | --- | --- | --- |
+| COMPATIBILITY | Updated student portal requires the backend `revision_writes` capability | Deploy matching API code before the portal; no schema change. Older Android clients remain supported |
+| LIMITATION | Online sync covers shared API accounts; local practice/Windows workspaces are independent | No offline submission queue or desktop database migration is introduced; see STREAMLIT.md |
+| LIMITATION | New-subject/material creation and password/upload forms batch unsent fields | Sync/navigation before submission can discard those fields; existing subject/material editors preserve drafts |
 | BLOCKER | Streamlit portal requires an authenticated Cloud deployment and a persistent HTTPS Academy API origin | Source/configuration ready; Streamlit dashboard is signed out and no live API host or Drive setup is available. See STREAMLIT.md |
 | UNVERIFIED | Streamlit mobile/desktop rendering, PDF file picker and real Drive upload | AppTest/loopback integration is automated; actual browser/device and deployment acceptance remains pending |
 | BLOCKER | Account backend is not deployed to a public HTTPS origin | Organization accounts need a configured service; local test accounts in the test APK work without it |

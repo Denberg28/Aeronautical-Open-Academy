@@ -2,6 +2,9 @@
 
 | Desired result | File | Section/symbol/property | Edit and units/scope | Related settings and check |
 | --- | --- | --- | --- | --- |
+| Change online sync and draft reload | `web/portal.py` | `workspace` / `subject_controls` / `edit_material` / `assessment` | Explicit read refresh; one displayed edit snapshot per kind; revision-specific assessment inputs | Multi-session AppTest; stale saves must never overwrite newer work |
+| Change API session binding | `web/portal.py` | `sign_in` / `main` / `session_origin` | Exact configured issuer origin; clear token and drafts before switching | Changed/unbound origin test must make zero authenticated requests |
+| Change legacy revision compatibility | `server/src/server.mjs` | `currentRevision` / `/v1/me` `revision_writes` | Optional for older clients; supplied revision must equal current integer revision | HTTP stale/malformed/replay tests and backend capability negotiation |
 | Change web colors | `.streamlit/config.toml` | `[theme]` | Hex colors; Streamlit portal | Contrast, keyboard focus and mobile browser |
 | Change web paragraph spacing and scroll area | `web/portal.py` | `STYLE` / `workspace` | CSS rem spacing; 480 px content region and 400 px PDF viewer | AppTest plus actual mobile scrolling/zoom |
 | Change web API destination | Private Streamlit Secrets | `ACADEMY_API_URL` | HTTPS origin only; operator setting | `/v1/me` capability and sign-in; never commit real secrets |

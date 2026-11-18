@@ -11,3 +11,7 @@ This application uses Android/AndroidX, WorkManager, and ZXing Embedded. Source 
 - ReportLab (authoring tool only; not an Android runtime dependency): https://hg.reportlab.com/hg-public/reportlab/file/default/LICENSE.txt.
 
 No organization Drive content is included. Bundled demonstration text is original content. The Gradle wrapper binary was retrieved from Gradle's v8.11.1 source tree and verified against the publisher's SHA-256 reference.
+
+## Web PDF rasterization
+
+pypdfium2 5.15.2 supplies server-side PDF page rasterization under Apache-2.0/BSD-3-Clause terms. PDFium and bundled dependencies carry their upstream notices in the installed distribution. Upstream: https://github.com/pypdfium2-team/pypdfium2 . Pinned package versions and portal source are included here.

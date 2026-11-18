@@ -40,7 +40,7 @@ public final class PdfActivity extends AppCompatActivity {
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,i)->{androidx.core.graphics.Insets b=i.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});
         ViewCompat.requestApplyInsets(root);
         TextView title=new TextView(this);title.setText(getIntent().getStringExtra("title"));AcademyTypography.style(title,20,true);title.setTextColor(0xff102640);title.setPadding(AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap),AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(title);
-        TextView hint=new TextView(this);hint.setText("Saved PDF · use page controls below. Rotate your phone for a wider view.");AcademyTypography.style(hint,14,false);hint.setPadding(AcademyTypography.inset(this),0,AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(hint);
+        TextView hint=new TextView(this);hint.setText("Use page controls below. Rotate your phone for a wider view.");AcademyTypography.style(hint,14,false);hint.setPadding(AcademyTypography.inset(this),0,AcademyTypography.inset(this),getResources().getDimensionPixelSize(R.dimen.academy_content_gap));root.addView(hint);
         Button external=new Button(this);external.setText("Open in another PDF reader");root.addView(external);
         external.setVisibility(allowExport?View.VISIBLE:View.GONE);
         external.setOnClickListener(v->{
@@ -83,7 +83,7 @@ public final class PdfActivity extends AppCompatActivity {
             }catch(Exception e){showError();}
         });
     }
-    private void showError(){runOnUiThread(()->{if(!closed){rendering=false;image.setImageDrawable(null);previous.setEnabled(false);next.setEnabled(false);status.setText("Cannot open this PDF. Return to the subject and download it again, or ask your instructor for an accessible copy.");}});}
+    private void showError(){runOnUiThread(()->{if(!closed){rendering=false;image.setImageDrawable(null);previous.setEnabled(false);next.setEnabled(false);status.setText("Cannot open this PDF. Return to the subject and open it again, or ask your instructor for an accessible copy.");}});}
     private File resolveFile()throws java.io.IOException{
         if(protectedPath==null)return ((AcademyApp)getApplication()).repository().file(key);
         File file=new File(protectedPath);String allowed=new File(getCacheDir(),"protected-pdf").getCanonicalPath()+File.separator;

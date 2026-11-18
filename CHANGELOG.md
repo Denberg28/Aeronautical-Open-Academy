@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0-alpha.1
+
+- Add explicit account-revalidated Sync and Sign out all devices across the shared API, APK and web client.
+- Deny student protected-file download grants, including legacy offline flags; display web PDFs as bounded page images without original-file export.
+- Pair Windows organization mode through the same contract; preserve separate desktop grouping/demo data and signing identities. See docs/SHARED_ACCESS_SYNC.md.
+
+- Bind Streamlit sessions to the issuing API origin; clear unbound/reconfigured sessions before requests.
+- Add explicit online sync, retained subject/material edit snapshots, reload controls, changed-assessment review and visible-intent reading actions across tabs.
+- Reject supplied stale revisions for reading, legacy quizzes and written submissions without changing SQLite schema or older Android clients. Require the advertised backend capability in the updated student portal.
+- Gate Android test publication and signed candidates on web regression tests. Live hosting, browser/device and signing acceptance remain separate gates.
+
+
 ## Unreleased — Streamlit materials portal
 
 - Add a Python 3.12 Streamlit client for shared Academy accounts, subjects, material drafts, private PDF uploads/replacements, publication, student reading/progress, enrollment eligibility and existing inline assessments.

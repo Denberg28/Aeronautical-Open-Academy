@@ -46,6 +46,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.19.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -58,6 +62,8 @@ jobs:
           python3 tools/project_checks.py
           python3 -m unittest discover -s tests -p 'test_*.py' -v
           npm test --prefix server
+          pip install -r requirements.txt
+          python -m unittest discover -s web/tests -p 'test_*.py' -v
           sh gradlew --no-daemon :app:coreChecks :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
       - name: Package and verify signed APK
         run: |

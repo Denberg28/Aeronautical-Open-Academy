@@ -30,6 +30,35 @@ test('passwords are salted and verified; ownership never follows a client role c
  assert.ok(canManage({id:'a',role:'instructor',status:'active'},'a'));assert.ok(!canManage({id:'b',role:'instructor',status:'active'},'a'));assert.ok(!canManage({id:'a',role:'admin',status:'suspended'},'a'));
 });
 
+test('revision-aware reading and legacy submissions reject stale work without side effects',async()=>{
+ const f=await fixture();try{
+  const author=await f.account('sync-author@example.test','instructor'),student=await f.account('sync-reader@example.test','student');
+  const sid=(await f.call('/v1/subjects',{method:'POST',token:author.token,body:{title:'Revision sync',description:'Synthetic course'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:sid,student_id:student.id}});
+  for(const [kind,route,answer,table] of [
+   ['material','complete',{completed:true},'progress'],
+   ['quiz','quiz',{choice:0},'attempts'],
+   ['activity','submission',{output:'Original written response'},'submissions'],
+  ]){
+   const body={kind,title:kind,body:'Original instructions',published:true,...(kind==='material'?{material_mode:'text'}:{}),...(kind==='quiz'?{options:['One','Two'],correct_index:0}:{})};
+   const iid=(await f.call(`/v1/subjects/${sid}/items`,{method:'POST',token:author.token,body})).body.id;
+   const item=(await f.call('/v1/items/'+iid,{token:student.token})).body.item;
+   assert.equal((await f.call('/v1/items/'+iid,{method:'POST',token:author.token,body:{body:'Updated instructions',expected_edit_version:item.edit_version}})).status,200);
+   const path=`/v1/items/${iid}/${route}`,key=randomUUID();
+   for(const expected_revision of [item.revision,null,'2',0]){
+    assert.equal((await f.call(path,{method:'POST',token:student.token,key,body:{...answer,expected_revision}})).status,409);
+    assert.equal(f.app.db.prepare(`SELECT count(*) n FROM ${table} WHERE item_id=?`).get(iid).n,0);
+   }
+   assert.equal((await f.call(path,{method:'POST',token:student.token,key,body:{...answer,expected_revision:item.revision+1}})).status,kind==='material'?200:201);
+   assert.equal((await f.call(path,{method:'POST',token:student.token,key,body:{...answer,expected_revision:item.revision+1}})).status,200);
+   assert.equal(f.app.db.prepare(`SELECT count(*) n FROM ${table} WHERE item_id=?`).get(iid).n,1);
+   // Existing clients may omit the optional revision; established compatibility tests
+   // still exercise fresh legacy writes. A replay here must remain compatible too.
+   assert.equal((await f.call(path,{method:'POST',token:student.token,key,body:answer})).status,200);
+  }
+ }finally{await f.close();}
+});
+
 test('registration is admin-only; temporary passwords and user-selected roles do not grant access',async()=>{
  const f=await fixture();try{
   assert.equal((await f.call('/v1/admin/accounts',{method:'POST',body:{role:'admin'}})).status,401);
@@ -389,7 +418,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{external_links:true,material_upload:false,choice_forms:true});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{sync:"refresh-v1",student_download:false,global_sign_out:true,external_links:true,material_upload:false,choice_forms:true,revision_writes:true});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
