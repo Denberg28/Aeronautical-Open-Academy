@@ -8,6 +8,7 @@ from uuid import uuid4
 import streamlit as st
 
 from web.api import AcademyAPI, ApiError, api_origin
+from web.reader import read_pdf
 
 
 # UI — Shared typography and spacing; values use CSS rem units.
@@ -54,6 +55,7 @@ def sign_in(api):
         result = api.post("/v1/auth/login", {"email": email, "password": password})
         st.session_state.clear()
         st.session_state["token"] = result["token"]
+        st.session_state["session_origin"] = api.origin
         st.rerun()
 
 
@@ -92,23 +94,41 @@ def administration(api):
 
 
 def subject_controls(api, subject):
+    # Sync — Keep the originally displayed edit versions until Save or explicit reload.
+    # Fresh authorization still runs on every interaction; drafts never override newer work.
+    current = {"subject": subject, "policy": api.get(f"/v1/subjects/{subject['id']}/eligibility")}
+    previous = st.session_state.get("subject_editor")
+    if not previous or previous["subject"]["id"] != subject["id"]:
+        st.session_state["subject_editor"] = current
+    snapshot = st.session_state["subject_editor"]
     with st.expander("Subject settings"):
-        snapshot = sha256((subject["title"] + "\0" + subject["description"]).encode()).hexdigest()[:16]
-        with st.form(f"subject_text_{subject['id']}_{snapshot}"):
-            title = st.text_input("Subject title", subject["title"], max_chars=160)
-            description = st.text_area("Description", subject["description"], max_chars=1000)
-            submit = st.form_submit_button("Save subject")
+        if (current["subject"]["title"], current["subject"]["description"], current["policy"]) != (
+                snapshot["subject"]["title"], snapshot["subject"]["description"], snapshot["policy"]):
+            st.warning("Subject settings changed elsewhere. Reload before saving.")
+        if st.button("Reload subject settings"):
+            st.session_state["subject_editor"] = current
+            st.session_state["subject_editor_generation"] = st.session_state.get("subject_editor_generation", 0) + 1
+            st.rerun()
+        subject = snapshot["subject"]
+        policy = snapshot["policy"]
+        text_hash = sha256((subject["title"] + "\0" + subject["description"]).encode()).hexdigest()[:16]
+        suffix = f"{subject['id']}_{text_hash}_{policy['revision']}_{st.session_state.get('subject_editor_generation', 0)}"
+        with st.container(key="subject_text_" + suffix):
+            title = st.text_input("Subject title", subject["title"], max_chars=160, key="subject_title_" + suffix)
+            description = st.text_area("Description", subject["description"], max_chars=1000, key="subject_description_" + suffix)
+            submit = st.button("Save subject")
         if submit:
             api.post("/v1/subjects/" + subject["id"], {
                 "title": title, "description": description,
                 "expected_title": subject["title"], "expected_description": subject["description"]})
+            st.session_state.pop("subject_editor", None)
             saved("Subject saved.")
-        policy = api.get(f"/v1/subjects/{subject['id']}/eligibility")
-        with st.form(f"eligibility_{subject['id']}_{policy['revision']}"):
-            all_students = st.checkbox("Allow all registered students", value=policy["all_students"])
+        with st.container(key="eligibility_" + suffix):
+            all_students = st.checkbox("Allow all registered students", value=policy["all_students"], key="all_students_" + suffix)
             numbers = st.text_area("Eligible student IDs", "\n".join(policy["student_numbers"]),
+                                   key="student_numbers_" + suffix,
                                    help="One ID per line. Leave empty and uncheck All to close enrollment.")
-            submit = st.form_submit_button("Save enrollment access")
+            submit = st.button("Save enrollment access")
         if submit:
             ids = [s.strip() for s in numbers.splitlines() if s.strip()]
             if all_students and ids:
@@ -117,6 +137,7 @@ def subject_controls(api, subject):
                 api.post(f"/v1/subjects/{subject['id']}/eligibility", {
                     "all_students": all_students, "student_numbers": ids,
                     "expected_revision": policy["revision"]})
+                st.session_state.pop("subject_editor", None)
                 saved("Enrollment access saved.")
 
 
@@ -144,18 +165,30 @@ def add_material(api, subject, uploads):
 
 
 def edit_material(api, item):
-    suffix = f"{item['id']}_{item['edit_version']}"
+    current = item
+    previous = st.session_state.get("material_editor")
+    if not previous or previous["id"] != item["id"]:
+        st.session_state["material_editor"] = item
+    item = st.session_state["material_editor"]
+    suffix = f"{item['id']}_{item['edit_version']}_{st.session_state.get('material_editor_generation', 0)}"
     with st.expander("Edit material"):
-        with st.form("edit_" + suffix):
-            title = st.text_input("Title", item["title"], max_chars=160)
-            body = st.text_area("Text or instructions", item["body"], max_chars=12000)
+        if current["edit_version"] != item["edit_version"]:
+            st.warning("This material changed elsewhere. Your draft is kept; reload to review the latest version.")
+        if st.button("Reload material"):
+            st.session_state["material_editor"] = current
+            st.session_state["material_editor_generation"] = st.session_state.get("material_editor_generation", 0) + 1
+            st.rerun()
+        with st.container(key="edit_" + suffix):
+            title = st.text_input("Title", item["title"], max_chars=160, key="material_title_" + suffix)
+            body = st.text_area("Text or instructions", item["body"], max_chars=12000, key="material_body_" + suffix)
             ready = item["material_mode"] == "text" or item["has_file"]
-            published = st.checkbox("Published", value=item["published"], disabled=not ready)
-            submit = st.form_submit_button("Save material")
+            published = st.checkbox("Published", value=item["published"], disabled=not ready, key="material_published_" + suffix)
+            submit = st.button("Save material")
         if submit:
             api.post("/v1/items/" + item["id"], {
                 "title": title, "body": body, "published": published,
                 "expected_edit_version": item["edit_version"]})
+            st.session_state.pop("material_editor", None)
             saved("Material saved.")
         if item["material_mode"] == "file":
             with st.form("upload_" + suffix):
@@ -167,6 +200,7 @@ def edit_material(api, item):
                 else:
                     api.post(f"/v1/items/{item['id']}/file", data=pdf.getvalue(),
                              version=item["edit_version"])
+                    st.session_state.pop("material_editor", None)
                     saved("PDF uploaded. Review it, then publish when ready.")
         with st.form("archive_" + suffix):
             confirm = st.checkbox("Archive this material")
@@ -175,6 +209,7 @@ def edit_material(api, item):
             api.post("/v1/items/" + item["id"], {
                 "archived": True, "expected_edit_version": item["edit_version"]})
             st.session_state.pop("item", None)
+            st.session_state.pop("material_editor", None)
             saved("Material archived.")
 
 
@@ -188,6 +223,11 @@ def reading_text(api, item):
             result = api.post(f"/v1/items/{item['id']}/open-link", {
                 "url": candidate, "expected_revision": item["revision"]})
             st.link_button("Continue to " + result["host"], result["url"])
+
+
+def remember_read(item_id, revision, completed):
+    # Capture the visible button's intent before Streamlit fetches newer progress.
+    st.session_state["reading_action"] = (item_id, revision, completed)
 
 
 def assessment(api, item, student):
@@ -204,10 +244,22 @@ def assessment(api, item, student):
         else:
             st.info("Submitted · awaiting assessment")
         return
+    # Assessment — A form belongs to the revision the learner actually opened.
+    # Sync may update results, but cannot silently reinterpret old answers as new work.
+    displayed = st.session_state.get("assessment_revision")
+    revision = (item["id"], item["revision"])
+    if not displayed or displayed[0] != item["id"]:
+        st.session_state["assessment_revision"] = revision
+    elif displayed != revision:
+        st.warning("This assessment changed. Review the updated questions before answering again.")
+        if st.button("Load updated assessment"):
+            st.session_state["assessment_revision"] = revision
+            st.rerun()
+        return
     identity = f"{item['id']}_{item['revision']}"
     # The key survives uncertain transport outcomes. The API rejects duplicate/changed work.
     request_key = st.session_state.setdefault("submit_" + identity, str(uuid4()))
-    with st.form("assessment_" + identity):
+    with st.container(key="assessment_" + identity):
         answers = []
         if item.get("questions"):
             for index, question in enumerate(item["questions"]):
@@ -217,10 +269,10 @@ def assessment(api, item, student):
                 answers.append(answer)
         elif item["kind"] == "quiz":
             answers = [st.radio("Choose an answer", range(len(item["options"])), index=None,
-                                format_func=lambda n: item["options"][n])]
+                                format_func=lambda n: item["options"][n], key="answer_" + identity)]
         else:
-            output = st.text_area("Your response", max_chars=12000, height=220)
-        submit = st.form_submit_button("Submit", type="primary")
+            output = st.text_area("Your response", max_chars=12000, height=220, key="response_" + identity)
+        submit = st.button("Submit", type="primary")
     if submit:
         if answers and any(answer is None for answer in answers):
             st.error("Answer every question before submitting.")
@@ -228,9 +280,9 @@ def assessment(api, item, student):
         if item.get("questions"):
             route, body = "answers", {"answers": answers, "expected_revision": item["revision"]}
         elif item["kind"] == "quiz":
-            route, body = "quiz", {"choice": answers[0]}
+            route, body = "quiz", {"choice": answers[0], "expected_revision": item["revision"]}
         else:
-            route, body = "submission", {"output": output}
+            route, body = "submission", {"output": output, "expected_revision": item["revision"]}
         api.post(f"/v1/items/{item['id']}/{route}", body, key=request_key)
         saved("Response submitted.")
 
@@ -238,6 +290,16 @@ def assessment(api, item, student):
 def workspace(api, me):
     account = me["account"]
     student = account["role"] == "student"
+    capabilities = me["capabilities"]
+    _, sync_column = st.columns([4, 1])
+    sync_requested = sync_column.button("Sync now", disabled=account["must_change_password"],
+                                        help="Refresh materials, results and progress from the Academy server.")
+    if sync_requested:
+        if capabilities.get("sync") != "refresh-v1":
+            raise ApiError("Update the Academy backend to enable sync.", 409)
+        receipt = api.get("/v1/sync")
+        if receipt["account"]["id"] != account["id"]:
+            reset_session("Sign in again to sync this account.")
     with st.sidebar:
         st.text(account["name"])
         st.caption(account["role"].title())
@@ -246,12 +308,18 @@ def workspace(api, me):
                 api.post("/v1/auth/logout")
             finally:
                 reset_session("Signed out.")
+        if capabilities.get("global_sign_out") and st.button("Sign out all devices"):
+            api.post("/v1/auth/logout-all")
+            reset_session("Signed out on all devices.")
         if not account["must_change_password"]:
             with st.expander("Change password"):
                 change_password(api)
     if account["must_change_password"]:
         st.info("Change your temporary password to continue.")
         change_password(api)
+        return
+    if student and not me["capabilities"].get("revision_writes", False):
+        st.error("Update the Academy server to enable synchronized reading and submissions.")
         return
     if account["role"] == "admin":
         administration(api)
@@ -311,6 +379,8 @@ def workspace(api, me):
                 if not student and not item["published"]:
                     state += " · Draft"
                 if st.button(f"{label} · {item['title']}{state}", key="open_" + item["id"], width="stretch"):
+                    for key in ("material_editor", "assessment_revision"):
+                        st.session_state.pop(key, None)
                     st.session_state["item"] = item["id"]
                     st.rerun()
         else:
@@ -325,18 +395,22 @@ def workspace(api, me):
             if item["kind"] == "material":
                 if item["material_mode"] == "file":
                     if item["has_file"]:
-                        st.pdf(api.content(item["id"]), height=400,
-                               key=f"pdf_{item['id']}_{item['revision']}", alt=item["title"])
+                        read_pdf(api, item)
                     else:
                         st.info("PDF upload pending.")
                 if student and (item["material_mode"] == "text" or item["has_file"]):
-                    if st.button("Mark unread" if item["completed"] else "Mark as read", key="complete_" + selected):
-                        api.post(f"/v1/items/{selected}/complete", {"completed": not item["completed"]})
+                    if st.button("Mark unread" if item["completed"] else "Mark as read", key="complete_" + selected,
+                                 on_click=remember_read, args=(selected, item["revision"], not item["completed"])):
+                        item_id, revision, completed = st.session_state.pop("reading_action")
+                        api.post(f"/v1/items/{item_id}/complete", {
+                            "completed": completed, "expected_revision": revision})
                         saved("Reading progress saved.")
                 if not student and (account["role"] == "admin" or item["owner_id"] == account["id"]):
                     edit_material(api, item)
             else:
                 assessment(api, item, student)
+    if sync_requested:
+        st.success("Synced · current materials, results and progress refreshed.")
 
 
 def main():
@@ -356,6 +430,10 @@ def main():
     except ValueError as error:
         st.error(str(error))
         return
+    # Session — Bind the opaque token to the trusted origin that issued it.
+    # Clear legacy/unbound sessions rather than forwarding credentials after reconfiguration.
+    if st.session_state.get("token") and st.session_state.get("session_origin") != origin:
+        reset_session("The Academy server changed. Sign in again.")
     api = AcademyAPI(origin, st.session_state.get("token"))
     try:
         if not api.token:

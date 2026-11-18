@@ -1,5 +1,13 @@
 # Verification — 0.5.0-alpha.1
 
+## Web session and sync safeguards — 18 November 2026 (Asia/Manila)
+
+Baseline `af0188a`; branch `fix/web-session-sync`, version 0.11.1-alpha.1. Python 3.12.14, Streamlit 1.67.0, Node 24.22.1. No schema or live service mutation. Local host evidence: 14 web tests, 41 Node tests, 12 catalog/release/template tests, 93 core checks, Java syntax for 29 files, project checks, candidate gate and diff checks PASS. Android build/lint/JVM/emulator checks are required in CI; physical browser/phone, deployed API/Drive and signed upgrade remain NOT TESTED here. Actuator HIL is N/A for education content.
+
+Web tests cover changed/unbound origins making zero credential-bearing requests, same-account progress across tabs, visible reading intention, stale reading rejection, retained material/subject drafts after sync and 409, explicit reload, updated assessment review, backend capability refusal, permission-controlled PDF download denial, and existing login/publishing/revocation/score/integrity flows. HTTP tests exercise stale/malformed revisions before any persisted progress/attempt/submission, successful current writes, duplicate-key replay and old-client omission. Android and signed candidate workflows run web tests before packaging/publication; the standalone web workflow still verifies the portal/API on relevant changes.
+
+Before institutional use, repeat those workflows in real desktop/mobile browsers against the updated persistent HTTPS API. Keep two sessions open, update a lesson/assessment in the other, and verify draft preservation, explicit reload, no silent overwrite, correct completion and no duplicate final work. Change the operator API origin and verify sign-in is required with no prior credential sent to the new origin. Verify intended Android accounts see the same online progress, while synthetic local accounts remain separate. Check keyboard/focus, long-form input, PDF rendering and interrupted requests. Windows local databases remain on their independent desktop branch; no cross-lineage migration/sync is established by these tests.
+
 ## Streamlit web addition — 18 November 2026 (Asia/Manila)
 
 Baseline `655847a`; branch `feat/streamlit-materials`; final implementation source is the PR commit. Local environment Python 3.12.14, Streamlit 1.67.0 + streamlit-pdf 2.1.0, Requests 2.32.5, Node 24.22.1. CI uses Node 24.19.0. No Android/backend source or schema changes.

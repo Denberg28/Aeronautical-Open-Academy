@@ -1,14 +1,20 @@
 # Aeronautical Open Academy
 
+## Shared access and sync
+
+APK, Windows organization mode and the web portal use the same Academy server. Sync reloads current materials, grades and progress; Sign out all devices revokes shared account sessions. Student protected-file exports are disabled, and the web reader displays page images. See [compatibility and verification](docs/SHARED_ACCESS_SYNC.md).
+
 ## Streamlit web portal
 
 The web portal supports instructor material drafts/PDF uploads, publishing and enrollment access, plus student reading, progress and inline assessment submissions. It uses the existing Academy account API so subjects and results stay shared with the app. Run `pip install -r requirements.txt` then `streamlit run streamlit_app.py` from this directory. Configure `ACADEMY_API_URL` in private Streamlit Secrets; production PDF uploads use the API's existing Drive adapter.
+
+Use **Sync now** to refresh online materials, progress and results. Existing subject/material edit drafts survive sync, with stale saves rejected until you reload. Changed assessments require review before another answer; web sessions are bound to their configured API origin. Deploy the matching API advertising `revision_writes` before updating the student portal. This is online shared-account synchronization; local test workspaces stay on their device.
 
 See [Streamlit setup and deployment](docs/STREAMLIT.md) for local startup, Community Cloud settings, material workflow and live-host requirements. The portal needs a running persistent HTTPS API; adding the Python client alone does not deploy that service.
 
 A lightweight **link to knowledge**: Android learning workspace with **admin, instructor, and student accounts**, with a spacious white/navy/gold interface, plus one complete **AE 101 - Foundations of Aeronautical Engineering** practice subject.
 
-Version: **0.11.0-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
+Version: **0.11.1-alpha.1**. Source is public by user authorization. Organization credentials, protected material bytes, learner records, and real quiz answer keys must stay outside this repository. A public repository does not grant access to the learning service.
 
 Instructors paste `http://` or `https://` addresses into subject text or a single material entry. Students see short clickable links for Google Docs/Slides/Sheets/Drive, PDFs, spreadsheets, YouTube and public websites. Originals stay on their platforms; no per-link button or separate URL/type entry is needed. The first material line becomes its title. Unfamiliar hosts and HTTP links show their full destination before opening. Links open outside the app after a fresh permission/reference check. Host sharing and sign-in still apply.
 

@@ -1,3 +1,4 @@
+import { syncReceipt } from './access.mjs';
 import { questions, publicQuestions, scoreAnswers } from './assessments.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -81,9 +82,14 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
   else if(a.role==='student')requireThat(item.published,404,'Material or activity unavailable.');return item;
  }
+ // Sync — New clients bind reading and legacy answers to the displayed revision.
+ // Omission preserves older Android clients; a supplied stale/malformed revision fails closed.
+ function currentRevision(item,data){
+  requireThat(data.expected_revision===undefined||data.expected_revision===item.revision,409,'This item changed. Refresh and review it before saving.');
+ }
  function presentItem(a,item,supportsForms=false){
   requireThat(!item.questions_json||supportsForms,409,'Update Academy to open this selection form.');
-  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
+  const copy={id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:false,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.questions_json){copy.questions=publicQuestions(JSON.parse(item.questions_json),canManage(a,item.owner_id));const work=get('SELECT id,revision,output,score FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);if(work)copy.form_result={id:work.id,revision:work.revision,...JSON.parse(work.output),score:work.score};}
   else if(item.kind==='quiz'){
    copy.options=JSON.parse(item.options_json);
@@ -128,7 +134,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.10.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.12.0-alpha.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -145,8 +151,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{external_links:true,material_upload:!!materials,choice_forms:true}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,global_sign_out:true,external_links:true,material_upload:!!materials,choice_forms:true,revision_writes:true}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
+   if(path==='/v1/auth/logout-all'&&method==='POST'){
+    transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
+    return send(200,{signed_out:true,all_sessions:true});
+   }
    if(path==='/v1/auth/password'&&method==='POST'){
     throttle('password-change:'+a.id);
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
@@ -157,6 +167,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=0 WHERE id=?',nextHash,a.id);run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'password-change',a.id);});return send(200,{sign_in_again:true});
    }
    requireThat(!a.must_change_password,403,'Change your temporary password before continuing.');
+   if(path==='/v1/sync'&&method==='GET')return send(200,syncReceipt(a,now()));
    if(path==='/v1/admin/accounts'&&method==='GET'){admin(a);const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));return send(200,{accounts:all('SELECT * FROM accounts WHERE status<>? ORDER BY created_at DESC LIMIT 100 OFFSET ?','deleted',offset).map(publicAccount)});}
    if(path==='/v1/admin/audit'&&method==='GET'){admin(a);return send(200,{events:all('SELECT * FROM audit ORDER BY id DESC LIMIT 100')});}
    if(path==='/v1/admin/accounts'&&method==='POST'){
@@ -258,6 +269,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/submission$/))&&method==='POST'){
     const item=itemFor(a,match[1]),d=payload;requireThat(a.role==='student'&&item.kind==='activity'&&!item.questions_json,403,'Student written submission required.');
+    currentRevision(item,d);
     const output=text(d.output,'written output',12000),key=String(req.headers['idempotency-key']||'');requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');
     const old=get('SELECT * FROM submissions WHERE student_id=? AND request_key=?',a.id,key);
     if(old){requireThat(old.item_id===item.id&&old.revision===item.revision&&old.output===output,409,'This submission key was used for different work.');return send(200,{submitted:true});}
@@ -309,6 +321,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      requireThat(Array.isArray(d.options)&&d.options.length>=2&&d.options.length<=6,400,'Provide 2–6 answer choices.');options=JSON.stringify(d.options.map(o=>text(o,'choice',300)));
      requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
     }
+    requireThat(d.offline_allowed!==true,400,'Student material downloads are disabled.');
     const mode=d.material_mode??(materials?'file':'text');requireThat(['file','text'].includes(mode),400,'Choose text or file material mode.');
     requireThat(d.kind==='material'||d.material_mode===undefined,400,'Only materials have a material mode.');
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
@@ -337,10 +350,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/complete$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind==='material',409,'Submit an answer or written output to record completion.');const d=payload;
+    currentRevision(item,d);
     requireThat(typeof d.completed==='boolean',400,'Set completed true or false.');run('INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(student_id,item_id) DO UPDATE SET completed=excluded.completed,revision=excluded.revision,updated_at=excluded.updated_at',a.id,item.id,item.revision,d.completed?1:0,now());return send(200,{completed:d.completed});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/quiz$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student'&&item.kind==='quiz'&&!item.questions_json,403,'Student quiz submission required.');const d=payload,key=String(req.headers['idempotency-key']||'');
+    currentRevision(item,d);
     requireThat(/^[a-f0-9-]{36}$/.test(key),400,'Provide a unique submission key.');requireThat(Number.isInteger(d.choice)&&d.choice>=0&&d.choice<JSON.parse(item.options_json).length,400,'Choose one answer.');
     const repeated=get('SELECT id,item_id,revision,choice,score,created_at FROM attempts WHERE student_id=? AND request_key=?',a.id,key);
     if(repeated){requireThat(repeated.item_id===item.id&&repeated.revision===item.revision&&repeated.choice===d.choice,409,'Submission key was already used for another answer.');return send(200,{attempt:repeated});}
@@ -363,7 +378,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/content$/))&&method==='GET'){
     const item=itemFor(a,match[1]);requireThat(item.kind==='material'&&item.file_ref&&materials,404,'Material unavailable.');
-    if(url.searchParams.get('download')==='1')requireThat(canManage(a,item.owner_id)||item.offline_allowed,403,'Offline download is disabled for this material.');
+    if(url.searchParams.has('download'))requireThat(canManage(a,item.owner_id),403,'Student material downloads are disabled.');
     const stream=await materials.get(item.file_ref);try{const fresh=authenticate(req);itemFor(fresh,item.id);}catch(e){stream.destroy();throw e;}
     res.writeHead(200,{'Content-Type':'application/pdf','Content-Length':String(item.file_bytes),'Content-Disposition':'inline; filename="academy-material.pdf"','X-Content-SHA256':item.file_sha256});
     let bytes=0;const limiter=new Transform({transform(chunk,encoding,done){bytes+=chunk.length;done(bytes>MAX_FILE_BYTES?new ApiError(502,'Material size exceeded.'):null,chunk);}});await pipeline(stream,limiter,res);return;

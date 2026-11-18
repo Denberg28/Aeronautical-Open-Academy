@@ -212,9 +212,11 @@ public final class TestWorkspace {
         }
         JSONObject a=actor(token);
         if(path.equals("/v1/auth/logout")&&method.equals("POST")){remove("sessions",s->s.getString("token").equals(token));return obj("signed_out",true);}
+        if(path.equals("/v1/auth/logout-all")&&method.equals("POST")){revoke(a);return obj("signed_out",true,"all_sessions",true);}
         if(path.equals("/v1/auth/password")&&method.equals("POST")){require(passwordMatches(a,d.optString("current_password")),400,"Check your current password.");setPassword(a,d.optString("new_password"));a.put("must_change_password",false);revoke(a);return obj("sign_in_again",true);}
-        if(path.equals("/v1/me")&&method.equals("GET"))return obj("account",publicAccount(a),"capabilities",obj("material_upload",true,"choice_forms",true));
+        if(path.equals("/v1/me")&&method.equals("GET"))return obj("account",publicAccount(a),"capabilities",obj("material_upload",true,"choice_forms",true,"sync","refresh-v1","student_download",false,"global_sign_out",true));
         require(!a.optBoolean("must_change_password"),403,"Change the temporary password first.");
+        if(path.equals("/v1/sync")&&method.equals("GET"))return obj("protocol","academy-sync-v1","server_time",System.currentTimeMillis(),"account",publicAccount(a),"scope","local-test-only");
         String[] p=path.split("/");
         if(path.startsWith("/v1/admin/")){
             needAdmin(a);
