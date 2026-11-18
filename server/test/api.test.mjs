@@ -8,6 +8,16 @@ import { createAcademy } from '../src/server.mjs';
 import { LocalMaterials } from '../src/materials.mjs';
 import { canManage,hashPassword,verifyPassword } from '../src/security.mjs';
 
+// Workbook verification — Let the HTTP event loop drain keep-alive timers while Python starts.
+// Synchronous parsing can make a pooled test connection stale on slower Windows runners.
+async function pythonCheck(script,bytes){
+ const {spawn}=await import('node:child_process');
+ return new Promise((resolve,reject)=>{
+  const child=spawn('python3',['-c',script],{timeout:30000}),errors=[];
+  child.stdout.resume();child.stderr.on('data',chunk=>errors.push(chunk));child.on('error',reject);
+  child.stdin.on('error',reject);child.on('close',status=>resolve({status,stderr:Buffer.concat(errors)}));child.stdin.end(bytes);
+ });
+}
 const pass='A long private testing passphrase!';
 async function fixture(options={}){
  const directory=await mkdtemp(join(tmpdir(),'academy-api-test-'));let time=Date.now();
@@ -227,8 +237,7 @@ test('Excel export is a real, scoped workbook with literal strings, numeric resu
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject C',description:'Export'}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
   const result=await f.call('/v1/subjects/'+id+'/export',{token:i.token});assert.equal(result.status,200);assert.equal(result.headers.get('cache-control'),'no-store');assert.equal(result.body.subarray(0,2).toString(),'PK');
-  const {spawnSync}=await import('node:child_process');
-  const checked=spawnSync('python3',['-c',`import sys,io,zipfile,xml.etree.ElementTree as E
+  const checked=await pythonCheck(`import sys,io,zipfile,xml.etree.ElementTree as E
 z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None
 n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Quiz scores','Summary','Assessments','Report notes']
@@ -237,7 +246,7 @@ for f in z.namelist():
   x=E.fromstring(z.read(f)); assert not x.findall('.//s:f',n)
 s=E.fromstring(z.read('xl/worksheets/sheet2.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
 assert 'Total enrolled students' in z.read('xl/worksheets/sheet4.xml').decode()
-print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`],{input:result.body});
+print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`,result.body);
   assert.equal(checked.status,0,checked.stderr?.toString());
   const empty=await f.call('/v1/subjects/'+id+'/learners?offset=100',{token:i.token});assert.equal(empty.body.learners.length,0);assert.equal(empty.body.total,1);assert.equal(empty.body.next_offset,null);
   assert.ok(f.app.db.prepare("SELECT id FROM audit WHERE action='gradebook-export' AND target_id=?").get(id));
@@ -700,8 +709,7 @@ test('scheduled release is server-timed for all four entry types; deadlines reta
   const updated=(await f.call('/v1/items/'+ids[1],{token:student.token})).body.item;
   assert.equal(updated.revision,row.revision);assert.equal(updated.due_state,'completed');assert.equal(updated.attempt.score,1);
   const exported=await f.call(`/v1/subjects/${sid}/export`,{token:author.token});assert.equal(exported.status,200);
-  const {spawnSync}=await import('node:child_process');
-  const checked=spawnSync('python3',['-c',"import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); text=''.join(z.read(n).decode() for n in z.namelist() if n.endswith('.xml')); assert 'Deadline status' in text and 'Due UTC' in text and 'late' in text"],{input:exported.body});
+  const checked=await pythonCheck("import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); text=''.join(z.read(n).decode() for n in z.namelist() if n.endswith('.xml')); assert 'Deadline status' in text and 'Due UTC' in text and 'late' in text",exported.body);
   assert.equal(checked.status,0,checked.stderr.toString());
   assert.equal((await schedule(ids[0],author.token,{published:false,publish_at:null,due_at:null})).status,200);
   assert.equal((await f.call('/v1/items/'+ids[0],{token:student.token})).status,404);
