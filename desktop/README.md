@@ -1,6 +1,28 @@
-# Aeronautical Open Academy for PC — 0.5.0
+# Academy PC 0.8.0 development candidate
 
-Windows 10/11 x64 desktop **stable distribution release**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
+Use Organization server mode with the same HTTPS Academy API configured in the APK and Streamlit portal. Sync reloads shared materials, progress and results; local test data remains on this PC. Protected PDFs are read in a canvas page viewer without file export controls. Instructors can choose PDF upload when the organization backend has private storage enabled, save the draft, upload and review it, then publish.
+
+See ../docs/SHARED_ACCESS_SYNC.md for compatibility, download limits, global sign-out and migration/rollback. Existing PC databases are backed up consistently before schema 11; never copy a PC database to the main organization API. Close and restore the complete matching backup/backend before downgrading. Tokens stay in the main process in memory; no organization password/token is saved to disk.
+
+Development: Node 24, `npm ci --prefix desktop`, `npm test --prefix server`, `npm test --prefix desktop`, `npm run test:ui --prefix desktop`, `npm run package:win --prefix desktop`. Postinstall prepares pinned PDF.js vendor assets; regenerate them with `node desktop/tools/prepare-pdf.mjs`, never edit copied files. Source builds and native Windows CI are separate from real organization/Drive/accessibility testing. Prior usage details follow.
+
+# Aeronautical Open Academy for PC — 0.7.0-rc.1
+
+## Mobile feature adaptation (0.7)
+
+The current subject title and student progress remain fixed above the independently scrolling center pane. Open About this subject for the description. Materials use **Read** to expand their text and authorized references. Body text uses 16 px Segoe UI, 1.4 line height and 12 px paragraph gaps, with emphasized lead-ins and hanging lists across reading and display text. The three-pane desktop layout, drag ordering, grading and Excel exports remain available.
+
+The local default is now one complete **AE 101 — Foundations of Aeronautical Engineering** template: Prelim, Midterm, Semifinals and Finals; 8 lessons, 8 quizzes, 4 selection activities and 4 selection examinations (16 forms, 40 questions), plus the course guide. Choose Take quiz, Take activity or Take examination, answer every question and confirm submission. Correct/total and percentage appear immediately; submitted cards collapse to a read-only Review. These are in-app forms, with no assessment PDF/text downloads.
+
+Instructors can add an activity inside a material or an examination at subject level, choose **Response type → Selection form**, enter the question count, choices and correct answers, then Done. Activities/examinations support 1–20 questions and a normalized score /100. Existing quizzes retain their 1–50 question limit and numeric correct-count exports. Written response remains available for manually graded work; existing written work is preserved. Questions/keys remain immutable after creation.
+
+The PC backend advances from schema 9 to 10. Before an older local database is opened, a consistent SQLite snapshot is saved as **academy-before-pc-0.7.sqlite** beside academy.sqlite. Only an exact, untouched two-entry factory subject is replaced in place; its IDs/history remain stored as archived entries. Edited subjects stay intact and receive a separate new template. Template installation is idempotent; archived subjects are never resurrected. Accounts, customized passwords, old work and grades are not reset. Close the old app and keep the complete app/data backup before updating; rollback needs the prior app and its schema-9 snapshot.
+
+The matching PC server advertises choice_forms; older clients receive an update-required error on selection activities/exams. No live organization service is migrated. PC schema numbers come from the desktop branch and **must not be confused with the independent Android server/database lineage**. Do not point an existing Android-backend database at the PC server; unsupported lineage is rejected. Local PC and phone test data do not synchronize. Shared organization use needs its own validated compatible deployment.
+
+Windows CI must pass backend/bridge/migration tests, existing native workflows, the new native parity workflow (author activity/exam, take all three types, 75% mixed result, fixed title/progress and readable paragraphs), dependency audit, package integrity and packaged startup. The release remains an unsigned test candidate; real Windows accessibility/DPI/provider/upgrade validation is separate.
+
+Windows 10/11 x64 desktop **release candidate**. One window, three panes: collapsible LMS navigation on the left, instructor subject editor or student viewer in the center, announcements and subject tasks on the right. Electron supplies a consistent desktop UI and bundles Node/Chromium; the existing Academy backend enforces accounts, subject ownership, enrollment, draft visibility, grading, and link authorization. There is no subscription or additional cloud dependency for the local test workspace.
 
 ## Open the Windows application
 
@@ -36,9 +58,9 @@ Admins create accounts, suspend/reactivate access and publish/delete announcemen
 
 ## Organization use and compatibility
 
-Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v9, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
+Select **Organization server**, enter the HTTPS origin of an existing Academy backend and use that service’s credentials. The desktop uses the existing `/v1` API and database schema v10, using the updated backend. Older organization servers remain usable for flat content, but nested creation is disabled until the server is upgraded. It stores authentication tokens in main-process memory only, does not follow API redirects, and reauthorizes material links against their current revision before opening the browser. Organization services need valid HTTPS and the existing links-capable Academy backend. No live organization host has been deployed or verified by this change.
 
-The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy the updated schema-9 organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
+The local PC workspace **does not sync** with another PC or the Android test workspace. For shared classes, deploy a validated compatible schema-10 PC organization backend and connect clients to it. A local demonstration is not a multi-user deployment.
 
 ## Development
 
@@ -55,11 +77,11 @@ npm run test:ui --prefix desktop
 npm run package:win --prefix desktop
 ```
 
-Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.5.0-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
+Packaging downloads the official Electron Windows x64 archive with checksum validation, copies only the desktop runtime files and existing server source, and emits `out/Academy-PC-0.7.0-rc.1-win32-x64/`. It does not include databases, student records, `.env` files or organization keys. ZIP that directory for delivery. `node desktop/tools/verify-package.mjs` verifies the packaged Windows target and required resources. The Windows workflow performs native Electron UI tests, the packaged executable IPC smoke test, dependency audit and package hash verification as well as backend and renderer tests before uploading its artifact.
 
 ## Verification and limits
 
-See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows stable-channel release. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android binaries are unaffected and not rebuilt for this desktop-only change.
+See `docs/DESKTOP_TESTING.md` for current evidence and release gates. This is an unsigned Windows release candidate. The Windows CI workflow tests both the native editor/viewer and the packaged executable. The delivered CI archive includes windows-verification.json identifying its exact commit and checks; physical-device accessibility and real provider sign-in still require acceptance. Android application source is unchanged; a paired Android regression build must pass before Windows candidate publication.
 
 The focused PC workflow does not yet include camera QR scanning, protected uploaded-PDF viewing/upload, account deletion/ID correction/password reset screens, administrator enrollment overrides, audit browsing, per-user subject-list dragging, or file attachments to submissions. Those existing Android/backend capabilities are preserved. Links are the desktop material path; no hosted content is copied into the app. Image references open at the original host in the browser, without an in-app gallery. Tasks derive from incomplete entries/drafts and have no due dates, notifications or calendar integration. Subject/item lists retain existing backend limits (200); discovery, rosters and admin accounts page in groups of 100. Remote providers, real Windows accessibility/font scaling, institution sign-in and real upgrade/rollback need device validation.
 
@@ -94,3 +116,14 @@ Schema 9 preserves existing one-question quizzes, IDs, attempts, links, grades a
 ## Stable distribution scope (0.5.0)
 
 Version 0.5.0 is published on GitHub’s stable release channel at the owner’s request. It promotes the verified 0.5.0-rc.1 feature set without behavior or schema changes. The stable-channel label identifies the distributed version; it does not turn unperformed physical-device, accessibility, provider, organization deployment or signed-upgrade checks into passes. The portable executable remains unsigned. Use the local synthetic workspace for evaluation; real organization deployment requires its own validated service and individually assigned accounts. All automated Windows/Android, startup, package integrity, security-audit and regression gates remain required on the exact final source.
+
+
+## Compact controls, grading and score exports (0.6.0-rc.1)
+
+Materials, examinations, quizzes and activities place Edit, Publish/Unpublish and Delete in their top bar. Controls wrap within narrow panes. The subject header has a labeled Edit button for title/description changes and confirmed deletion.
+
+In Students & progress → View work, read the response and expandable instructions, enter a score out of 100 and optional feedback, then Save grade. Only that form updates; other unsaved grades and the scroll position remain. Saved timestamps support conflict checks when regrading. A rejected write retains inputs. If an older server acknowledges a save but cannot refresh its saved timestamp, that form stays saved and cannot resubmit until reopened. Grades and audit records commit together on the updated backend.
+
+Export Excel opens with Quiz scores: one row per student and one column per published quiz. Headers use the quiz creation date (YYYY-MM-DD) in this PC’s time zone and the quiz title. Same-date duplicate titles receive a numbered suffix. Cells contain numeric correct-answer counts only; zero is an actual score and blank means not submitted for the current revision. Summary, Assessments (including totals, submitted times and activity grades), and Report notes follow. Exports cover the current roster page, up to 100 students. The backend must be updated for this workbook layout; older servers keep their previous export format.
+
+This candidate builds on stable pc-v0.5.0; schema 9 and existing records are unchanged. The earlier stable distribution decision applies to 0.5.0 only. Candidate automation does not claim physical Windows accessibility or live organization acceptance. Close and back up the workspace before replacing the app; keep a matching app/database backup for rollback.

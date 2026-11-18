@@ -10,7 +10,7 @@ import {
 } from "electron";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeFile } from "node:fs/promises";
+import { writeFile, readFile, stat } from "node:fs/promises";
 import { startLocal, AcademyBridge } from "./bridge.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +45,8 @@ async function boot() {
     try {
       local = await startLocal(
         join(app.getPath("userData"), "local-test-workspace"),
+        {legacyFixture:Boolean(automated&&process.env.ACADEMY_TEST_LEGACY_SEED==="1"),
+         materialsForTests:Boolean(automated&&process.env.ACADEMY_TEST_PDFS==="1")},
       );
       bridge = new AcademyBridge(local, {
         openExternal: (url) =>
@@ -56,14 +58,19 @@ async function boot() {
           "/": "index.html",
           "/index.html": "index.html",
           "/app.js": "app.js",
+          "/reader.js": "reader.js",
+          "/schedule.js": "schedule.js",
           "/style.css": "style.css",
         };
+        if(url.host==='app'&&/^\/pdfjs\/(?:pdf(?:\.worker)?\.mjs|(?:cmaps|wasm|standard_fonts)\/[a-zA-Z0-9_.-]+)$/.test(url.pathname))
+          return net.fetch(pathToFileURL(join(root,'vendor','pdfjs',url.pathname.slice(7))).href);
         if (url.host !== "app" || !files[url.pathname])
           return new Response("Not found", { status: 404 });
         return net.fetch(
           pathToFileURL(join(root, "ui", files[url.pathname])).href,
         );
       });
+      session.defaultSession.on("will-download", event => event.preventDefault());
       session.defaultSession.setPermissionRequestHandler(
         (_wc, _permission, done) => done(false),
       );
@@ -82,9 +89,13 @@ async function boot() {
           sandbox: true,
           nodeIntegration: false,
           spellcheck: true,
+          devTools: !app.isPackaged,
         },
       });
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      window.webContents.on("before-input-event", (event, input) => {
+        if((input.control||input.meta)&&['p','s'].includes(input.key.toLowerCase()))event.preventDefault();
+      });
       window.webContents.on("will-navigate", (e) => e.preventDefault());
       window.webContents.on("will-attach-webview", (e) => e.preventDefault());
       window.webContents.on("will-prevent-unload", (event) => {
@@ -117,6 +128,16 @@ async function boot() {
         bridge.request(path, options),
       );
       register("academy:logout", () => bridge.logout());
+      register("academy:sync", () => bridge.sync());
+      register("academy:read-material", (id, revision) => bridge.readMaterial(id, revision));
+      register("academy:upload-material", async (id, version) => {
+        const item=(await bridge.request(`/v1/items/${id}`)).item;
+        if(!bridge.account||!(bridge.account.role==='admin'||bridge.account.role==='instructor'&&item.owner_id===bridge.account.id))throw new Error('Instructor access required.');
+        const selected=await dialog.showOpenDialog(window,{title:'Upload PDF material',properties:['openFile'],filters:[{name:'PDF',extensions:['pdf']}]});
+        if(selected.canceled)return {canceled:true};
+        if((await stat(selected.filePaths[0])).size>50*1024*1024)throw new Error('Choose a PDF up to 50 MiB.');
+        return bridge.uploadMaterial(id,version,await readFile(selected.filePaths[0]));
+      });
       register("academy:link", (data) => bridge.openLink(data));
       register("academy:inspect-link", (url) => bridge.inspectLink(url));
       register("academy:subject-qr", async (id, save = false) => {

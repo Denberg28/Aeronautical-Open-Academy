@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 const directory=await mkdtemp(join(tmpdir(),'academy-delete-'));
 let app,page;
-const launch=async()=>{app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_DATA:directory}});page=await app.firstWindow();page.setDefaultTimeout(15000);};
+const launch=async()=>{app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_LEGACY_SEED: "1", ACADEMY_TEST_DATA:directory}});page=await app.firstWindow();page.setDefaultTimeout(15000);};
 try{
  await launch();
  const errors=[];page.on('pageerror',error=>errors.push(error.message));

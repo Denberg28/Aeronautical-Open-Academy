@@ -1,21 +1,7 @@
-# Aeronautical Open Academy for Windows — 0.5.0
+# Academy PC 0.9.0-rc.1 — scheduled publishing and completion dates
 
-25 October 2026 · Multiple-question quizzes
+Use Schedule in an entry's action bar to set Draft / Publish now / Scheduled and an optional due date for materials, quizzes, activities and examinations. Philippine time (Asia/Manila) is explicit. Student access and release are enforced by server time, including grouped material/assessment visibility. Late work is accepted and marked late, with no automatic grade penalty; date edits preserve grades and learning revisions.
 
-Instructors can now create one quiz containing 1–50 multiple-choice questions. Set the question count and select Apply, type each question, enter 2–6 options, and click the circle beside its correct answer. Each question card can be minimized or expanded. Editing choices clears that question’s answer selection. Reducing the question count asks before removing populated questions. Changing entry types preserves the question draft. Quiz questions and answer keys are immutable after creation; create a replacement to change them.
+Organization mode uses the matching API advertising dates-v1. The Windows local demo upgrades from schema 11 to 12 after a consistent academy-before-pc-0.9.sqlite backup; it remains separate from the main schema-8 API. Keep the prior application and matching complete data backup for rollback; never downgrade in place. See SCHEDULING.md.
 
-Students select Start quiz, confirm readiness, and answer every question. Minimizing and expanding preserves answers in the current view. Final submission confirms the one allowed attempt and grades all questions on the server. The quiz then collapses, shows Done, and displays correct answers / total items, for example 8 / 10 correct. Expand the submitted quiz to review its questions without changing the submission. Results, instructor work views and Excel use the same score and maximum. Answer keys are never included in student question data.
-
-Existing one-question quizzes remain supported. QR enrollment, activity grading, material collapse, left-grip dragging, ordering and subject deletion are retained.
-
-## Installation and compatibility
-
-Extract the entire ZIP and launch Academy.exe. Default synthetic local accounts remain admin/admin, instructor/instructor and student/student. This version upgrades the workspace database from schema 8 to 9 and preserves existing IDs and learner records. Close and back up the local-test-workspace folder before the first launch. Rollback requires the previous app and its matching pre-upgrade backup; do not open a schema-9 database with the old version.
-
-Organization servers must be upgraded separately. An older server limits the editor to one question. The existing Android companion does not attempt multiple-question quizzes; updated Android source shows the PC requirement and reads the correct score total. No APK is included in this Windows delivery.
-
-This is an unsigned Windows x64 release on GitHub’s stable distribution channel. Native Windows workflows, scoring/privacy/replay tests, legacy-data migrations, Excel totals, packaged startup and hashes are the automated delivery gates; exact results are in the packaged windows-verification.json. Physical Windows accessibility, real organization deployment and cross-device use remain unverified. There is no timer, proctoring, retake policy or weighted course grade; in-memory draft answers do not survive a crash or app exit.
-
-## Stable promotion
-
-The repository owner requested stable GitHub publication on 25 October 2026. This final 0.5.0 package contains the same feature implementation as the verified 0.5.0-rc.1 build, with its displayed/package version and release documentation finalized. Exact Windows and Android build evidence is supplied with this release. The GitHub stable channel is an owner-approved distribution decision; physical Windows/accessibility, provider access, organization deployment, mobile cross-device operation and signed upgrades remain NOT TESTED. Production readiness beyond the recorded automated checks is not claimed.
+Extract the entire Windows x64 ZIP and run Academy.exe. Unsigned development candidate. Final CI must pass backend/migration, shared API, native UI/scheduling, packaging/startup/integrity, dependency audit and paired Android verification. Physical Windows/DPI/accessibility, live hosting/time synchronization and production restore remain unverified. No live database or signing identity changed.

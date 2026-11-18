@@ -7,7 +7,7 @@ import { startLocal, AcademyBridge, validateOrigin } from "../bridge.mjs";
 
 test("desktop local workflow: permissions, link reauthorization, persistence, submission and export", async () => {
   const directory = await mkdtemp(join(tmpdir(), "academy-desktop-"));
-  let local = await startLocal(directory);
+  let local = await startLocal(directory,{legacyFixture:true});
   const opened = [];
   let bridge = new AcademyBridge(local, {
     openExternal: async (url) => opened.push(url),
@@ -82,7 +82,7 @@ test("desktop local workflow: permissions, link reauthorization, persistence, su
     assert.equal(report.subarray(0, 2).toString(), "PK");
     await bridge.logout();
     await local.academy.close();
-    local = await startLocal(directory);
+    local = await startLocal(directory,{legacyFixture:true});
     bridge = new AcademyBridge(local);
     await bridge.login({ username: "student", password: "student" });
     const after = await bridge.request(`/v1/subjects/${id}`);
@@ -137,7 +137,7 @@ test("organization sign-in never maps demo credentials or forwards the local acc
 
 test("subject QR is owner-authorized and contains only the Android subject identifier", async () => {
   const directory = await mkdtemp(join(tmpdir(), "academy-qr-"));
-  const local = await startLocal(directory);
+  const local = await startLocal(directory,{legacyFixture:true});
   const bridge = new AcademyBridge(local);
   try {
     await assert.rejects(bridge.subjectQr("../../etc"), /valid subject/);
