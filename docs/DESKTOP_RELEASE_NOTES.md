@@ -1,3 +1,13 @@
+# Academy PC 0.8.0-rc.1 — shared access and sync
+
+Add Sync in the upper toolbar, account-wide sign-out, capability negotiation with the main organization API, instructor PDF upload via a native picker and protected canvas page reading. Student download/print/external-reader controls are absent; native download events and save/print shortcuts are blocked. Each page turn rechecks current access/revision. The service denies legacy offline download grants.
+
+The PC demo backend uses durable hashed authentication budgets (schema 11), strict identity parsing, private DB creation and atomic session/password writes. It backs up existing local data to academy-before-pc-0.8.sqlite before upgrade. Demo data stays local. Organization mode must use the same updated HTTPS API as APK and Streamlit. No live database or signing identity is changed.
+
+See SHARED_ACCESS_SYNC.md for the exact contract, copying limits and tests. CI must pass Windows native UI (including actual PDF rendering/revocation), packaged startup, backend regressions, audit and packaging checks. Real institutional hosting, Drive access, physical Windows accessibility and deployment backup/restore remain unverified. This is an unsigned development candidate; retain the prior ZIP and matching database backup for rollback.
+
+Previous release notes follow for history.
+
 # Academy PC 0.7.0-rc.1 — mobile features on Windows
 
 The subject title and student progress stay fixed while center content scrolls. The three-pane Windows layout retains its editor, drag ordering, tasks, grading and Excel exports. Read expands lesson text and references; shared 16 px text, 1.4 line height, 12 px paragraph gaps, lead-in emphasis and hanging lists improve readability.

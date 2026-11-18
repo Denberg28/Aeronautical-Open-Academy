@@ -1,3 +1,4 @@
+import { syncReceipt } from './access.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -10,7 +11,7 @@ import { linkFromText } from './links.mjs';
 import { workbook } from './xlsx.mjs';
 import { validateQuestions,quizQuestions,publicQuestions,gradeAnswers,MAX_QUIZ_QUESTIONS } from './quizzes.mjs';
 import { openDatabase } from './store.mjs';
-import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber } from './security.mjs';
+import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber, accountName } from './security.mjs';
 
 export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock=Date.now,scryptN=131072,sessionMs=8*60*60*1000}={}){
  const db=openDatabase(dbPath),now=()=>clock();
@@ -19,7 +20,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  const audit=(actor,action,target)=>run('INSERT INTO audit(actor_id,action,target_id,created_at) VALUES(?,?,?,?)',actor,action,target,now());
  async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{}){
   requireThat(['admin','instructor','student'].includes(role),400,'Choose admin, instructor, or student.');
-  const address=email(data.email),name=text(data.name,'name',100),number=data.student_number==null?null:studentNumber(data.student_number);
+  const address=email(data.email),name=accountName(data.name),number=data.student_number==null?null:studentNumber(data.student_number);
   requireThat(number===null||role==='student',400,'Student ID applies to student accounts only.');
   requireThat(number===null||!get('SELECT id FROM accounts WHERE student_number=?',number),409,'Student ID is already assigned.');
   requireThat(!get('SELECT id FROM accounts WHERE email=?',address),409,'An account already uses that email.');
@@ -30,12 +31,13 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  }
  if(!get('SELECT id FROM accounts LIMIT 1')&&bootstrap)await createAccount({...bootstrap,role:'admin'},'admin',false);
  const dummyHash=await hashPassword(token(),scryptN);
- const loginLimits=new Map();let activeUploads=0;
- function throttle(key){
-  const current=now();for(const [k,v]of loginLimits)if(v.until<current)loginLimits.delete(k);
-  if(loginLimits.size>5000)throw new ApiError(429,'Sign-in is busy. Try again later.');
-  const entry=loginLimits.get(key)||{count:0,until:current+15*60*1000};entry.count++;loginLimits.set(key,entry);
-  requireThat(entry.count<=10,429,'Too many sign-in attempts. Try again in 15 minutes.');
+ let activeUploads=0;
+ function throttle(key,limit=10){
+  const current=now();run('DELETE FROM security_limits WHERE expires_at<=?',current);
+  const hash=digest(key),entry=get('SELECT * FROM security_limits WHERE key_hash=?',hash);
+  requireThat(entry||get('SELECT count(*) n FROM security_limits').n<5000,429,'Sign-in is busy. Try again later.');
+  requireThat(!entry||entry.hits<limit,429,'Too many authentication attempts. Try again in 15 minutes.');
+  run('INSERT INTO security_limits VALUES(?,?,?) ON CONFLICT(key_hash) DO UPDATE SET hits=hits+1',hash,1,current+15*60*1000);
  }
  async function json(req){
   requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send JSON with application/json.');
@@ -103,7 +105,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   else if(a.role==='student')requireThat(visibleToStudent(item),404,'Material or activity unavailable.');return item;
  }
  function presentItem(a,item,features=""){
-  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:!!item.offline_allowed,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
+  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:false,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
    const manager=canManage(a,item.owner_id);
    copy.questions=publicQuestions(item,manager);
@@ -156,32 +158,39 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.7.0-alpha.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.8.0-rc.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
-    const data=payload;throttle(String(req.socket.remoteAddress||'local')+':'+String(data.email||'').toLowerCase().slice(0,254));
-    const address=email(data.email),a=get('SELECT * FROM accounts WHERE email=?',address);
+    const data=payload;throttle('login-peer:'+String(req.socket.remoteAddress||'local'),100);
+    const address=email(data.email);throttle('login-account:'+address);const a=get('SELECT * FROM accounts WHERE email=?',address);
     const valid=await verifyPassword(data.password,a?.password_hash||dummyHash);
     requireThat(a&&valid&&a.status==='active',401,'Email or password is incorrect, or this account is unavailable.');
     // Re-read after async hashing: suspension/deletion while hashing must win.
     const fresh=get('SELECT * FROM accounts WHERE id=?',a.id);requireThat(fresh.status==='active'&&fresh.password_hash===a.password_hash,401,'Account unavailable.');
     const raw=token();run('DELETE FROM sessions WHERE expires_at<=?',now());
     const old=all('SELECT token_hash FROM sessions WHERE account_id=? ORDER BY created_at DESC',a.id);for(const s of old.slice(4))run('DELETE FROM sessions WHERE token_hash=?',s.token_hash);
-    run('INSERT INTO sessions VALUES(?,?,?,?,?)',digest(raw),a.id,now(),now(),now()+sessionMs);audit(a.id,'sign-in',a.id);
+    transaction(()=>{run('INSERT INTO sessions VALUES(?,?,?,?,?)',digest(raw),a.id,now(),now(),now()+sessionMs);audit(a.id,'sign-in',a.id);});
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,global_sign_out:true,choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
+   if(path==='/v1/auth/logout-all'&&method==='POST'){
+    transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
+    return send(200,{signed_out:true,all_sessions:true});
+   }
    if(path==='/v1/auth/password'&&method==='POST'){
+    throttle('password-change:'+a.id);
     const d=payload,current=get('SELECT * FROM accounts WHERE id=?',a.id);
+    requireThat(d.new_password!==d.current_password,400,'Choose a different password from the current or temporary password.');
     requireThat(await verifyPassword(d.current_password,current.password_hash),403,'Current password is incorrect.');
     const nextHash=await hashPassword(d.new_password,scryptN);authenticate(req);
     const fresh=get('SELECT * FROM accounts WHERE id=?',a.id);requireThat(fresh.status==='active'&&fresh.password_hash===current.password_hash,401,'Sign in again.');
-    run('UPDATE accounts SET password_hash=?,must_change_password=0 WHERE id=?',nextHash,a.id);run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'password-change',a.id);return send(200,{sign_in_again:true});
+    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=0 WHERE id=?',nextHash,a.id);run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'password-change',a.id);});return send(200,{sign_in_again:true});
    }
    requireThat(!a.must_change_password,403,'Change your temporary password before continuing.');
+   if(path==='/v1/sync'&&method==='GET')return send(200,syncReceipt(a,now()));
    if(path==='/v1/admin/accounts'&&method==='GET'){admin(a);const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));return send(200,{accounts:all('SELECT * FROM accounts WHERE status<>? ORDER BY created_at DESC LIMIT 100 OFFSET ?','deleted',offset).map(publicAccount)});}
    if(path==='/v1/admin/audit'&&method==='GET'){admin(a);return send(200,{events:all('SELECT * FROM audit ORDER BY id DESC LIMIT 100')});}
    if(path==='/v1/admin/accounts'&&method==='POST'){admin(a);recent(a);const created=await createAccount(payload,undefined,true,()=>{const fresh=authenticate(req);admin(fresh);recent(fresh);});audit(a.id,'account-create',created.id);return send(201,{account:created});}
@@ -358,6 +367,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
       requireThat(Number.isInteger(d.correct_index)&&d.correct_index>=0&&d.correct_index<d.options.length,400,'Choose the correct answer.');answer=d.correct_index;
      }
     }else if(d.kind==='activity'&&d.questions!==undefined){requireThat(Array.isArray(d.questions)&&d.questions.length>=1&&d.questions.length<=20,400,'Choose 1–20 activity or examination questions.');questions=JSON.stringify(validateQuestions(d.questions));}else requireThat(d.questions===undefined,400,'Materials cannot contain assessment questions.');
+    requireThat(d.offline_allowed!==true,400,'Student material downloads are disabled.');
     const mode=d.material_mode??(materials?'file':'text');requireThat(['file','text'].includes(mode),400,'Choose text or file material mode.');
     requireThat(d.kind==='material'||d.material_mode===undefined,400,'Only materials have a material mode.');
     requireThat(d.kind!=='material'||mode!=='file'||materials,409,'File storage is disabled. Add material text and links instead.');
@@ -437,7 +447,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/content$/))&&method==='GET'){
     const item=itemFor(a,match[1]);requireThat(item.kind==='material'&&item.file_ref&&materials,404,'Material unavailable.');
-    if(url.searchParams.get('download')==='1')requireThat(canManage(a,item.owner_id)||item.offline_allowed,403,'Offline download is disabled for this material.');
+    if(url.searchParams.has('download'))requireThat(canManage(a,item.owner_id),403,'Student material downloads are disabled.');
     const stream=await materials.get(item.file_ref);try{const fresh=authenticate(req);itemFor(fresh,item.id);}catch(e){stream.destroy();throw e;}
     res.writeHead(200,{'Content-Type':'application/pdf','Content-Length':String(item.file_bytes),'Content-Disposition':'inline; filename="academy-material.pdf"','X-Content-SHA256':item.file_sha256});
     let bytes=0;const limiter=new Transform({transform(chunk,encoding,done){bytes+=chunk.length;done(bytes>MAX_FILE_BYTES?new ApiError(502,'Material size exceeded.'):null,chunk);}});await pipeline(stream,limiter,res);return;

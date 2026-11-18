@@ -1229,3 +1229,8 @@ textarea { line-height: var(--body-leading); }
   .subject-context .subject-hero { padding: 14px 16px; }
   .subject-context h1 { font-size:18px; }
 }
+
+/* Reader — Bound the view; canvas has no file/download toolbar. */
+.pdf-reader {width:min(94vw,1000px); max-height:90vh;}
+.pdf-pages {overflow:auto; max-height:65vh; background:#fff;}
+.pdf-pages canvas {display:block; width:100%; height:auto;}
