@@ -36,13 +36,19 @@ test('organization sync, PDF upload/read and global logout work with the shared 
   await admin.uploadMaterial(item.id,item.edit_version,bytes);
   item=(await admin.request(`/v1/items/${item.id}`)).item;
   await admin.request(`/v1/items/${item.id}`,{method:'POST',body:{published:true,expected_edit_version:item.edit_version}});
+  const beforeDates=(await admin.request(`/v1/items/${item.id}`)).item;
+  await admin.request(`/v1/items/${item.id}/schedule`,{method:'POST',body:{expected_edit_version:beforeDates.edit_version,published:true,publish_at:Date.now()+3600000,due_at:Date.now()+7200000}});
+  await assert.rejects(student.readMaterial(item.id,item.revision),error=>error.status===404);
+  const scheduled=(await admin.request(`/v1/items/${item.id}`)).item;
+  assert.equal(scheduled.publication_state,'scheduled');
+  await admin.request(`/v1/items/${item.id}/schedule`,{method:'POST',body:{expected_edit_version:scheduled.edit_version,published:true,publish_at:null,due_at:Date.now()-60000}});
   const pdf=await student.readMaterial(item.id,item.revision);
   assert.deepEqual(Buffer.from(pdf.data,'base64'),bytes);assert.equal(pdf.token,undefined);
   await assert.rejects(student.request(`/v1/items/${item.id}/content`),/dedicated/);
   await assert.rejects(student.uploadMaterial(item.id,item.edit_version,bytes));
   await student.request(`/v1/items/${item.id}/complete`,{method:'POST',body:{completed:true}});
   const receipt=await other.sync();assert.equal(receipt.protocol,'academy-sync-v1');assert.equal(receipt.capabilities.student_download,false);
-  assert.equal((await other.request(`/v1/subjects/${id}`)).summary.read,1);
+  assert.equal((await other.request(`/v1/subjects/${id}`)).summary.read,1);assert.equal((await other.request(`/v1/items/${item.id}`)).item.due_state,'late');assert.equal(receipt.capabilities.scheduling,'dates-v1');
   const quiz=await admin.request(`/v1/subjects/${id}/items`,{method:'POST',body:{kind:'quiz',title:'Shared form',body:'Choose both answers',published:true,
    questions:[{prompt:'First?',options:['A','B'],correct_index:0},{prompt:'Second?',options:['C','D'],correct_index:1}]}});
   const current=(await student.request(`/v1/items/${quiz.id}`)).item;

@@ -19,3 +19,5 @@
 | Change response bounds | desktop/transport.mjs | responseBytes | 2 MiB JSON, 50 MiB PDF at caller; size/stale-session tests |
 | Change authentication budgets | server/src/server.mjs | throttle | 10/account, 100/peer per 15 minutes, hashed durable state; reopen test |
 | Refresh PDF.js | desktop/package.json; desktop/tools/prepare-pdf.mjs | pinned dependency / asset copy | Regenerate via npm, retain upstream LICENSE; audit/package/reader gates |
+
+Scheduling controls, UTC/PHT conversion, access timing and deadline reporting: see [SCHEDULING.md](SCHEDULING.md).

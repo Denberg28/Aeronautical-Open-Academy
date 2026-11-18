@@ -59,6 +59,7 @@ async function boot() {
           "/index.html": "index.html",
           "/app.js": "app.js",
           "/reader.js": "reader.js",
+          "/schedule.js": "schedule.js",
           "/style.css": "style.css",
         };
         if(url.host==='app'&&/^\/pdfjs\/(?:pdf(?:\.worker)?\.mjs|(?:cmaps|wasm|standard_fonts)\/[a-zA-Z0-9_.-]+)$/.test(url.pathname))

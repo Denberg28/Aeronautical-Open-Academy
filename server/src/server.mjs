@@ -1,3 +1,4 @@
+import { released, scheduleFields, timing } from './schedule.mjs';
 import { syncReceipt } from './access.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -76,7 +77,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   });
  }
  function visibleToStudent(item){
-  if(!item.published||item.archived)return false;
+  if(!released(item,now()))return false;
   if(!item.parent_id)return true;
   const parent=get("SELECT * FROM items WHERE id=?",item.parent_id);
   return !!parent&&parent.kind==='material'&&parent.subject_id===item.subject_id&&visibleToStudent(parent);
@@ -121,10 +122,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    const submission=get('SELECT output,score FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);
    if(submission)copy.form_result=JSON.parse(submission.output);
   }
-  const progress=get('SELECT completed,revision FROM progress WHERE student_id=? AND item_id=?',a.id,item.id);
+  const progress=get('SELECT completed,revision,updated_at FROM progress WHERE student_id=? AND item_id=?',a.id,item.id);
   copy.assessment_type=item.assessment_type;
   if(item.kind==='activity')copy.submission=get('SELECT id,revision,output,score,feedback,submitted_at,graded_at FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision)||null;
   copy.completed=item.kind==='quiz'?!!copy.attempt:item.kind==='activity'?!!copy.submission:!!(progress?.completed&&progress.revision===item.revision);
+  const completedAt=copy.completed?(item.kind==='material'?progress.updated_at:copy.attempt?.created_at??copy.submission?.submitted_at??copy.form_result?.submitted_at??null):null;
+  Object.assign(copy,timing(item,now(),completedAt));
   return copy;
  }
  // Published current revisions form the denominator; self-reported reading is never a grade.
@@ -139,11 +142,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(item.kind==='material'){materials++;if(done)read++;}else{required++;if(done)submitted++;if(q||w?.score!=null)graded++;}
    const result={id:item.id,title:item.title,kind:item.kind,assessment_type:item.assessment_type,revision:item.revision,completed:done,status:item.kind==='material'?(done?'Read (self-reported)':'Unread'):!done?'Not submitted':q||w?.score!=null?'Graded':'Awaiting assessment',score:q?q.score:w?.score??null,max_score:item.kind==='quiz'?(q?.max_score??quizQuestions(item).length):item.kind==='activity'?100:null,feedback:w?.feedback||'',submission_id:w?.id||null,graded_at:w?.graded_at||null,submitted_at:q?.created_at||w?.submitted_at||null};
    if(item.kind==='activity'&&item.questions_json){result.response_mode='choice';if(w){const form=JSON.parse(w.output);result.answer=quizQuestions(item).map((q,i)=>`${i+1}. ${q.prompt}: ${q.options[form.answers[i]]}`).join('\n');}}
+   Object.assign(result,timing(item,now(),done?(item.kind==='material'?p.updated_at:q?.created_at??w?.submitted_at??null):null));
    if(detail){result.body=item.body;result.output=item.questions_json?'':w?.output||'';if(q){const answers=q.answers_json?JSON.parse(q.answers_json):[q.choice];const questions=quizQuestions(item);result.answer=questions.length===1?questions[0].options[answers[0]]:questions.map((question,i)=>`${i+1}. ${question.prompt}: ${question.options[answers[i]]}`).join('\n');}}
    return result;
   });
   const pct=(n,d)=>d?Math.round(n*100/d):0;
-  const summary={read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
+  const summary={overdue:states.filter(i=>i.due_state==='overdue').length,late:states.filter(i=>i.due_state==='late').length,read,materials,read_percent:pct(read,materials),submitted,required,compliance_percent:pct(submitted,required),graded,awaiting_assessment:submitted-graded,completed:read+submitted,total:items.length,completion_percent:pct(read+submitted,items.length)};
   return {student:{id:student.id,name:student.name,email:student.email,status:student.status,student_number:student.student_number??null},summary,...(detail?{items:states}:{})};
  }
  const publishedItems=id=>orderedItems(id).filter(visibleToStudent);
@@ -158,7 +162,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.8.0-rc.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.9.0-rc.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -174,7 +178,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,global_sign_out:true,choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/logout-all'&&method==='POST'){
     transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
@@ -264,7 +268,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/export$/))&&method==='GET'){
     const subject=subjectFor(a,match[1],true),offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get('offset'))||0))),page=reportPage(subject.id,offset);
     const summary=[['Account ID','Name','Email','Account status','Read','Reading items','Read percent (self-reported)','Submitted','Required assessments','Compliance percent','Graded','Awaiting assessment','Completed items','Total items','Completion percent','Student ID number']];
-    const details=[['Account ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC','Student ID number']];
+    const details=[['Account ID','Name','Item ID','Title','Kind','Revision','Status','Score','Maximum score','Feedback','Submitted UTC','Student ID number','Due UTC','Deadline status']];
     const timeZone=url.searchParams.get('timezone')||'UTC';
     let dateFormat;
     try{dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'});}catch{requireThat(false,400,'Choose a valid report time zone.');}
@@ -279,9 +283,9 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      summary.push([student.id,student.name,student.email,student.status,m.read,m.materials,m.read_percent,m.submitted,m.required,m.compliance_percent,m.graded,m.awaiting_assessment,m.completed,m.total,m.completion_percent,student.student_number||'']);
      const scores=new Map(view.items.filter(item=>item.kind==='quiz').map(item=>[item.id,item.score]));
      quizScores.push([student.student_number||'',student.name,...quizzes.map(item=>scores.get(item.id)??'')]);
-     for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'']);
+     for(const i of view.items)details.push([student.id,student.name,i.id,i.title,i.assessment_type==='examination'?'examination':i.kind,i.revision,i.status,i.score??'',i.max_score??'',i.feedback,i.submitted_at?new Date(i.submitted_at).toISOString():'',student.student_number||'',i.due_at?new Date(i.due_at).toISOString():'',i.due_state]);
     }
-    const bytes=workbook([{name:'Quiz scores',rows:quizScores},{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Quiz column dates', 'Quiz creation dates in '+timeZone+'; title identifies each quiz. Submission times are in Assessments.'],['Quiz scores','Numeric correct-answer counts only. Zero is a submitted score; blank means not submitted for the current revision.'],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. No due dates are defined.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz: correct answers / total questions; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
+    const bytes=workbook([{name:'Quiz scores',rows:quizScores},{name:'Summary',rows:summary},{name:'Assessments',rows:details},{name:'Report notes',rows:[['Field','Value'],['Subject',subject.title],['Subject ID',subject.id],['Generated UTC',new Date(now()).toISOString()],['Quiz column dates', 'Quiz creation dates in '+timeZone+'; title identifies each quiz. Submission times are in Assessments.'],['Quiz scores','Numeric correct-answer counts only. Zero is a submitted score; blank means not submitted for the current revision.'],['Roster offset',offset],['Students in this file',page.students.length],['Total enrolled students',page.total],['Next offset',page.next_offset??'None'],['Scope','Current published item revisions; up to 100 enrolled students per export.'],['Reading','Student-reported reading; not evidence of comprehension.'],['Compliance','Submitted activities, written examinations and quizzes / required published assessments. Deadlines are advisory; late work is accepted and marked late without an automatic grade penalty.'],['Completion','Read materials plus submitted assessments / published items. Not a pass or qualification.'],['Grades','Quiz: correct answers / total questions; written work 0–100. No inferred pass/fail or weighted course grade.'],['Privacy','Confidential learner report. Keep in approved organization storage; exported files cannot be revoked.']]}]);
     audit(a.id,'gradebook-export',subject.id);res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="academy-progress.xlsx"'});res.end(bytes);return;
    }
    // Forms — trusted scoring, current revision and idempotent complete submissions.
@@ -408,6 +412,15 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      audit(a.id,'item-edit',item.id);
     });return send(200,{saved:true});
    }
+   // Scheduling — One optimistic, audited write changes dates without invalidating submitted work.
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/schedule$/))&&method==='POST'){
+    const item=itemFor(a,match[1],true),d=payload;
+    requireThat(Number.isInteger(d.expected_edit_version)&&d.expected_edit_version===item.edit_version,409,'This entry changed. Reload before changing its schedule.');
+    const dates=scheduleFields(d);
+    requireThat(!dates.published||item.kind!=='material'||item.material_mode!=='file'||item.file_ref,409,'Upload the PDF before publishing or scheduling it.');
+    transaction(()=>{run('UPDATE items SET publish_at=?,due_at=?,published=?,edit_version=edit_version+1 WHERE id=?',dates.publish_at,dates.due_at,dates.published,item.id);audit(a.id,'item-schedule',item.id);});
+    return send(200,{saved:true,...timing({...item,...dates},now())});
+   }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/open-link$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(Number.isInteger(payload.expected_revision)&&payload.expected_revision===item.revision,409,'This material changed. Refresh and review the link before opening it.');
     const destination=linkFromText(payload.url,item.body);return send(200,{url:destination,host:new URL(destination).hostname});
@@ -418,7 +431,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/complete$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student',403,'Student access required.');requireThat(item.kind==='material',409,'Submit an answer or written output to record completion.');const d=payload;
-    requireThat(typeof d.completed==='boolean',400,'Set completed true or false.');run('INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(student_id,item_id) DO UPDATE SET completed=excluded.completed,revision=excluded.revision,updated_at=excluded.updated_at',a.id,item.id,item.revision,d.completed?1:0,now());return send(200,{completed:d.completed});
+    requireThat(typeof d.completed==='boolean',400,'Set completed true or false.');run('INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(student_id,item_id) DO UPDATE SET completed=excluded.completed,revision=excluded.revision,updated_at=CASE WHEN progress.completed=excluded.completed AND progress.revision=excluded.revision THEN progress.updated_at ELSE excluded.updated_at END',a.id,item.id,item.revision,d.completed?1:0,now());return send(200,{completed:d.completed});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/(?:quiz|answers)$/))&&method==='POST'){
     const item=itemFor(a,match[1]);requireThat(a.role==='student'&&item.kind==='quiz',403,'Student quiz submission required.');const d=payload,key=String(req.headers['idempotency-key']||'');
