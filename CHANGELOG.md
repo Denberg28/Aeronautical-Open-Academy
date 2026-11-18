@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0-alpha.1
+
+- Add server-enforced scheduled publishing for every entry type and optional completion deadlines with overdue/late reporting.
+- Add Philippine-time instructor controls and student captions; date edits preserve grades/revisions. Schema 8 adds nullable dates; Windows demo schema 12 stays separate.
+
 ## 0.12.0-alpha.1
 
 - Add explicit account-revalidated Sync and Sign out all devices across the shared API, APK and web client.

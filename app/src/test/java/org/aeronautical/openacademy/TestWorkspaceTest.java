@@ -32,6 +32,19 @@ public class TestWorkspaceTest {
     @Before public void setup()throws Exception{
         root=folder.newFolder();app=new TestWorkspace(root,legacyTemplate());admin=login(0);teacher=login(1);student=login(2);subject=call(student,"GET","/v1/subjects",null).getJSONArray("subjects").getJSONObject(0).getString("id");studentId=call(student,"GET","/v1/me",null).getJSONObject("account").getString("id");
     }
+    @Test public void schedulingAllKindsRetainsRevisionsAndSurvivesReopen()throws Exception{
+        long now=System.currentTimeMillis();
+        for(String kind:new String[]{"material","quiz","activity","examination"}){
+            JSONObject body=data("kind",kind,"title","Scheduled "+kind,"body","Synthetic dates","published",false);if(kind.equals("material"))body.put("material_mode","text");if(kind.equals("quiz"))body.put("options",new JSONArray().put("A").put("B")).put("correct_index",0);
+            String id=call(teacher,"POST","/v1/subjects/"+subject+"/items",body).getString("id");
+            JSONObject dates=data("published",true,"publish_at",now+3600000,"due_at",now+7200000,"expected_edit_version",1);
+            call(teacher,"POST","/v1/items/"+id+"/schedule",dates);denied(404,()->call(student,"GET","/v1/items/"+id,null));
+            app=new TestWorkspace(root);JSONObject scheduled=call(teacher,"GET","/v1/items/"+id,null).getJSONObject("item");assertEquals("scheduled",scheduled.getString("publication_state"));assertEquals(1,scheduled.getInt("revision"));
+            dates.put("publish_at",JSONObject.NULL).put("due_at",now-60000).put("expected_edit_version",scheduled.getInt("edit_version"));call(teacher,"POST","/v1/items/"+id+"/schedule",dates);
+            JSONObject visible=call(student,"GET","/v1/items/"+id,null).getJSONObject("item");assertEquals("overdue",visible.getString("due_state"));
+            denied(403,()->call(student,"POST","/v1/items/"+id+"/schedule",dates));
+        }
+    }
     @Test public void defaultsAndHashesAndPersistence()throws Exception{
         assertEquals(3,call(admin,"GET","/v1/admin/accounts",null).getJSONArray("accounts").length());
         assertEquals("TEST-001",call(student,"GET","/v1/me",null).getJSONObject("account").getString("student_number"));

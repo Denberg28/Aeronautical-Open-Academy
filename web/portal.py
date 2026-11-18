@@ -9,6 +9,7 @@ import streamlit as st
 
 from web.api import AcademyAPI, ApiError, api_origin
 from web.reader import read_pdf
+from web.schedule import schedule_controls, timing_caption
 
 
 # UI — Shared typography and spacing; values use CSS rem units.
@@ -357,6 +358,8 @@ def workspace(api, me):
         summary = detail["summary"]
         st.progress(summary["completion_percent"] / 100,
                     text=f"{summary['completed']} of {summary['total']} complete")
+        if summary.get("overdue"):
+            st.warning(f"{summary['overdue']} overdue · late work is still accepted")
     with st.expander("About this subject"):
         st.text(subject["description"])
     if not student:
@@ -383,6 +386,7 @@ def workspace(api, me):
                         st.session_state.pop(key, None)
                     st.session_state["item"] = item["id"]
                     st.rerun()
+                timing_caption(item)
         else:
             if st.button("Back to materials"):
                 st.session_state.pop("item", None)
@@ -391,6 +395,7 @@ def workspace(api, me):
             item = api.get("/v1/items/" + selected)["item"]
             st.divider()
             st.subheader(item["title"])
+            timing_caption(item)
             reading_text(api, item)
             if item["kind"] == "material":
                 if item["material_mode"] == "file":
@@ -409,6 +414,9 @@ def workspace(api, me):
                     edit_material(api, item)
             else:
                 assessment(api, item, student)
+            if not student and me["capabilities"].get("scheduling") == "dates-v1" and (
+                    account["role"] == "admin" or item["owner_id"] == account["id"]):
+                schedule_controls(api, item)
     if sync_requested:
         st.success("Synced · current materials, results and progress refreshed.")
 

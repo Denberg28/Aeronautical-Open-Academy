@@ -135,3 +135,5 @@ Server schema v7 adds a nullable questions column and automatically scored form 
 ### Subject layout and text
 
 The subject title and student progress stay visible above scrollable entries. Use the back arrow to return to subjects and the information icon to read the full title/description. Public subjects retain a pinned title without inventing account progress. Results remain in the bottom navigation. Body text uses 1.4 line height, headings 1.2, and separate paragraphs have a 12 dp gap; wrapped lines stay together. Lessons use 16 sp text. Shared typography covers screens, native dialogs, reading, choices, editors and saved-PDF controls; it does not rewrite PDF document pages or stored content.
+
+Scheduled publication and completion dates: see [Scheduling](docs/SCHEDULING.md). Instructor controls use Philippine time; late work is accepted and marked late.
