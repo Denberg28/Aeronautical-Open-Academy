@@ -22,7 +22,7 @@ test('nullable scheduling migration preserves existing rows and reopens saved da
    INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES('s','Dates','Synthetic','i',1);
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at) VALUES('entry','s','i','material','Existing','Unchanged',1,1);
    DROP INDEX items_release; ALTER TABLE items DROP COLUMN publish_at; ALTER TABLE items DROP COLUMN due_at;`);
-  db.exec('PRAGMA user_version='+(current-1));db.close();db=openDatabase(path);
+  db.exec('PRAGMA user_version=11');db.close();db=openDatabase(path);
   let row=db.prepare("SELECT * FROM items WHERE id='entry'").get();assert.equal(row.publish_at,null);assert.equal(row.due_at,null);assert.equal(row.revision,1);assert.equal(row.published,1);
   db.prepare("UPDATE items SET publish_at=?,due_at=? WHERE id='entry'").run(1900000000000,1900000060000);db.close();db=openDatabase(path);
   row=db.prepare("SELECT * FROM items WHERE id='entry'").get();assert.equal(row.publish_at,1900000000000);assert.equal(row.due_at,1900000060000);assert.equal(row.revision,1);

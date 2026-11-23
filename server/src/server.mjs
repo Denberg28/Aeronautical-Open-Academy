@@ -19,14 +19,21 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  const get=(sql,...args)=>db.prepare(sql).get(...args),all=(sql,...args)=>db.prepare(sql).all(...args),run=(sql,...args)=>db.prepare(sql).run(...args);
  const transaction=action=>{db.exec('BEGIN IMMEDIATE');try{const value=action();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}};
  const audit=(actor,action,target)=>run('INSERT INTO audit(actor_id,action,target_id,created_at) VALUES(?,?,?,?)',actor,action,target,now());
- async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{}){
+ async function createAccount(data,role=data.role,mustChange=true,beforeCommit=()=>{},actorId=null){
+  const allowed=new Set(['name','email','role','password','student_number']);
+  requireThat(Object.keys(data).every(k=>allowed.has(k)),400,'Unexpected field in account registration.');
   requireThat(['admin','instructor','student'].includes(role),400,'Choose admin, instructor, or student.');
   const address=email(data.email),name=accountName(data.name),number=data.student_number==null?null:studentNumber(data.student_number);
   requireThat(number===null||role==='student',400,'Student ID applies to student accounts only.');
   requireThat(number===null||!get('SELECT id FROM accounts WHERE student_number=?',number),409,'Student ID is already assigned.');
   requireThat(!get('SELECT id FROM accounts WHERE email=?',address),409,'An account already uses that email.');
   const hashed=await hashPassword(data.password,scryptN),id=randomUUID();beforeCommit();
-  try{run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now(),number);}
+  try{
+   transaction(()=>{
+    run('INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,?,?,?)',id,address,name,role,hashed,mustChange?1:0,now(),number);
+    if(actorId)audit(actorId,'account-create',id);
+   });
+  }
   catch(e){if(number&&get('SELECT id FROM accounts WHERE student_number=?',number))throw new ApiError(409,'Student ID is already assigned.');if(get('SELECT id FROM accounts WHERE email=?',address))throw new ApiError(409,'An account already uses that email.');throw e;}
   return publicAccount(get('SELECT * FROM accounts WHERE id=?',id));
  }
@@ -55,10 +62,36 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  }
  const admin=a=>requireThat(a.role==='admin',403,'Administrator access required.');
  const recent=a=>requireThat(a.created_at>now()-15*60*1000,401,'Sign in again before changing accounts.');
+ // Access — Admin-managed instructor subject grants (active/suspended, read_only/editor); students default to reader with no downloads.
+ function instructorAccess(a,subjectId){
+  if(a.status!=='active')return {canRead:false,canEdit:false,accessLevel:null,status:null};
+  if(a.role==='admin')return {canRead:true,canEdit:true,accessLevel:'admin',status:'active'};
+  if(a.role==='instructor'){
+   const grant=get('SELECT access_level,status FROM subject_instructors WHERE subject_id=? AND instructor_id=?',subjectId,a.id);
+   if(!grant||grant.status!=='active')return {canRead:false,canEdit:false,accessLevel:grant?.access_level||null,status:grant?.status||null};
+   return {canRead:true,canEdit:grant.access_level==='editor',accessLevel:grant.access_level,status:'active'};
+  }
+  return {canRead:false,canEdit:false,accessLevel:'reader',status:'active'};
+ }
+ function annotateSubject(a,subject){
+  if(a.role==='admin')return {...subject,access_level:'admin',can_edit:true,can_delete:true};
+  if(a.role==='instructor'){
+   const access=instructorAccess(a,subject.id);
+   return {...subject,access_level:access.accessLevel||'read_only',can_edit:access.canEdit,can_delete:access.canEdit&&subject.owner_id===a.id};
+  }
+  return {...subject,access_level:'reader',can_edit:false,can_delete:false};
+ }
  function subjectFor(a,id,write=false){
   const subject=get('SELECT * FROM subjects WHERE id=? AND archived=0',id);requireThat(subject,404,'Subject unavailable.');
-  if(write)requireThat(canManage(a,subject.owner_id),404,'Subject unavailable.');
-  else requireThat(a.role==='admin'||a.role==='instructor'&&subject.owner_id===a.id||a.role==='student'&&get('SELECT 1 FROM enrolments WHERE student_id=? AND subject_id=?',a.id,id),404,'Subject unavailable.');
+  if(a.role==='admin')return subject;
+  if(a.role==='instructor'){
+   const access=instructorAccess(a,subject.id);
+   requireThat(access.canRead,404,'Subject unavailable.');
+   if(write)requireThat(access.canEdit,403,'Read-only instructor access cannot modify this subject.');
+   return subject;
+  }
+  requireThat(!write,404,'Subject unavailable.');
+  requireThat(a.role==='student'&&get('SELECT 1 FROM enrolments WHERE student_id=? AND subject_id=?',a.id,id),404,'Subject unavailable.');
   return subject;
  }
  function eligible(a,subject){return !!subject.self_enrol&&(!!subject.eligibility_all||!!(a.student_number&&get('SELECT 1 FROM eligible_students WHERE subject_id=? AND student_number=?',subject.id,a.student_number)));}
@@ -96,19 +129,23 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   requireThat(parentId===null||typeof parentId==='string',400,'Choose a material in this subject.');
   if(parentId===null)return;
   requireThat(['activity','quiz'].includes(kind)&&!examination,400,'Only activities and quizzes belong inside a material. Examinations stay at subject level.');
-  const parent=itemFor(a,parentId,true);
+  const parent=itemFor(a,parentId,false);
   requireThat(parent.subject_id===subjectId&&parent.kind==='material'&&!parent.parent_id,400,'Choose a material in this subject.');
  }
 
  function itemFor(a,id,write=false){
-  const item=get('SELECT * FROM items WHERE id=? AND archived=0',id);requireThat(item,404,'Material or activity unavailable.');subjectFor(a,item.subject_id);
-  if(write)requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
+  const item=get('SELECT * FROM items WHERE id=? AND archived=0',id);requireThat(item,404,'Material or activity unavailable.');subjectFor(a,item.subject_id,false);
+  if(write){
+   if(a.role==='instructor')requireThat(instructorAccess(a,item.subject_id).canEdit,403,'Read-only instructor access cannot modify this material.');
+   requireThat(canManage(a,item.owner_id),403,'Only the creator or an administrator can edit this material.');
+  }
   else if(a.role==='student')requireThat(visibleToStudent(item),404,'Material or activity unavailable.');return item;
  }
  function presentItem(a,item,features=""){
-  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:false,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
+  const editor=a.role==='admin'||(a.role==='instructor'&&instructorAccess(a,item.subject_id).canEdit);
+  const manager=editor&&canManage(a,item.owner_id);
+  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:false,can_edit:manager,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
-   const manager=canManage(a,item.owner_id);
    copy.questions=publicQuestions(item,manager);
    copy.question_count=copy.questions.length;
    copy.options=copy.questions.length===1?copy.questions[0].options:[];
@@ -117,8 +154,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(attempt){copy.attempt=attempt;copy.form_result={answers:attempt.answers_json?JSON.parse(attempt.answers_json):[attempt.choice],correct:attempt.score,total:attempt.max_score,score:Math.round(attempt.score*10000/attempt.max_score)/100};}
   }
   if(item.kind==='activity'&&item.questions_json){
-   requireThat(features.includes('choice-forms-v1'),409,'Update Academy PC to open selection activities and examinations.');
-   copy.response_mode='choice';copy.questions=publicQuestions(item,canManage(a,item.owner_id));copy.question_count=copy.questions.length;
+   requireThat(features.includes('choice-forms-v1'),409,'Update Aeronautical Academy Repository to open selection activities and examinations.');
+   copy.response_mode='choice';copy.questions=publicQuestions(item,manager);copy.question_count=copy.questions.length;
    const submission=get('SELECT output,score FROM submissions WHERE student_id=? AND item_id=? AND revision=?',a.id,item.id,item.revision);
    if(submission)copy.form_result=JSON.parse(submission.output);
   }
@@ -162,7 +199,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.9.0-rc.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.10.0-rc.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -178,7 +215,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/logout-all'&&method==='POST'){
     transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
@@ -197,7 +234,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(path==='/v1/sync'&&method==='GET')return send(200,syncReceipt(a,now()));
    if(path==='/v1/admin/accounts'&&method==='GET'){admin(a);const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));return send(200,{accounts:all('SELECT * FROM accounts WHERE status<>? ORDER BY created_at DESC LIMIT 100 OFFSET ?','deleted',offset).map(publicAccount)});}
    if(path==='/v1/admin/audit'&&method==='GET'){admin(a);return send(200,{events:all('SELECT * FROM audit ORDER BY id DESC LIMIT 100')});}
-   if(path==='/v1/admin/accounts'&&method==='POST'){admin(a);recent(a);const created=await createAccount(payload,undefined,true,()=>{const fresh=authenticate(req);admin(fresh);recent(fresh);});audit(a.id,'account-create',created.id);return send(201,{account:created});}
+   if(path==='/v1/admin/accounts'&&method==='POST'){admin(a);recent(a);throttle('account-create:'+a.id,30);const created=await createAccount(payload,undefined,true,()=>{const fresh=authenticate(req);admin(fresh);recent(fresh);},a.id);return send(201,{account:created});}
    let match;
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     admin(a);recent(a);const d=payload,target=get('SELECT * FROM accounts WHERE id=? AND status<>?',match[1],'deleted');requireThat(target,404,'Account unavailable.');
@@ -210,6 +247,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(nextNumber===null||!get('SELECT id FROM accounts WHERE student_number=? AND id<>?',nextNumber,target.id),409,'Student ID is already assigned.');
     transaction(()=>{
     if(nextNumber!==target.student_number)forgetNumber(target.student_number,target.id);
+    if(d.status==='deleted'||nextRole!=='instructor')run('DELETE FROM subject_instructors WHERE instructor_id=?',target.id);
     run('UPDATE accounts SET student_number=? WHERE id=?',nextNumber,target.id);
     if(d.status==='deleted'){
      requireThat(d.confirm_email===target.email,400,'Confirm the exact email before account deletion.');
@@ -221,7 +259,31 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})\/password$/))&&method==='POST'){
     admin(a);recent(a);const d=payload,target=get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",match[1]);requireThat(target,404,'Account unavailable.');
     const hashed=await hashPassword(d.password,scryptN);const fresh=authenticate(req);admin(fresh);recent(fresh);requireThat(get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",target.id),404,'Account unavailable.');
-    run('UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?',hashed,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);return send(200,{reset:true});
+    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?',hashed,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);});return send(200,{reset:true});
+   }
+   // Admin — Per-subject instructor access control (read_only/editor and active/suspended).
+   if((match=path.match(/^\/v1\/admin\/subjects\/([a-f0-9-]{36})\/instructors$/))&&['GET','POST'].includes(method)){
+    admin(a);const subject=subjectFor(a,match[1]);
+    if(method==='GET'){
+     const rows=all("SELECT a.id instructor_id,a.name,a.email,a.status account_status,si.access_level,si.status access_status,si.updated_at FROM accounts a LEFT JOIN subject_instructors si ON si.subject_id=? AND si.instructor_id=a.id WHERE a.role='instructor' AND a.status<>'deleted' ORDER BY a.name,a.id LIMIT 200",subject.id);
+     return send(200,{subject:{id:subject.id,title:subject.title,owner_id:subject.owner_id},instructors:rows.map(r=>({instructor_id:r.instructor_id,name:r.name,email:r.email,account_status:r.account_status,assigned:!!r.access_level,access_level:r.access_level||null,status:r.access_status||null,is_owner:r.instructor_id===subject.owner_id,updated_at:r.updated_at||null}))});
+    }
+    recent(a);const d=payload;
+    const instructor=get("SELECT id,role,status FROM accounts WHERE id=? AND status<>'deleted'",d.instructor_id);
+    requireThat(instructor&&instructor.role==='instructor',400,'Choose an instructor account.');
+    if(d.remove===true){
+     transaction(()=>{run('DELETE FROM subject_instructors WHERE subject_id=? AND instructor_id=?',subject.id,instructor.id);audit(a.id,'instructor-access-remove',subject.id);});
+     return send(200,{saved:true,removed:true});
+    }
+    const level=d.access_level;const status=d.status??'active';
+    requireThat(['read_only','editor'].includes(level),400,'Choose read_only or editor access.');
+    requireThat(['active','suspended'].includes(status),400,'Choose active or suspended access status.');
+    const ts=now();
+    transaction(()=>{
+     run('INSERT INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(subject_id,instructor_id) DO UPDATE SET access_level=excluded.access_level,status=excluded.status,updated_by=excluded.updated_by,updated_at=excluded.updated_at',subject.id,instructor.id,level,status,a.id,ts);
+     audit(a.id,`instructor-access-${status}-${level}`,subject.id);
+    });
+    return send(200,{saved:true,access:{subject_id:subject.id,instructor_id:instructor.id,access_level:level,status,updated_at:ts}});
    }
    if(path==='/v1/admin/enrolments'&&method==='POST'){
     admin(a);const d=payload;requireThat(get("SELECT 1 FROM accounts WHERE id=? AND role='student' AND status='active'",d.student_id),400,'Choose an active student.');subjectFor(a,d.subject_id);
@@ -233,7 +295,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if(path==='/v1/announcements'&&method==='POST'){admin(a);const d=payload,id=randomUUID();run('INSERT INTO announcements(id,title,body,author_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.body,'announcement',5000),a.id,now());audit(a.id,'announcement-create',id);return send(201,{id});}
    if((match=path.match(/^\/v1\/announcements\/([a-f0-9-]{36})$/))&&method==='DELETE'){admin(a);run('UPDATE announcements SET archived=1 WHERE id=?',match[1]);audit(a.id,'announcement-archive',match[1]);return send(200,{archived:true});}
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/eligibility$/))&&['GET','POST'].includes(method)){
-    const subject=subjectFor(a,match[1],true);
+    requireThat(a.role!=='student',404,'Subject unavailable.');
+    const subject=subjectFor(a,match[1],method==='POST');
     if(method==='GET')return send(200,enrollmentPolicy(subject));
     const d=payload;requireThat(typeof d.all_students==='boolean'&&Array.isArray(d.student_numbers)&&d.student_numbers.length<=1000,400,'Choose all students or provide at most 1000 student IDs.');
     requireThat(d.expected_revision===subject.eligibility_revision,409,'Eligibility changed. Refresh before saving.');
@@ -257,7 +320,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     const source=payload.source==='qr'?'qr':'self';transaction(()=>{run('INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,?)',match[1],a.id,source);audit(a.id,source+'-enrol',match[1]);});return send(200,{enrolled:true});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/learners(?:\/([a-f0-9-]{36}))?$/))&&method==='GET'){
-    subjectFor(a,match[1],true);
+    requireThat(a.role!=='student',404,'Subject unavailable.');
+    subjectFor(a,match[1],false);
     if(match[2]){
      const student=get("SELECT a.id,a.name,a.email,a.status,a.student_number FROM accounts a JOIN enrolments e ON e.student_id=a.id WHERE a.id=? AND e.subject_id=? AND a.role='student' AND a.status<>'deleted'",match[2],match[1]);requireThat(student,404,'Enrolled student unavailable.');
      return send(200,learnerView(student,match[1],publishedItems(match[1]),true));
@@ -322,17 +386,22 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     transaction(()=>{run('UPDATE submissions SET score=?,feedback=?,grader_id=?,graded_at=? WHERE id=?',d.score,feedback,a.id,gradedAt,submission.id);audit(a.id,'work-grade',submission.id);});return send(200,{graded:true,submission:{id:submission.id,score:d.score,feedback,graded_at:gradedAt}});
    }
    if(path==='/v1/subjects'&&method==='GET'){
-    const rows=a.role==='admin'?all('SELECT * FROM subjects WHERE archived=0 ORDER BY title LIMIT 200'):a.role==='instructor'?all('SELECT * FROM subjects WHERE archived=0 AND owner_id=? ORDER BY title LIMIT 200',a.id):all('SELECT s.* FROM subjects s JOIN enrolments e ON e.subject_id=s.id WHERE e.student_id=? AND s.archived=0 ORDER BY s.title LIMIT 200',a.id);
-    return send(200,{subjects:rows.map(s=>a.role==='student'?{...s,summary:learnerView(a,s.id,publishedItems(s.id)).summary}:s)});
+    const rows=a.role==='admin'?all('SELECT * FROM subjects WHERE archived=0 ORDER BY title LIMIT 200'):a.role==='instructor'?all("SELECT s.* FROM subjects s JOIN subject_instructors si ON si.subject_id=s.id WHERE s.archived=0 AND si.instructor_id=? AND si.status='active' ORDER BY s.title LIMIT 200",a.id):all('SELECT s.* FROM subjects s JOIN enrolments e ON e.subject_id=s.id WHERE e.student_id=? AND s.archived=0 ORDER BY s.title LIMIT 200',a.id);
+    return send(200,{subjects:rows.map(s=>a.role==='student'?{...annotateSubject(a,s),summary:learnerView(a,s.id,publishedItems(s.id)).summary}:annotateSubject(a,s))});
    }
    if(path==='/v1/subjects'&&method==='POST'){
     requireThat(a.role==='admin'||a.role==='instructor',403,'Instructor access required.');const d=payload,id=randomUUID();
-    const owner=a.role==='admin'&&d.owner_id?d.owner_id:a.id;requireThat(get("SELECT id FROM accounts WHERE id=? AND role IN ('admin','instructor') AND status='active'",owner),400,'Choose an active subject owner.');
-    run('INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.description,'description',1000),owner,now());audit(a.id,'subject-create',id);return send(201,{id});
+    const owner=a.role==='admin'&&d.owner_id?d.owner_id:a.id;const ownerAccount=get("SELECT id,role FROM accounts WHERE id=? AND role IN ('admin','instructor') AND status='active'",owner);requireThat(ownerAccount,400,'Choose an active subject owner.');
+    const ts=now();
+    transaction(()=>{
+     run('INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES(?,?,?,?,?)',id,text(d.title,'title',160),text(d.description,'description',1000),owner,ts);
+     if(ownerAccount.role==='instructor')run("INSERT INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,'editor','active',?,?)",id,owner,a.id,ts);
+     audit(a.id,'subject-create',id);
+    });return send(201,{id});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&method==='GET'){
     const subject=subjectFor(a,match[1]);const items=orderedItems(subject.id).slice(0,200).filter(i=>a.role!=='student'||visibleToStudent(i)).map(i=>presentItem(a,i,String(req.headers['x-academy-features']||'')));
-    return send(200,{subject,items,tree_version:1,quiz_version:1,choice_forms:true,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
+    return send(200,{subject:annotateSubject(a,subject),items,tree_version:1,quiz_version:1,choice_forms:true,...(a.role==='student'?{summary:learnerView(a,subject.id,publishedItems(subject.id)).summary}:{})});
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
     const old=subjectFor(a,match[1],true),d=payload;
@@ -342,7 +411,12 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/archive$/))&&method==='POST'){
     const subject=get('SELECT * FROM subjects WHERE id=?',match[1]),d=payload;
-    requireThat(subject&&canManage(a,subject.owner_id),404,'Subject unavailable.');
+    requireThat(subject,404,'Subject unavailable.');
+    if(a.role==='instructor'){
+     const access=instructorAccess(a,subject.id);
+     requireThat(access.canRead&&subject.owner_id===a.id,404,'Subject unavailable.');
+     requireThat(access.canEdit,403,'Read-only instructor access cannot delete this subject.');
+    }else requireThat(a.role==='admin',404,'Subject unavailable.');
     requireThat(d.confirm_delete===true,400,'Confirm deleting this subject.');
     if(subject.archived)return send(200,{deleted:true});
     requireThat(d.expected_title===subject.title&&d.expected_description===subject.description&&d.expected_order_revision===subject.order_revision&&d.expected_eligibility_revision===subject.eligibility_revision,409,'This subject changed. Refresh and review it before deleting.');
@@ -460,9 +534,9 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/content$/))&&method==='GET'){
     const item=itemFor(a,match[1]);requireThat(item.kind==='material'&&item.file_ref&&materials,404,'Material unavailable.');
-    if(url.searchParams.has('download'))requireThat(canManage(a,item.owner_id),403,'Student material downloads are disabled.');
+    if(url.searchParams.has('download'))requireThat(a.role==='admin'||(a.role==='instructor'&&instructorAccess(a,item.subject_id).canEdit&&canManage(a,item.owner_id)),403,'Material downloads are disabled for students and read-only access.');
     const stream=await materials.get(item.file_ref);try{const fresh=authenticate(req);itemFor(fresh,item.id);}catch(e){stream.destroy();throw e;}
-    res.writeHead(200,{'Content-Type':'application/pdf','Content-Length':String(item.file_bytes),'Content-Disposition':'inline; filename="academy-material.pdf"','X-Content-SHA256':item.file_sha256});
+    res.writeHead(200,{'Content-Type':'application/pdf','Content-Length':String(item.file_bytes),'Content-Disposition':'inline; filename="academy-material.pdf"','X-Content-SHA256':item.file_sha256,'X-Download-Options':'noopen','X-Robots-Tag':'noindex, nofollow'});
     let bytes=0;const limiter=new Transform({transform(chunk,encoding,done){bytes+=chunk.length;done(bytes>MAX_FILE_BYTES?new ApiError(502,'Material size exceeded.'):null,chunk);}});await pipeline(stream,limiter,res);return;
    }
    throw new ApiError(404,'Action unavailable.');

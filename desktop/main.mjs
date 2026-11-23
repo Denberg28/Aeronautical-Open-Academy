@@ -81,7 +81,7 @@ async function boot() {
         minWidth: 1060,
         minHeight: 720,
         backgroundColor: "#f5f7fb",
-        title: "Aeronautical Open Academy",
+        title: "Aeronautical Academy Repository",
         autoHideMenuBar: true,
         webPreferences: {
           preload: join(root, "preload.cjs"),
@@ -93,8 +93,11 @@ async function boot() {
         },
       });
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      window.webContents.on("context-menu", (event) => event.preventDefault());
       window.webContents.on("before-input-event", (event, input) => {
-        if((input.control||input.meta)&&['p','s'].includes(input.key.toLowerCase()))event.preventDefault();
+        const key = String(input.key || "").toLowerCase();
+        if ((input.control || input.meta) && ["p", "s"].includes(key))
+          event.preventDefault();
       });
       window.webContents.on("will-navigate", (e) => e.preventDefault());
       window.webContents.on("will-attach-webview", (e) => e.preventDefault());
@@ -105,7 +108,7 @@ async function boot() {
           defaultId: 0,
           cancelId: 0,
           title: "Unsaved work",
-          message: "Close Academy and discard your unsaved text?",
+          message: "Close Aeronautical Academy Repository and discard your unsaved text?",
         });
         if (choice === 1) event.preventDefault();
       });
@@ -189,7 +192,7 @@ async function boot() {
       }
     } catch (error) {
       if (!smoke && !automated)
-        dialog.showErrorBox("Academy could not start", error.message);
+        dialog.showErrorBox("Aeronautical Academy Repository could not start", error.message);
       console.error(error.message);
       app.exit(1);
     }
