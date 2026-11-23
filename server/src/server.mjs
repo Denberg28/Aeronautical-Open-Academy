@@ -74,12 +74,68 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   return {canRead:false,canEdit:false,accessLevel:'reader',status:'active'};
  }
  function annotateSubject(a,subject){
-  if(a.role==='admin')return {...subject,access_level:'admin',can_edit:true,can_delete:true};
+  const folder_id=subject.folder_id??null;
+  if(a.role==='admin')return {...subject,folder_id,access_level:'admin',can_edit:true,can_delete:true};
   if(a.role==='instructor'){
    const access=instructorAccess(a,subject.id);
-   return {...subject,access_level:access.accessLevel||'read_only',can_edit:access.canEdit,can_delete:access.canEdit&&subject.owner_id===a.id};
+   return {...subject,folder_id,access_level:access.accessLevel||'read_only',can_edit:access.canEdit,can_delete:access.canEdit&&subject.owner_id===a.id};
   }
-  return {...subject,access_level:'reader',can_edit:false,can_delete:false};
+  return {...subject,folder_id,access_level:'reader',can_edit:false,can_delete:false};
+ }
+ const MAX_FOLDERS=200,MAX_FOLDER_DEPTH=5;
+ function allFolders(){
+  return all('SELECT id,name,parent_id,sort_order,created_at,updated_at FROM subject_folders ORDER BY sort_order,name,id LIMIT 200');
+ }
+ function visibleFolders(a,subjects){
+  const folders=allFolders();
+  if(a.role==='admin')return folders;
+  const byId=new Map(folders.map(f=>[f.id,f]));
+  const keep=new Set();
+  for(const s of subjects){
+   let cur=s.folder_id;
+   let guard=0;
+   while(cur&&byId.has(cur)&&guard++<=MAX_FOLDERS){
+    if(keep.has(cur))break;
+    keep.add(cur);
+    cur=byId.get(cur).parent_id;
+   }
+  }
+  return folders.filter(f=>keep.has(f.id));
+ }
+ function folderDepth(byId,folderId){
+  let depth=0,cur=folderId;
+  const seen=new Set();
+  while(cur){
+   requireThat(!seen.has(cur),400,'Invalid folder hierarchy.');
+   seen.add(cur);
+   const node=byId.get(cur);
+   requireThat(node,400,'Choose an existing parent folder.');
+   cur=node.parent_id;
+   depth++;
+  }
+  return depth;
+ }
+ function folderDescendants(folders,rootId){
+  const out=new Set();
+  const stack=[rootId];
+  while(stack.length){
+   const id=stack.pop();
+   for(const f of folders)if(f.parent_id===id&&!out.has(f.id)){out.add(f.id);stack.push(f.id);}
+  }
+  return out;
+ }
+ function subtreeHeight(folders,rootId){
+  let max=0;
+  const stack=[[rootId,0]];
+  while(stack.length){
+   const [id,d]=stack.pop();
+   if(d>max)max=d;
+   for(const f of folders)if(f.parent_id===id)stack.push([f.id,d+1]);
+  }
+  return max;
+ }
+ function resequenceFolderSiblings(parentId,orderedIds){
+  orderedIds.forEach((fid,index)=>run('UPDATE subject_folders SET sort_order=? WHERE id=?',index,fid));
  }
  function subjectFor(a,id,write=false){
   const subject=get('SELECT * FROM subjects WHERE id=? AND archived=0',id);requireThat(subject,404,'Subject unavailable.');
@@ -199,7 +255,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.10.0-rc.1'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.11.0-rc.1'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
@@ -215,7 +271,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/logout-all'&&method==='POST'){
     transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
@@ -284,6 +340,96 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      audit(a.id,`instructor-access-${status}-${level}`,subject.id);
     });
     return send(200,{saved:true,access:{subject_id:subject.id,instructor_id:instructor.id,access_level:level,status,updated_at:ts}});
+   }
+   // Admin — Hierarchical subject folders in the left navigation pane.
+   if(path==='/v1/admin/folders'&&method==='GET'){admin(a);return send(200,{folders:allFolders()});}
+   if(path==='/v1/admin/folders'&&method==='POST'){
+    admin(a);const d=payload;
+    const name=text(d.name,'folder name',80);
+    const parentId=d.parent_id==null||d.parent_id===''?null:String(d.parent_id);
+    const existing=allFolders();
+    requireThat(existing.length<MAX_FOLDERS,409,`You can create up to ${MAX_FOLDERS} folders.`);
+    if(parentId!==null){
+     const byId=new Map(existing.map(f=>[f.id,f]));
+     requireThat(byId.has(parentId),400,'Choose an existing parent folder.');
+     requireThat(folderDepth(byId,parentId)+1<=MAX_FOLDER_DEPTH,400,`Folders can nest up to ${MAX_FOLDER_DEPTH} levels deep.`);
+    }
+    const siblings=existing.filter(f=>(f.parent_id??null)===parentId);
+    const id=randomUUID(),ts=now(),sortOrder=siblings.length;
+    transaction(()=>{
+     run('INSERT INTO subject_folders(id,name,parent_id,sort_order,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',id,name,parentId,sortOrder,a.id,ts,ts);
+     audit(a.id,'folder-create',id);
+    });
+    return send(201,{folder:get('SELECT id,name,parent_id,sort_order,created_at,updated_at FROM subject_folders WHERE id=?',id),folders:allFolders()});
+   }
+   if((match=path.match(/^\/v1\/admin\/folders\/([a-f0-9-]{36})$/))&&method==='PATCH'){
+    admin(a);const d=payload;
+    const folders=allFolders(),byId=new Map(folders.map(f=>[f.id,f]));
+    const folder=byId.get(match[1]);requireThat(folder,404,'Folder unavailable.');
+    const name=d.name===undefined?folder.name:text(d.name,'folder name',80);
+    let targetParent=d.parent_id===undefined?(folder.parent_id??null):(d.parent_id==null||d.parent_id===''?null:String(d.parent_id));
+    const beforeId=d.before_id==null||d.before_id===''?null:String(d.before_id);
+    const afterId=d.after_id==null||d.after_id===''?null:String(d.after_id);
+    requireThat(!(beforeId&&afterId),400,'Specify either before_id or after_id, not both.');
+    if(beforeId||afterId){
+     const refId=beforeId||afterId;
+     requireThat(refId!==folder.id,400,'Cannot position a folder relative to itself.');
+     const ref=byId.get(refId);requireThat(ref,400,'Target folder unavailable.');
+     if(d.parent_id===undefined)targetParent=ref.parent_id??null;
+     else requireThat((ref.parent_id??null)===targetParent,400,'Target sibling belongs to a different parent folder.');
+    }
+    if(targetParent!==null){
+     requireThat(targetParent!==folder.id,400,'A folder cannot be moved inside itself.');
+     requireThat(byId.has(targetParent),400,'Choose an existing parent folder.');
+     requireThat(!folderDescendants(folders,folder.id).has(targetParent),400,'A folder cannot be moved inside one of its own subfolders.');
+     requireThat(folderDepth(byId,targetParent)+1+subtreeHeight(folders,folder.id)<=MAX_FOLDER_DEPTH,400,`Folders can nest up to ${MAX_FOLDER_DEPTH} levels deep.`);
+    }
+    const oldParent=folder.parent_id??null;
+    const targetSiblings=folders.filter(f=>(f.parent_id??null)===targetParent&&f.id!==folder.id).map(f=>f.id);
+    let insertAt;
+    if(beforeId)insertAt=targetSiblings.indexOf(beforeId);
+    else if(afterId)insertAt=targetSiblings.indexOf(afterId)+1;
+    else if(Number.isInteger(d.sort_order))insertAt=Math.max(0,Math.min(targetSiblings.length,d.sort_order));
+    else if(targetParent!==oldParent)insertAt=targetSiblings.length;
+    else insertAt=folders.filter(f=>(f.parent_id??null)===oldParent).findIndex(f=>f.id===folder.id);
+    if(insertAt<0)insertAt=targetSiblings.length;
+    targetSiblings.splice(insertAt,0,folder.id);
+    const ts=now();
+    transaction(()=>{
+     run('UPDATE subject_folders SET name=?,parent_id=?,updated_at=? WHERE id=?',name,targetParent,ts,folder.id);
+     resequenceFolderSiblings(targetParent,targetSiblings);
+     if(oldParent!==targetParent){
+      const remainingOld=folders.filter(f=>(f.parent_id??null)===oldParent&&f.id!==folder.id).map(f=>f.id);
+      resequenceFolderSiblings(oldParent,remainingOld);
+     }
+     audit(a.id,'folder-update',folder.id);
+    });
+    return send(200,{folder:get('SELECT id,name,parent_id,sort_order,created_at,updated_at FROM subject_folders WHERE id=?',folder.id),folders:allFolders()});
+   }
+   if((match=path.match(/^\/v1\/admin\/folders\/([a-f0-9-]{36})$/))&&method==='DELETE'){
+    admin(a);
+    const folder=get('SELECT * FROM subject_folders WHERE id=?',match[1]);requireThat(folder,404,'Folder unavailable.');
+    const parentId=folder.parent_id??null,ts=now();
+    transaction(()=>{
+     run('UPDATE subjects SET folder_id=? WHERE folder_id=?',parentId,folder.id);
+     run('UPDATE subject_folders SET parent_id=?,updated_at=? WHERE parent_id=?',parentId,ts,folder.id);
+     run('DELETE FROM subject_folders WHERE id=?',folder.id);
+     const siblings=all('SELECT id FROM subject_folders WHERE parent_id IS ? ORDER BY sort_order,name,id',parentId).map(r=>r.id);
+     resequenceFolderSiblings(parentId,siblings);
+     audit(a.id,'folder-delete',folder.id);
+    });
+    return send(200,{deleted:true,moved_to:parentId,folders:allFolders()});
+   }
+   if((match=path.match(/^\/v1\/admin\/subjects\/([a-f0-9-]{36})\/folder$/))&&method==='POST'){
+    admin(a);
+    const subject=subjectFor(a,match[1]);
+    const folderId=payload.folder_id==null||payload.folder_id===''?null:String(payload.folder_id);
+    if(folderId!==null)requireThat(get('SELECT id FROM subject_folders WHERE id=?',folderId),400,'Choose an existing folder.');
+    transaction(()=>{
+     run('UPDATE subjects SET folder_id=? WHERE id=?',folderId,subject.id);
+     audit(a.id,'subject-folder',subject.id);
+    });
+    return send(200,{saved:true,subject_id:subject.id,folder_id:folderId});
    }
    if(path==='/v1/admin/enrolments'&&method==='POST'){
     admin(a);const d=payload;requireThat(get("SELECT 1 FROM accounts WHERE id=? AND role='student' AND status='active'",d.student_id),400,'Choose an active student.');subjectFor(a,d.subject_id);
@@ -387,7 +533,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if(path==='/v1/subjects'&&method==='GET'){
     const rows=a.role==='admin'?all('SELECT * FROM subjects WHERE archived=0 ORDER BY title LIMIT 200'):a.role==='instructor'?all("SELECT s.* FROM subjects s JOIN subject_instructors si ON si.subject_id=s.id WHERE s.archived=0 AND si.instructor_id=? AND si.status='active' ORDER BY s.title LIMIT 200",a.id):all('SELECT s.* FROM subjects s JOIN enrolments e ON e.subject_id=s.id WHERE e.student_id=? AND s.archived=0 ORDER BY s.title LIMIT 200',a.id);
-    return send(200,{subjects:rows.map(s=>a.role==='student'?{...annotateSubject(a,s),summary:learnerView(a,s.id,publishedItems(s.id)).summary}:annotateSubject(a,s))});
+    return send(200,{subjects:rows.map(s=>a.role==='student'?{...annotateSubject(a,s),summary:learnerView(a,s.id,publishedItems(s.id)).summary}:annotateSubject(a,s)),folders:visibleFolders(a,rows)});
    }
    if(path==='/v1/subjects'&&method==='POST'){
     requireThat(a.role==='admin'||a.role==='instructor',403,'Instructor access required.');const d=payload,id=randomUUID();

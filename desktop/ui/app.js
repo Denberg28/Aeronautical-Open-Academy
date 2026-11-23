@@ -40,6 +40,8 @@ const icons = {
   help: "M9 8a3 3 0 0 1 6 0c0 2-3 2-3 5 M12 17h.01 M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0",
   logout: "M9 4H3v16h6 M9 12h12 M17 8l4 4-4 4",
   sync: "M21 12a9 9 0 0 1-15.4 6.4 M3 12a9 9 0 0 1 15.4-6.4 M21 5v5h-5 M3 19v-5h5",
+  folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  folderPlus: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6",
   settings:
     "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
 };
@@ -51,9 +53,12 @@ const state = {
   account: null,
   version: "",
   collapsedMaterials: new Set(),
+  collapsedFolders: new Set(),
   readyQuizzes: new Set(),
   mode: "local",
   subjects: [],
+  folders: [],
+  folderForm: null,
   announcements: [],
   active: null,
   activeLearnerId: null,
@@ -189,6 +194,96 @@ const navLabel = () =>
 function nav(label, action, glyph, active = false, extra = "") {
   return `<button class="nav-btn ${active ? "active" : ""}" data-action="${action}" ${extra}>${icon(glyph)}${label}</button>`;
 }
+const canManageFolders = () =>
+  state.account?.role === "admin" && Boolean(state.capabilities.subject_folders);
+const folderChildren = (parentId = null) =>
+  state.folders.filter((f) => (f.parent_id || null) === parentId);
+const folderSubjects = (folderId = null) =>
+  state.subjects.filter((s) => (s.folder_id || null) === folderId);
+function folderDescendantsLocal(rootId) {
+  const out = new Set();
+  const stack = [rootId];
+  while (stack.length) {
+    const id = stack.pop();
+    for (const f of state.folders) {
+      if ((f.parent_id || null) === id && !out.has(f.id)) {
+        out.add(f.id);
+        stack.push(f.id);
+      }
+    }
+  }
+  return out;
+}
+function folderCount(folderId) {
+  let total = folderSubjects(folderId).length;
+  for (const child of folderChildren(folderId)) total += folderCount(child.id);
+  return total;
+}
+function folderPathName(folderId) {
+  if (!folderId) return "";
+  const byId = new Map(state.folders.map((f) => [f.id, f]));
+  const names = [];
+  let cur = folderId,
+    guard = 0;
+  while (cur && byId.has(cur) && guard++ < 10) {
+    names.unshift(byId.get(cur).name);
+    cur = byId.get(cur).parent_id;
+  }
+  return names.join(" / ");
+}
+function renderSubjectNavBtn(s, adminFolders) {
+  const selected = state.active?.id === s.id && state.view === "subject";
+  const dragAttrs = adminFolders
+    ? `draggable="true" data-drag-subject="${escape(s.id)}" title="${escape(s.title)} — drag into a folder"`
+    : `title="${escape(s.title)}"`;
+  return `<button class="nav-btn subject-nav ${selected ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}" ${dragAttrs}><span>${escape(s.title)}</span></button>`;
+}
+function renderFolderForm() {
+  const f = state.folderForm;
+  if (!f || !canManageFolders()) return "";
+  const isRename = f.mode === "rename";
+  const parentOptions = !isRename
+    ? `<label class="small muted">Parent folder<select name="parent_id"><option value="">Top level</option>${state.folders
+        .map(
+          (folder) =>
+            `<option value="${escape(folder.id)}" ${(f.parentId || "") === folder.id ? "selected" : ""}>${escape(folderPathName(folder.id))}</option>`,
+        )
+        .join("")}</select></label>`
+    : "";
+  return `<form id="folder-form" class="nav-folder-form" data-mode="${escape(f.mode)}" data-id="${escape(f.id || "")}"><label class="small muted">${isRename ? "Rename folder" : "New folder"}<input name="name" maxlength="80" required placeholder="e.g. Core Subjects" value="${escape(f.name || "")}"></label>${parentOptions}<div class="nav-folder-form-actions">${button("Cancel", "cancel-folder", "", "quiet")}<button class="primary" type="submit">${isRename ? "Save" : "Create"}</button></div></form>`;
+}
+function renderFolderNode(folder, depth, adminFolders) {
+  const open = !state.collapsedFolders.has(folder.id);
+  const children = folderChildren(folder.id);
+  const subjects = folderSubjects(folder.id);
+  const count = folderCount(folder.id);
+  const dragAttrs = adminFolders
+    ? `draggable="true" data-drag-folder="${escape(folder.id)}" tabindex="0"`
+    : "";
+  return `<div class="nav-folder" data-folder-node="${escape(folder.id)}" data-parent-id="${escape(folder.parent_id || "")}" data-depth="${depth}"><div class="nav-folder-row" data-folder-drop="${escape(folder.id)}" ${dragAttrs}><button type="button" class="nav-folder-toggle ${open ? "open" : ""}" data-action="toggle-folder" data-id="${escape(folder.id)}" aria-expanded="${open}" aria-label="${open ? "Collapse" : "Expand"} ${escape(folder.name)}">${icon("chevron")}</button><span class="nav-folder-icon">${icon("folder")}</span><span class="nav-folder-name" title="${escape(folder.name)}">${escape(folder.name)}</span><span class="nav-folder-count">${count}</span>${
+    adminFolders
+      ? `<span class="nav-folder-actions"><button type="button" class="nav-mini-btn" data-action="rename-folder" data-id="${escape(folder.id)}" title="Rename folder" aria-label="Rename ${escape(folder.name)}">${icon("edit")}</button><button type="button" class="nav-mini-btn danger" data-action="delete-folder" data-id="${escape(folder.id)}" title="Delete folder" aria-label="Delete ${escape(folder.name)}">×</button></span>`
+      : ""
+  }</div><div class="nav-folder-children" ${open ? "" : "hidden"}>${children.map((c) => renderFolderNode(c, depth + 1, adminFolders)).join("")}${subjects.map((s) => renderSubjectNavBtn(s, adminFolders)).join("")}${adminFolders && !children.length && !subjects.length ? `<div class="nav-folder-empty" data-folder-drop="${escape(folder.id)}">Drop subject or folder here</div>` : ""}</div></div>`;
+}
+function renderSubjectNav() {
+  const adminFolders = canManageFolders();
+  const rootFolders = folderChildren(null);
+  const visibleFolderIds = new Set(state.folders.map((f) => f.id));
+  const rootSubjects = state.subjects.filter(
+    (s) => !s.folder_id || !visibleFolderIds.has(s.folder_id),
+  );
+  const addBar = adminFolders
+    ? `<div class="nav-folder-toolbar">${button(icon("folderPlus") + "New folder", "new-folder", 'aria-label="Create folder"', "quiet nav-folder-add")}</div>${renderFolderForm()}`
+    : "";
+  const tree = rootFolders.map((f) => renderFolderNode(f, 0, adminFolders)).join("");
+  const rootList = `<div class="nav-root-zone" data-folder-drop="root">${rootSubjects.map((s) => renderSubjectNavBtn(s, adminFolders)).join("")}${adminFolders && state.folders.length ? '<div class="nav-root-hint" data-folder-drop="root">Drop here for top level</div>' : ""}</div>`;
+  return addBar + tree + rootList;
+}
+function syncSubjectNav() {
+  const host = $("#subject-nav");
+  if (host) host.innerHTML = renderSubjectNav();
+}
 function shell() {
   const a = state.account;
   const pendingPassword = Boolean(a.must_change_password);
@@ -197,7 +292,7 @@ function shell() {
     `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>ACADEMY REPOSITORY</span></div>${
       pendingPassword
         ? `<details open><summary>SECURITY</summary>${nav("Settings", "settings", "settings", true)}</details>`
-        : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
+        : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view), canManageFolders() ? 'data-folder-drop="root"' : "")}<div id="subject-nav">${renderSubjectNav()}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
     }<div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Aeronautical Academy Repository · ${escape(state.version)}</p></div></aside><header class="topbar"><div class="breadcrumbs">Repository <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
@@ -221,6 +316,7 @@ async function refreshData() {
     api("/v1/announcements"),
   ]);
   state.subjects = subjects.subjects;
+  state.folders = Array.isArray(subjects.folders) ? subjects.folders : [];
   state.announcements = announcements.announcements;
 }
 async function loadSubject(id) {
@@ -239,6 +335,8 @@ async function loadSubject(id) {
 }
 async function start() {
   state.collapsedMaterials.clear();
+  state.collapsedFolders.clear();
+  state.folderForm = null;
   state.readyQuizzes.clear();
   await refreshData();
   state.items = [];
@@ -514,7 +612,7 @@ async function navigate(view, id) {
           : "Make room for something new.",
         manage() ? button("+ New subject", "new-subject", "", "primary") : "",
       ) +
-      `<div class="course-grid">${state.subjects.map((s) => `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${!manage() ? "READER · ENROLLED" : s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`).join("")}</div>` +
+      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="row"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${!manage() ? "READER · ENROLLED" : s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`; }).join("")}</div>` +
       (state.subjects.length
         ? ""
         : empty("No subjects yet", "Create or enroll in a subject to begin."));
@@ -800,7 +898,7 @@ async function reloadActive({position = capturePosition(), feedbackId} = {}) {
   await loadSubject(id);
   state.view = "subject";
   // Keep the scroll containers and sidebar alive across subject mutations.
-  document.querySelectorAll("#subject-nav [data-id]").forEach((entry) => {
+  document.querySelectorAll('#subject-nav [data-action="subject"][data-id]').forEach((entry) => {
     const subject = state.subjects.find((item) => item.id === entry.dataset.id);
     if (subject) entry.querySelector("span").textContent = subject.title;
   });
@@ -942,6 +1040,37 @@ document.addEventListener("click", (event) => {
     toast("Drag this grip to reorder, or focus it and press Alt+↑ / Alt+↓.");
     return;
   }
+  if (action === "toggle-folder") {
+    if (state.collapsedFolders.has(id)) state.collapsedFolders.delete(id);
+    else state.collapsedFolders.add(id);
+    syncSubjectNav();
+    return;
+  }
+  if (action === "new-folder") {
+    if (!canManageFolders()) return;
+    state.folderForm = { mode: "create", parentId: target.dataset.parent || "" };
+    syncSubjectNav();
+    $("#folder-form input[name=name]")?.focus();
+    return;
+  }
+  if (action === "rename-folder") {
+    if (!canManageFolders()) return;
+    const folder = state.folders.find((f) => f.id === id);
+    if (!folder) return;
+    state.folderForm = { mode: "rename", id: folder.id, name: folder.name };
+    syncSubjectNav();
+    const input = $("#folder-form input[name=name]");
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    return;
+  }
+  if (action === "cancel-folder") {
+    state.folderForm = null;
+    syncSubjectNav();
+    return;
+  }
   if (action === "toggle-field-password") {
     const input = target.closest(".password-field")?.querySelector("input");
     if (!input) return;
@@ -953,6 +1082,27 @@ document.addEventListener("click", (event) => {
     return;
   }
   act(async () => {
+    if (action === "delete-folder") {
+      if (!canManageFolders()) return;
+      const folder = state.folders.find((f) => f.id === id);
+      if (!folder) return;
+      if (
+        !(await confirmAction(
+          "Delete folder?",
+          `Remove folder “${folder.name}”? Subjects and subfolders inside will move up one level; no subjects or student records will be deleted.`,
+          "Delete folder",
+        ))
+      )
+        return;
+      await api(`/v1/admin/folders/${folder.id}`, { method: "DELETE" });
+      state.collapsedFolders.delete(folder.id);
+      if (state.folderForm?.id === folder.id) state.folderForm = null;
+      await refreshData();
+      syncSubjectNav();
+      if (state.view === "subjects") await navigate("subjects");
+      toast("Folder deleted. Contents moved up.");
+      return;
+    }
     if (
       [
         "subjects",
@@ -973,7 +1123,7 @@ document.addEventListener("click", (event) => {
     if (action === "logout-all") {
       if(!(await leaveDraft()))return;
       await post("/v1/auth/logout-all",{});
-      state.account=null;state.items=[];state.subjects=[];state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
+      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.collapsedFolders.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
       await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
@@ -981,12 +1131,15 @@ document.addEventListener("click", (event) => {
       await desktopApi.logout();
       resumeWorkspace = null;
       await window.academyReader.close();
+      state.collapsedFolders.clear();
       Object.assign(state, {
         account: null,
         active: null,
         activeLearnerId: null,
         items: [],
         subjects: [],
+        folders: [],
+        folderForm: null,
         announcements: [],
       });
       $("#app").innerHTML = "";
@@ -1511,6 +1664,32 @@ document.addEventListener("submit", (event) => {
       await renderAccounts();
       toast("Student ID updated.");
     }
+    if (form.id === "folder-form") {
+      if (!canManageFolders()) return;
+      const mode = form.dataset.mode;
+      const name = d.name.trim();
+      if (!name) throw new Error("Enter a folder name.");
+      if (mode === "rename") {
+        const res = await api(`/v1/admin/folders/${id}`, {
+          method: "PATCH",
+          body: { name },
+        });
+        state.folders = res.folders;
+        state.folderForm = null;
+        syncSubjectNav();
+        if (state.view === "subjects") await navigate("subjects");
+        toast("Folder renamed.");
+      } else {
+        const parentId = d.parent_id ? d.parent_id : null;
+        const res = await post("/v1/admin/folders", { name, parent_id: parentId });
+        state.folders = res.folders;
+        if (parentId) state.collapsedFolders.delete(parentId);
+        state.folderForm = null;
+        syncSubjectNav();
+        toast("Folder created.");
+      }
+      return;
+    }
     if (form.id === "password") {
       if (d.next !== d.confirm)
         throw new Error("New passphrase and confirmation do not match.");
@@ -1521,12 +1700,15 @@ document.addEventListener("submit", (event) => {
       state.dirty = false;
       resumeWorkspace = null;
       await window.academyReader.close();
+      state.collapsedFolders.clear();
       Object.assign(state, {
         account: null,
         active: null,
         activeLearnerId: null,
         items: [],
         subjects: [],
+        folders: [],
+        folderForm: null,
         announcements: [],
       });
       $("#app").innerHTML = "";
@@ -1554,7 +1736,7 @@ document.addEventListener("input", (event) => {
     gradeForm.querySelector("button").disabled = gradeForm.dataset.refreshRequired === "true";
     gradeForm.querySelector(".grade-status").textContent = gradeForm.dataset.refreshRequired === "true" ? "Reopen work before saving another grade" : "Unsaved changes";
   }
-  if (event.target.closest("#app form")) state.dirty = true;
+  if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
   if (event.target.matches("#new-account select[name=role]")) {
@@ -1606,9 +1788,38 @@ document.addEventListener("change", (event) => {
       else if (state.view === "access") await renderAccess();
       else await renderEligibility();
     });
-  else if (event.target.closest("#app form")) state.dirty = true;
+  else if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 document.addEventListener("keydown", (event) => {
+  const folderRow = event.target.closest("[data-drag-folder]");
+  if (folderRow && canManageFolders() && event.altKey && !event.ctrlKey && !event.metaKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+    event.preventDefault();
+    const id = folderRow.dataset.dragFolder;
+    act(async () => {
+      const folder = state.folders.find((f) => f.id === id);
+      if (!folder) return;
+      const parentId = folder.parent_id || null;
+      const siblings = folderChildren(parentId);
+      const index = siblings.findIndex((f) => f.id === id);
+      let body = null;
+      if (event.key === "ArrowUp" && index > 0) body = { before_id: siblings[index - 1].id };
+      else if (event.key === "ArrowDown" && index < siblings.length - 1) body = { after_id: siblings[index + 1].id };
+      else if (event.key === "ArrowLeft" && parentId) {
+        const parent = state.folders.find((f) => f.id === parentId);
+        body = { parent_id: parent?.parent_id || null };
+      } else if (event.key === "ArrowRight" && index > 0) {
+        body = { parent_id: siblings[index - 1].id };
+        state.collapsedFolders.delete(siblings[index - 1].id);
+      }
+      if (!body) return;
+      const res = await api(`/v1/admin/folders/${id}`, { method: "PATCH", body });
+      state.folders = res.folders;
+      syncSubjectNav();
+      if (state.view === "subjects") await navigate("subjects");
+      toast("Folder hierarchy updated.");
+    }).then(() => document.querySelector(`[data-drag-folder="${CSS.escape(id)}"]`)?.focus({ preventScroll: true }));
+    return;
+  }
   const handle = event.target.closest("[data-drag]");
   if (!handle || !event.altKey || event.ctrlKey || event.metaKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
   event.preventDefault();
@@ -1626,6 +1837,58 @@ document.addEventListener("keydown", (event) => {
   }).then(() => document.querySelector(`[data-drag="${id}"]`)?.focus({preventScroll:true}));
 });
 let dragSession = null;
+let navDrag = null;
+function clearNavDropMarkers() {
+  document.querySelectorAll(".nav-drop-before,.nav-drop-after,.nav-drop-inside").forEach((el) =>
+    el.classList.remove("nav-drop-before", "nav-drop-after", "nav-drop-inside"),
+  );
+  if (navDrag) navDrag.drop = null;
+}
+function endNavDrag() {
+  document.querySelectorAll(".is-nav-dragging").forEach((el) => el.classList.remove("is-nav-dragging"));
+  $("#subject-nav")?.classList.remove("nav-dragging");
+  clearNavDropMarkers();
+  navDrag = null;
+}
+function updateNavDropPlacement(event) {
+  if (!navDrag) return null;
+  const dropEl = event.target?.closest?.("[data-folder-drop]");
+  if (!dropEl) {
+    clearNavDropMarkers();
+    return null;
+  }
+  const targetKey = dropEl.dataset.folderDrop;
+  if (targetKey === "root") {
+    clearNavDropMarkers();
+    dropEl.classList.add("nav-drop-inside");
+    navDrag.drop = { targetId: null, position: "inside" };
+    return navDrag.drop;
+  }
+  const targetId = targetKey;
+  if (navDrag.kind === "subject") {
+    clearNavDropMarkers();
+    dropEl.classList.add("nav-drop-inside");
+    navDrag.drop = { targetId, position: "inside" };
+    return navDrag.drop;
+  }
+  if (targetId === navDrag.id || folderDescendantsLocal(navDrag.id).has(targetId)) {
+    clearNavDropMarkers();
+    return null;
+  }
+  let position = "inside";
+  if (dropEl.classList.contains("nav-folder-row")) {
+    const rect = dropEl.getBoundingClientRect();
+    const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
+    if (ratio < 0.28) position = "before";
+    else if (ratio > 0.72) position = "after";
+  }
+  clearNavDropMarkers();
+  dropEl.classList.add(
+    position === "before" ? "nav-drop-before" : position === "after" ? "nav-drop-after" : "nav-drop-inside",
+  );
+  navDrag.drop = { targetId, position };
+  return navDrag.drop;
+}
 function clearDropMarker() {
   document.querySelectorAll(".drop-before,.drop-after").forEach((group) => group.classList.remove("drop-before","drop-after"));
   if (dragSession) dragSession.placement = null;
@@ -1690,6 +1953,23 @@ function dragAutoScroll(time) {
   dragSession.frame = requestAnimationFrame(dragAutoScroll);
 }
 document.addEventListener("dragstart", (event) => {
+  const navSubject = event.target.closest?.("[data-drag-subject]");
+  const navFolder = !navSubject ? event.target.closest?.("[data-drag-folder]") : null;
+  if (navSubject || navFolder) {
+    if (!canManageFolders() || state.busy || (navFolder && event.target.closest("button"))) {
+      event.preventDefault();
+      return;
+    }
+    endNavDrag();
+    const kind = navSubject ? "subject" : "folder";
+    const id = navSubject ? navSubject.dataset.dragSubject : navFolder.dataset.dragFolder;
+    navDrag = { kind, id, drop: null };
+    event.dataTransfer.setData("text/plain", id);
+    event.dataTransfer.effectAllowed = "move";
+    (navSubject || navFolder).classList.add("is-nav-dragging");
+    $("#subject-nav")?.classList.add("nav-dragging");
+    return;
+  }
   const handle = event.target.closest("[data-drag]");
   if (!handle) return;
   if (state.busy || state.dirty) { event.preventDefault(); if(state.dirty)toast("Save or cancel your draft before dragging."); return; }
@@ -1708,6 +1988,13 @@ document.addEventListener("dragstart", (event) => {
   dragSession.frame = requestAnimationFrame(dragAutoScroll);
 });
 document.addEventListener("dragover", (event) => {
+  if (navDrag) {
+    if (updateNavDropPlacement(event)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    } else event.dataTransfer.dropEffect = "none";
+    return;
+  }
   if (!dragSession) return;
   dragSession.x=event.clientX;dragSession.y=event.clientY;
   if (updateDropPlacement(event.clientX,event.clientY)) {
@@ -1721,9 +2008,43 @@ document.addEventListener("dragleave", (event) => {
     dragSession.x=event.clientX;dragSession.y=event.clientY;clearDropMarker();
   }
 });
-document.addEventListener("dragend", endDrag);
-window.addEventListener("blur",endDrag);
+document.addEventListener("dragend", () => { endDrag(); endNavDrag(); });
+window.addEventListener("blur", () => { endDrag(); endNavDrag(); });
 document.addEventListener("drop", (event) => {
+  if (navDrag) {
+    const drag = navDrag;
+    const placement = updateNavDropPlacement(event) || drag.drop;
+    event.preventDefault();
+    endNavDrag();
+    if (!placement) return;
+    act(async () => {
+      if (drag.kind === "subject") {
+        const subject = state.subjects.find((s) => s.id === drag.id);
+        if (!subject || (subject.folder_id || null) === placement.targetId) return;
+        await post(`/v1/admin/subjects/${drag.id}/folder`, { folder_id: placement.targetId });
+        if (placement.targetId) state.collapsedFolders.delete(placement.targetId);
+        await refreshData();
+        syncSubjectNav();
+        if (state.view === "subjects") await navigate("subjects");
+        toast(placement.targetId ? "Subject moved into folder." : "Subject moved to top level.");
+      } else {
+        const body =
+          placement.position === "before"
+            ? { before_id: placement.targetId }
+            : placement.position === "after"
+              ? { after_id: placement.targetId }
+              : { parent_id: placement.targetId };
+        const res = await api(`/v1/admin/folders/${drag.id}`, { method: "PATCH", body });
+        state.folders = res.folders;
+        if (placement.position === "inside" && placement.targetId)
+          state.collapsedFolders.delete(placement.targetId);
+        syncSubjectNav();
+        if (state.view === "subjects") await navigate("subjects");
+        toast("Folder hierarchy updated.");
+      }
+    });
+    return;
+  }
   if (!dragSession) return;
   const sourceId=dragSession.id;
   const placement=updateDropPlacement(event.clientX,event.clientY);

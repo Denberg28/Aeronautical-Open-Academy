@@ -642,6 +642,263 @@ input[type="radio"] {
   white-space: nowrap;
 }
 
+.subject-nav[draggable="true"] {
+  cursor: grab;
+}
+
+.subject-nav[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* UI — Admin subject folders and left-pane hierarchy */
+.nav-folder-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px 4px;
+}
+
+.nav-folder-add {
+  font-size: var(--font-xs);
+  padding: 4px 8px;
+  gap: 5px;
+  color: var(--navy);
+}
+
+.nav-folder-add svg {
+  width: 14px;
+  height: 14px;
+}
+
+.nav-folder-form {
+  background: #f5f8fc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 4px 0 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.nav-folder-form label {
+  margin: 0;
+  gap: 4px;
+}
+
+.nav-folder-form input,
+.nav-folder-form select {
+  padding: 6px 8px;
+  font-size: var(--font-xs);
+}
+
+.nav-folder-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.nav-folder-form-actions button {
+  padding: 5px 10px;
+  font-size: var(--font-xs);
+}
+
+.nav-folder {
+  margin: 2px 0;
+}
+
+.nav-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  color: var(--navy);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  position: relative;
+  transition:
+    background 0.12s,
+    box-shadow 0.12s;
+}
+
+.nav-folder-row[draggable="true"] {
+  cursor: grab;
+}
+
+.nav-folder-row[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.nav-folder-row:hover,
+.nav-folder-row:focus-within {
+  background: #f0f4f9;
+}
+
+.nav-folder-row:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.nav-folder-toggle {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  width: 20px;
+  height: 20px;
+  color: var(--subtle);
+  flex-shrink: 0;
+}
+
+.nav-folder-toggle:hover {
+  background: #e4ecf6;
+  color: var(--navy);
+}
+
+.nav-folder-toggle svg {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.14s ease;
+}
+
+.nav-folder-toggle.open svg {
+  transform: rotate(90deg);
+}
+
+.nav-folder-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.nav-folder-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.nav-folder-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-folder-count {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--subtle);
+  background: #eef2f7;
+  border-radius: 999px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.nav-folder-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.nav-folder-row:hover .nav-folder-actions,
+.nav-folder-row:focus-within .nav-folder-actions {
+  display: inline-flex;
+}
+
+.nav-folder-row:hover .nav-folder-count,
+.nav-folder-row:focus-within .nav-folder-count {
+  display: none;
+}
+
+.nav-mini-btn {
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: var(--font-sm);
+  line-height: 1;
+  color: var(--muted);
+}
+
+.nav-mini-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.nav-mini-btn:hover {
+  background: #dde6f2;
+  color: var(--navy);
+}
+
+.nav-mini-btn.danger:hover {
+  background: #fdecec;
+  color: var(--danger);
+}
+
+.nav-folder-children {
+  margin-left: 11px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+
+.nav-folder-children .subject-nav {
+  padding-left: 12px;
+}
+
+.nav-folder-empty {
+  font-size: var(--font-xs);
+  color: var(--subtle);
+  padding: 6px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  margin: 4px 2px;
+  text-align: center;
+}
+
+.nav-root-zone {
+  min-height: 8px;
+  border-radius: 7px;
+  transition:
+    background 0.12s,
+    box-shadow 0.12s;
+}
+
+.nav-root-hint {
+  display: none;
+  font-size: var(--font-xs);
+  color: var(--subtle);
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin: 4px 2px;
+  text-align: center;
+}
+
+#subject-nav.nav-dragging .nav-root-hint {
+  display: block;
+}
+
+.is-nav-dragging {
+  opacity: 0.45;
+}
+
+.nav-drop-inside {
+  background: #e8f0fc !important;
+  box-shadow: inset 0 0 0 2px var(--blue);
+  border-radius: 7px;
+}
+
+.nav-drop-before {
+  box-shadow: inset 0 2px 0 0 var(--gold);
+}
+
+.nav-drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--gold);
+}
+
 .sidebar-foot {
   margin-top: auto;
   padding: 20px 8px 0;
