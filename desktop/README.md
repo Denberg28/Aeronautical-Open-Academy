@@ -1,12 +1,14 @@
-# Academy PC 0.8.0 development candidate
+# Academy PC 0.9.0 — Windows desktop application
+
+Owner-authorized stable Windows x64 release. Includes the standardized desktop UI (`16 px` reading copy with `1.4` line height and `12 px` paragraph spacing; `14 px` controls/forms; `13 px` secondary text; `12 px` minimum metadata; WCAG AA contrast), scheduled publishing and completion due dates in Philippine time (`dates-v1`), shared organization API access and sync (`refresh-v1`), and the internal PDF.js canvas reader without student export controls.
 
 Use Organization server mode with the same HTTPS Academy API configured in the APK and Streamlit portal. Sync reloads shared materials, progress and results; local test data remains on this PC. Protected PDFs are read in a canvas page viewer without file export controls. Instructors can choose PDF upload when the organization backend has private storage enabled, save the draft, upload and review it, then publish.
 
-See ../docs/SHARED_ACCESS_SYNC.md for compatibility, download limits, global sign-out and migration/rollback. Existing PC databases are backed up consistently before schema 11; never copy a PC database to the main organization API. Close and restore the complete matching backup/backend before downgrading. Tokens stay in the main process in memory; no organization password/token is saved to disk.
+See `../docs/SHARED_ACCESS_SYNC.md` and `../docs/SCHEDULING.md` for compatibility, download limits, global sign-out, scheduling, and migration/rollback. Existing PC databases are backed up consistently as `academy-before-pc-0.9.sqlite` before schema 12; never copy a PC database to the main organization API. Close and restore the complete matching backup/backend before downgrading. Tokens stay in the main process in memory; no organization password/token is saved to disk.
 
-Development: Node 24, `npm ci --prefix desktop`, `npm test --prefix server`, `npm test --prefix desktop`, `npm run test:ui --prefix desktop`, `npm run package:win --prefix desktop`. Postinstall prepares pinned PDF.js vendor assets; regenerate them with `node desktop/tools/prepare-pdf.mjs`, never edit copied files. Source builds and native Windows CI are separate from real organization/Drive/accessibility testing. Prior usage details follow.
+Development: Node 24, `npm ci --prefix desktop`, `npm test --prefix server`, `npm test --prefix desktop`, `npm run test:ui --prefix desktop`, `npm run package:win --prefix desktop`. Postinstall prepares pinned PDF.js vendor assets; regenerate them with `node desktop/tools/prepare-pdf.mjs`, never edit copied files. Source builds and native Windows CI are separate from physical Windows accessibility, real provider sign-in, and live organization deployment testing. Prior feature history follows.
 
-# Aeronautical Open Academy for PC — 0.7.0-rc.1
+## Earlier milestones (0.1–0.7)
 
 ## Mobile feature adaptation (0.7)
 
