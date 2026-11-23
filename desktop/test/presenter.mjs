@@ -78,6 +78,7 @@ try {
   await dlg.locator('[data-presenter="next"]').click();
   await dlg.locator('#presenter-confirm').waitFor();
   assert.match(await dlg.locator('#presenter-confirm-title').textContent(), /Show answer key\?/);
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-presenter')), 'confirm-no');
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '08-presenter-confirm.png') });
 
   // Cancel keeps user on last question with answer key still hidden.
