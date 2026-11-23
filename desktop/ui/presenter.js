@@ -130,7 +130,7 @@ window.academyPresenter = (() => {
     dialog.innerHTML = `<div class="presenter-shell"><header class="presenter-header"><div class="presenter-meta"><span class="tag blue">${escapeHtml(current.kind)}</span><div><div class="presenter-title">${escapeHtml(current.title)}</div>${current.subjectTitle ? `<div class="presenter-subject">${escapeHtml(current.subjectTitle)}</div>` : ""}</div></div><div class="presenter-status" role="status" aria-live="polite">${escapeHtml(statusText)}</div><div class="presenter-controls"><button type="button" class="quiet" data-presenter="fullscreen" aria-label="Toggle full screen">${document.fullscreenElement === dialog ? "Exit full screen" : "Full screen"}</button><button type="button" class="quiet" data-presenter="close" aria-label="Exit presentation">Exit</button></div></header><main class="presenter-stage">${stageMarkup}</main><footer class="presenter-footer">${navMarkup}</footer>${confirmMarkup}</div>`;
 
     if (current.confirmOpen) {
-      dialog.querySelector('[data-presenter="confirm-yes"], [data-presenter="confirm-no"]')?.focus();
+      dialog.querySelector('[data-presenter="confirm-no"], [data-presenter="confirm-yes"]')?.focus();
     }
   }
 

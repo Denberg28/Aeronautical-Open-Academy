@@ -137,7 +137,7 @@ async function boot() {
       register("academy:read-material", (id, revision) => bridge.readMaterial(id, revision));
       register("academy:upload-material", async (id, version) => {
         const item=(await bridge.request(`/v1/items/${id}`)).item;
-        if(!bridge.account||!(bridge.account.role==='admin'||bridge.account.role==='instructor'&&item.owner_id===bridge.account.id))throw new Error('Instructor access required.');
+        if(!bridge.account||item.can_edit===false||!(bridge.account.role==='admin'||bridge.account.role==='instructor'&&item.owner_id===bridge.account.id))throw new Error('Instructor access required.');
         const selected=await dialog.showOpenDialog(window,{title:'Upload PDF material',properties:['openFile'],filters:[{name:'PDF',extensions:['pdf']}]});
         if(selected.canceled)return {canceled:true};
         if((await stat(selected.filePaths[0])).size>50*1024*1024)throw new Error('Choose a PDF up to 50 MiB.');
