@@ -60,6 +60,7 @@ async function boot() {
           "/app.js": "app.js",
           "/reader.js": "reader.js",
           "/schedule.js": "schedule.js",
+          "/presenter.js": "presenter.js",
           "/style.css": "style.css",
         };
         if(url.host==='app'&&/^\/pdfjs\/(?:pdf(?:\.worker)?\.mjs|(?:cmaps|wasm|standard_fonts)\/[a-zA-Z0-9_.-]+)$/.test(url.pathname))
@@ -72,7 +73,8 @@ async function boot() {
       });
       session.defaultSession.on("will-download", event => event.preventDefault());
       session.defaultSession.setPermissionRequestHandler(
-        (_wc, _permission, done) => done(false),
+        (wc, permission, done) =>
+          done(permission === "fullscreen" && wc.getURL() === "academy://app/"),
       );
       session.defaultSession.setPermissionCheckHandler(() => false);
       window = new BrowserWindow({

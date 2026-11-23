@@ -16,10 +16,10 @@ const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
 export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.10.sqlite");
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.11.sqlite");
   if(existsSync(database)&&!existsSync(snapshot)){
     const previous=new DatabaseSync(database,{readOnly:true});
-    try{if(previous.prepare('PRAGMA user_version').get().user_version<13)await backup(previous,snapshot);}finally{previous.close();}
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<14)await backup(previous,snapshot);}finally{previous.close();}
   }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),

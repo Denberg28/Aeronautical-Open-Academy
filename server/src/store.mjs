@@ -9,7 +9,7 @@ export function openDatabase(path){
   }
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>13){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>14){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   if(version>=6&&!db.prepare('PRAGMA table_info(items)').all().some(column=>column.name==='parent_id')){db.close();throw new Error('This is not a PC backend database. Use its matching server and a validated migration.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
@@ -174,6 +174,23 @@ export function openDatabase(path){
       SELECT s.id,s.owner_id,'editor','active',s.owner_id,s.created_at
       FROM subjects s JOIN accounts a ON a.id=s.owner_id WHERE a.role='instructor';
     PRAGMA user_version=13; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
+  // Subject folders — Admin-managed hierarchical subject folders in left pane, schema 14.
+  if(version<14){try{
+    const hasFolder=db.prepare('PRAGMA table_info(subjects)').all().some(col=>col.name==='folder_id');
+    db.exec(`BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS subject_folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id TEXT REFERENCES subject_folders(id),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT REFERENCES accounts(id),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS subject_folders_parent ON subject_folders(parent_id,sort_order,name);
+    ${hasFolder?'':'ALTER TABLE subjects ADD COLUMN folder_id TEXT REFERENCES subject_folders(id);'}
+    CREATE INDEX IF NOT EXISTS subjects_folder ON subjects(folder_id,title);
+    PRAGMA user_version=14; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
   if(db.prepare('PRAGMA quick_check').all().some(row=>row.quick_check!=='ok')||db.prepare('PRAGMA foreign_key_check').all().length){db.close();throw new Error('Database integrity check failed. Restore a verified backup.');}
   db.exec('PRAGMA busy_timeout=5000;');
 
