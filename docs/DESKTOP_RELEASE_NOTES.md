@@ -1,9 +1,14 @@
-# Aeronautical Academy Repository 0.11.0-rc.1 — Admin subject folders & left-pane hierarchy
+# Aeronautical Academy Repository 0.11.0-rc.1 — Instructor-guided fullscreen presenter & admin subject folders
 
 23 November 2026 · Windows x64 test candidate / prerelease
 
 ## What is included
 
+- **Instructor-guided fullscreen presentation for quizzes, activities, and examinations:**
+  - New **Play** button on every Quiz, Activity, and Examination card for instructors and administrators (hidden from students).
+  - Launches full screen (`#presenter-dialog` + Fullscreen API) flashing one question at a time in high-contrast classroom typography with **lettered options (`A`, `B`, `C`, ...) only** — no answer selection controls and no answer key exposed during play.
+  - **Previous** (`←`) and **Next** (`→`) arrow buttons (plus `ArrowLeft` / `ArrowRight` and `Escape` keyboard support) navigate smoothly across questions.
+  - At the end of the item, clicking **Finish →** opens an in-fullscreen **confirmation dialog (`Show answer key?`)** before revealing the numbered class answer key (letter badge + answer text) for class checking. Read-only instructors without key access can still project slides while answer keys remain strictly restricted to the authoring editor or administrator. Closing, signing out, or session expiry clears presenter DOM immediately.
 - **Admin hierarchical subject folders in the left pane (schema v14):**
   - New **+ New folder** control in the left navigation pane (admin-only, capability `subject_folders: "v1"`) supporting top-level folders and nested subfolders (up to 5 levels deep, up to 200 folders).
   - **Drag and drop subjects into folders:** Administrators can drag any subject in the left pane into any folder (or back onto **My subjects** / top-level drop zone). Folder badges also appear on cards in **My subjects**.
@@ -20,4 +25,4 @@ Organization mode pairs with the matching Academy HTTPS API advertising `sync=re
 
 ## Prerelease scope and verification
 
-This is an unsigned Windows x64 test candidate / prerelease (`pc-v0.11.0-rc.1`). Automated gates on the exact final source require all 55 backend/migration tests (including `server/test/folders.test.mjs` and schema v13 → v14 migration), 10 desktop bridge/forms/shared-API tests, all 9 native Windows Electron UI suites (including `folders.mjs`), native and packaged executable IPC smoke tests, package manifest/SHA-256 verification, zero high-severity dependency audit issues, and paired Android verification. Exact automated results are supplied in `windows-verification.json` and `release-verification.json`. Physical Windows 10/11 accessibility/DPI scaling, real Google/external provider sign-in, live organization HTTPS deployment, and signed upgrades remain **NOT TESTED**; stable/production readiness is not claimed.
+This is an unsigned Windows x64 test candidate / prerelease (`pc-v0.11.0-rc.1`). Automated gates on the exact final source require all 55 backend/migration tests (including `server/test/folders.test.mjs` and schema v13 → v14 migration), 10 desktop bridge/forms/shared-API tests, all 10 native Windows Electron UI suites (including `folders.mjs` and `presenter.mjs`), native and packaged executable IPC smoke tests, package manifest/SHA-256 verification, zero high-severity dependency audit issues, and paired Android verification. Exact automated results are supplied in `windows-verification.json` and `release-verification.json`. Physical Windows 10/11 accessibility/DPI scaling, real Google/external provider sign-in, live organization HTTPS deployment, and signed upgrades remain **NOT TESTED**; stable/production readiness is not claimed.

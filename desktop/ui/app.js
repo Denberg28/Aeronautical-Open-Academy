@@ -42,6 +42,7 @@ const icons = {
   sync: "M21 12a9 9 0 0 1-15.4 6.4 M3 12a9 9 0 0 1 15.4-6.4 M21 5v5h-5 M3 19v-5h5",
   folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
   folderPlus: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6",
+  play: "M6 4l14 8-14 8z",
   settings:
     "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
 };
@@ -110,6 +111,7 @@ async function act(fn) {
     if (error.status === 401) {
       if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
+      window.academyPresenter?.close();
       await window.academyReader.close();
       // Recovery — Lock a dirty form behind sign-in; discard other private views.
       // Resume below rechecks subject access before revealing the retained editor.
@@ -452,7 +454,8 @@ function itemCard(item, index, number) {
         ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<div class="reading-copy">${readingText(item.submission.feedback)}</div>` : ""}<details><summary>Your response</summary><div class="reading-copy">${readingText(item.submission.output)}</div></details></div>`
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet")}${button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet")}${button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger")}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${datesCaption(item)}${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  const playable = manage() && item.kind !== "material";
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable || playable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${playable ? button(icon("play") + "Play", "play-item", `data-id="${escape(item.id)}" title="Play full screen for class"`, "quiet play-btn") : ""}${editable && item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${editable && state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${editable ? button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger") : ""}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${datesCaption(item)}${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -1071,6 +1074,13 @@ document.addEventListener("click", (event) => {
     syncSubjectNav();
     return;
   }
+  if (action === "play-item") {
+    if (!manage()) return;
+    const item = state.items.find((entry) => entry.id === id);
+    if (!item || item.kind === "material") return;
+    window.academyPresenter?.open(item, state.active?.title || "");
+    return;
+  }
   if (action === "toggle-field-password") {
     const input = target.closest(".password-field")?.querySelector("input");
     if (!input) return;
@@ -1124,12 +1134,13 @@ document.addEventListener("click", (event) => {
       if(!(await leaveDraft()))return;
       await post("/v1/auth/logout-all",{});
       state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.collapsedFolders.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
-      await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
+      window.academyPresenter?.close();await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
       if (!(await leaveDraft())) return;
       await desktopApi.logout();
       resumeWorkspace = null;
+      window.academyPresenter?.close();
       await window.academyReader.close();
       state.collapsedFolders.clear();
       Object.assign(state, {
@@ -1699,6 +1710,7 @@ document.addEventListener("submit", (event) => {
       });
       state.dirty = false;
       resumeWorkspace = null;
+      window.academyPresenter?.close();
       await window.academyReader.close();
       state.collapsedFolders.clear();
       Object.assign(state, {
