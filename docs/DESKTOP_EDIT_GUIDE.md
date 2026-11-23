@@ -1,23 +1,20 @@
 # Windows focused edit guide
 
-| Desired result | File | Section/symbol | Edit and scope | Check |
+| Desired result | File | Section/symbol/property | Edit and units/scope | Related settings and check |
 | --- | --- | --- | --- | --- |
-| Change body typography and paragraph spacing | desktop/ui/style.css | shared reading rhythm / --body-leading / --paragraph-gap | 16 px body, 1.4 line height, 12 px paragraph gap; controls keep their role sizing | Native reader screenshot and paragraph measurement |
-| Change fixed subject/progress layout | desktop/ui/app.js and desktop/ui/style.css | renderSubject / #subject-context / .center-pane | Header outside #center; only #center scrolls; compact responsive pane rules | Fixed bounding-box checks, 1480/900 px layouts |
-| Change text/list formatting | desktop/ui/app.js | readingText / bodyParts | Escape all author text; separate paragraphs, emphasize lead-ins and align wrapped list content | Reader/unsafe-reference tests; never insert raw HTML |
-| Change the practice course | desktop/assets/subject-template.json | overview / periods[].entries | Canonical mobile-derived course: 25 entries, 16 forms / 40 questions; synthetic content only | Template/full submission tests; do not alter real student data |
-| Change conservative template upgrade | desktop/template.mjs and desktop/bridge.mjs | installPracticeTemplate / startLocal | Exact factory fingerprint, transaction, marker and consistent pre-upgrade snapshot | Upgrade, edited work, archive/idempotence tests |
-| Change selection scoring and limits | server/src/server.mjs and server/src/quizzes.mjs | answers route / validateQuestions / gradeAnswers | Server-authoritative correct/total and normalized activity score; current revision and idempotency | Permissions/key/retry/grade protection tests |
-| Change question authoring | desktop/ui/app.js | renderComposer / renderQuizBuilder / response-mode | Existing quiz editor reused for selection activities/exams; written mode preserved | Native authoring and legacy grading tests |
-
-## Shared access and PDF reader
-
-| Desired result | File | Symbol/section | Edit and check |
-| --- | --- | --- | --- |
-| Change sync and capability routing | desktop/bridge.mjs; desktop/ui/app.js | sync / refreshData / loadSubject | Same API origin/account; do not import local DBs; shared integration test |
-| Change reader limits/actions | desktop/ui/reader.js | open / page / close | 2000 pages, max 1400×2000 canvas; no export toolbar; native reader test |
-| Change response bounds | desktop/transport.mjs | responseBytes | 2 MiB JSON, 50 MiB PDF at caller; size/stale-session tests |
-| Change authentication budgets | server/src/server.mjs | throttle | 10/account, 100/peer per 15 minutes, hashed durable state; reopen test |
-| Refresh PDF.js | desktop/package.json; desktop/tools/prepare-pdf.mjs | pinned dependency / asset copy | Regenerate via npm, retain upstream LICENSE; audit/package/reader gates |
-
-Scheduling controls, UTC/PHT conversion, access timing and deadline reporting: see [SCHEDULING.md](SCHEDULING.md).
+| Change theme colors and muted contrast | `desktop/ui/style.css` | `UI — Theme tokens, typography scale, and spacing rhythm` (`:root`) | Hex tokens `--navy`, `--blue`, `--muted`, `--subtle`, `--gold`, `--line`; Windows app wide | Preserve WCAG AA contrast on white/`#f5f7fa` and focus outline |
+| Change font sizes, line heights, paragraph spacing, or paddings | `desktop/ui/style.css` | `UI — Theme tokens, typography scale, and spacing rhythm` (`:root`) | `--font-reading` (16 px), `--font-base` (14 px), `--font-sm` (13 px), `--font-xs` (12 px), `--body-leading` (1.4), `--ui-leading` (1.45), `--heading-leading` (1.2), `--paragraph-gap` (12 px), `--section-gap` (24 px), `--card-pad`, `--panel-pad` | `parity.mjs` asserts 16 px / 12 px gap / >=22 px line height for `.reading-copy p` and rightbar heading > body |
+| Change fixed subject/progress layout | `desktop/ui/app.js` and `desktop/ui/style.css` | `renderSubject`, `renderSubjectForm`, `#subject-context`, `.center-pane` | Pinned header mounts outside `#center`; hidden during subject edit; only `#center` scrolls | `parity.mjs` bounding-box scroll check; 1480/1060/900 px and 125–200% zoom checks |
+| Change text/list formatting | `desktop/ui/app.js` | `readingText`, `bodyParts` | Escape all author text; separate paragraphs, emphasize lead-ins, hanging lists | Never insert raw HTML; `ui.mjs` XSS check and `parity.mjs` paragraph check |
+| Change sign-in password visibility | `desktop/ui/index.html` and `desktop/ui/app.js` | `#toggle-password`, `showLogin` | Resets to `type="password"` whenever sign-in dialog opens | `parity.mjs` toggle and sign-out reset assertions |
+| Change entry status tags and visibility | `desktop/ui/app.js` and `desktop/ui/style.css` | `itemCard`, `isVisibleEntry`, `.tag.blue`/`.green`/`.gold` | Published (green), Scheduled (blue), Draft (gold); scheduled entries excluded from currently visible count | `schedule.mjs` and `ui.mjs` |
+| Change practice course template | `desktop/assets/subject-template.json` | `overview` / `periods[].entries` | Canonical 25 entries, 16 forms / 40 questions; synthetic content only | `forms.test.mjs` and `parity.mjs` |
+| Change conservative template upgrade | `desktop/template.mjs` and `desktop/bridge.mjs` | `installPracticeTemplate`, `startLocal` | Exact factory fingerprint, transaction, marker and `academy-before-pc-0.9.sqlite` backup | `forms.test.mjs` upgrade/edited-work/idempotence tests |
+| Change selection scoring and limits | `server/src/server.mjs` and `server/src/quizzes.mjs` | `answers` route, `validateQuestions`, `gradeAnswers` | Server-authoritative correct/total and normalized activity score; idempotency and revision checks | `npm test --prefix server` |
+| Change question authoring and learner sync | `desktop/ui/app.js` | `renderComposer`, `renderQuizBuilder`, `navigate`, `renderLearner` | Reuses quiz editor for selection activities/exams; `state.activeLearnerId` keeps Sync working on Student work | `parity.mjs` and `grading.mjs` |
+| Change sync and capability routing | `desktop/bridge.mjs` and `desktop/ui/app.js` | `sync`, `refreshData`, `loadSubject` | Same API origin/account; no local DB imports; closes reader on sign-out/password change | `shared.test.mjs` |
+| Change PDF reader layout and limits | `desktop/ui/reader.js` and `desktop/ui/style.css` | `open`, `page`, `close`, `.pdf-reader`, `.pdf-reader-bar` | 2000 pages, max 1400×2000 canvas, no download/export toolbar, page-turn reauthorization | `reader.mjs` |
+| Change schedule modal and deadline captions | `desktop/ui/schedule.js` and `desktop/ui/style.css` | `caption`, `show`, `.schedule-dialog`, `.deadline` | Philippine time (Asia/Manila) input/display -> UTC ms API; see [SCHEDULING.md](SCHEDULING.md) | `schedule.mjs` |
+| Change response bounds | `desktop/transport.mjs` | `responseBytes` | 2 MiB JSON, 50 MiB PDF at caller | `shared.test.mjs` |
+| Change stable/prerelease Windows publication | `.github/workflows/desktop.yml` and `desktop/package.json` | `publish` job / `version` | `X.Y.Z` publishes stable (`--prerelease=false --latest`), `X.Y.Z-rc.N` publishes prerelease; refuses duplicate tags | Exact-commit Windows CI + paired Android CI |
+| Refresh PDF.js vendor assets | `desktop/package.json` and `desktop/tools/prepare-pdf.mjs` | pinned dependency / asset copy | Regenerate via `npm ci` or `node desktop/tools/prepare-pdf.mjs`; retain upstream `LICENSE` | `npm audit`, `verify-package.mjs`, `reader.mjs` |

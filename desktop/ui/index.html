@@ -46,14 +46,24 @@
             maxlength="254"
         /></label>
         <label
-          >Password<input
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            value="instructor"
-            required
-            maxlength="128"
-        /></label>
+          >Password<span class="password-field"
+            ><input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              value="instructor"
+              required
+              maxlength="128"
+            /><button
+              type="button"
+              id="toggle-password"
+              class="quiet"
+              aria-pressed="false"
+            >
+              Show
+            </button></span
+          ></label
+        >
         <p id="login-error" class="error" role="alert"></p>
         <button class="primary wide" type="submit">
           Open workspace <span aria-hidden="true">→</span>
@@ -64,9 +74,9 @@
           Test accounts · username and password are the same
         </p>
         <div class="demo-roles">
-          <button data-demo="admin">Admin</button
-          ><button data-demo="instructor">Instructor</button
-          ><button data-demo="student">Student</button>
+          <button type="button" data-demo="admin">Admin</button
+          ><button type="button" data-demo="instructor">Instructor</button
+          ><button type="button" data-demo="student">Student</button>
         </div>
         <p class="small muted">
           Saved on this PC. Use sample data. Organization sharing requires a

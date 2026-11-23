@@ -142,3 +142,11 @@ Local Node 24.22.x results: 45 desktop-backend tests, 10 bridge/forms/integratio
 ## Scheduled publishing and deadlines
 
 See SCHEDULING.md for the contract and acceptance matrix. Required gates add server/test/schedule.test.mjs and API boundary/permission/audit tests, web scheduling AppTest, Android local-workspace scheduling and native Windows schedule.mjs; candidate artifacts still require exact-source platform CI. Live API migration/restore and physical date-picker/accessibility checks remain NOT TESTED.
+
+## 0.9.0 UI standardization and stable distribution decision — 23 November 2026
+
+Baseline: `b0176e0` (`pc-v0.9.0-rc.1`) on `desktop/compact-controls-grading`. Scope: Windows desktop UI standardization (unified `:root` typography scale, text spacing, `12 px` paragraph spacing, balanced paddings, WCAG AA muted contrast, alignment fixes), feature/workflow consistency fixes across sign-in, subject editing, scheduling badges, PDF reader, Settings, Discover, Announcements, Accounts, and Sync on learner work, plus stable release automation in `.github/workflows/desktop.yml`. Local schema 12 and Android source are unchanged.
+
+Automated verification on final source: 50 backend/migration tests, 10 desktop bridge/forms/shared-API tests, all 7 native Electron UI suites (`ui.mjs`, `motion.mjs`, `subject-delete.mjs`, `grading.mjs`, `parity.mjs` including password toggle/reset, rightbar typography hierarchy, collapsed review padding, subject-edit context hiding and learner-view sync, `reader.mjs`, `schedule.mjs`), `npm audit --prefix desktop --audit-level=high` (0 vulnerabilities), `python3 tools/project_checks.py`, Windows x64 packaging, `verify-package.mjs`, packaged `Academy.exe --smoke-test`, and paired Android verification on the exact commit.
+
+The repository owner explicitly requested a new stable Windows release on 23 November 2026. This authorizes `pc-v0.9.0` on GitHub's stable distribution channel with exact automated evidence in `windows-verification.json` and `release-verification.json` and no disabled gates. Physical Windows 10/11 DPI/accessibility, native provider/save dialogs, live organization HTTPS deployment, and signed upgrades remain **NOT TESTED**; the executable is unsigned and institutional production readiness beyond the recorded automated gates is not claimed.
