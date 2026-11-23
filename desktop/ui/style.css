@@ -322,6 +322,51 @@ summary:focus-visible {
   color: #245082;
 }
 
+.tag.red {
+  background: #fbecef;
+  color: #8f2d40;
+}
+
+.banner {
+  background: #fbf6e8;
+  border: 1px solid #e7d7ad;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin: 16px 0;
+  color: var(--navy);
+  font-size: var(--font-base);
+  line-height: var(--ui-leading);
+}
+
+.banner strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.access-controls,
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.access-controls select {
+  width: auto;
+  min-width: 126px;
+  min-height: 36px;
+  padding: 6px 10px;
+  margin: 0;
+  font-size: var(--font-sm);
+}
+
+.access-controls button,
+.account-actions button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: var(--font-sm);
+}
+
 .empty {
   padding: 44px 24px;
   text-align: center;

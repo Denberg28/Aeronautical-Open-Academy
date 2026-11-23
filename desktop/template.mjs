@@ -18,6 +18,7 @@ export async function installPracticeTemplate(db) {
   try {
     if(factory){db.prepare('UPDATE items SET archived=1,edit_version=edit_version+1 WHERE subject_id=?').run(subjectId);db.prepare('UPDATE subjects SET title=?,description=?,order_revision=order_revision+1 WHERE id=?').run(template.title,template.description,subjectId);}
     else db.prepare('INSERT INTO subjects(id,title,description,owner_id,created_at,self_enrol,eligibility_all) VALUES(?,?,?,?,?,1,1)').run(subjectId,template.title,template.description,owner.id,now);
+    db.prepare("INSERT OR IGNORE INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,'editor','active',?,?)").run(subjectId,owner.id,owner.id,now);
     let order=0;
     const add=(entry,parent=null)=>{
       const questions=entry.questions?validateQuestions(entry.questions):null,id=randomUUID(),kind=entry.kind==='examination'?'activity':entry.kind;

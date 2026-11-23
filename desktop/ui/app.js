@@ -164,6 +164,12 @@ const post = (path, body, key) =>
 const manage = () => state.account?.role !== "student";
 const owned = (item) =>
   state.account.role === "admin" || item.owner_id === state.account.id;
+const canEditSubject = (subject = state.active) =>
+  Boolean(subject ? (subject.can_edit ?? manage()) : manage());
+const canDeleteSubject = (subject = state.active) =>
+  Boolean(subject && (subject.can_delete ?? (manage() && owned(subject))));
+const canEditItem = (item) =>
+  Boolean(item && (item.can_edit ?? (canEditSubject() && owned(item))));
 const navLabel = () =>
   ({
     subject: "My subjects",
@@ -172,6 +178,7 @@ const navLabel = () =>
     results: "My results",
     learners: "Students & progress",
     eligibility: "Enrollment",
+    access: "Subject access",
     accounts: "Accounts",
     announcements: "Announcements",
     settings: "Settings",
@@ -184,15 +191,25 @@ function nav(label, action, glyph, active = false, extra = "") {
 }
 function shell() {
   const a = state.account;
+  const pendingPassword = Boolean(a.must_change_password);
+  const roleLabel = a.role === "student" ? "Student · Reader" : a.role;
   $("#app").innerHTML =
-    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>OPEN ACADEMY</span></div><details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details><div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Academy for PC <span class="muted">· ${escape(state.version)}</span></p></div></aside><header class="topbar"><div class="breadcrumbs">Workspace <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>ACADEMY REPOSITORY</span></div>${
+      pendingPassword
+        ? `<details open><summary>SECURITY</summary>${nav("Settings", "settings", "settings", true)}</details>`
+        : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view))}<div id="subject-nav">${state.subjects.map((s) => `<button class="nav-btn subject-nav ${state.active?.id === s.id && state.view === "subject" ? "selected" : ""}" data-action="subject" data-id="${escape(s.id)}"><span>${escape(s.title)}</span></button>`).join("")}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
+    }<div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Aeronautical Academy Repository · ${escape(state.version)}</p></div></aside><header class="topbar"><div class="breadcrumbs">Repository <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
         .slice(0, 2)
         .join(""),
-    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(a.role)}</div></div></div>${button(icon("sync") + "Sync", "sync", 'title="Refresh shared materials, results and progress"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
-  if(a.role!=="admin")$(".sidebar details").insertAdjacentHTML("beforeend",nav("Announcements","announcements","bell",state.view==="announcements"));
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(roleLabel)}</div></div></div>${pendingPassword ? "" : button(icon("sync") + "Sync", "sync", 'title="Refresh shared materials, results and progress"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
+  if (!pendingPassword && a.role !== "admin")
+    $(".sidebar details").insertAdjacentHTML(
+      "beforeend",
+      nav("Announcements", "announcements", "bell", state.view === "announcements"),
+    );
   $("#app").hidden = false;
   renderRight();
 }
@@ -306,11 +323,11 @@ function syncMaterialSections() {
 function treeMarkup(items = rootsOf(), prefix = "") {
   return items.map((item, index) => {
     const number = prefix ? `${prefix}.${index+1}` : String(index+1).padStart(2,"0");
-    return `<section class="subject-group ${item.kind === "material" ? "material-group" : "assessment-group"}" data-group="${escape(item.id)}">${itemCard(item,index,number)}${item.kind === "material" ? `<div class="tree-children" id="children-${escape(item.id)}" data-children="${escape(item.id)}" role="region" aria-label="Contents for ${escape(item.title)}">${treeMarkup(childrenOf(item.id),number)}${manage() && owned(item) && state.treeSupported ? `<div class="composer-slot" data-add-parent="${escape(item.id)}"></div>` : ""}</div>` : ""}</section>`;
+    return `<section class="subject-group ${item.kind === "material" ? "material-group" : "assessment-group"}" data-group="${escape(item.id)}">${itemCard(item,index,number)}${item.kind === "material" ? `<div class="tree-children" id="children-${escape(item.id)}" data-children="${escape(item.id)}" role="region" aria-label="Contents for ${escape(item.title)}">${treeMarkup(childrenOf(item.id),number)}${canEditSubject() && state.treeSupported ? `<div class="composer-slot" data-add-parent="${escape(item.id)}"></div>` : ""}</div>` : ""}</section>`;
   }).join("");
 }
 function itemCard(item, index, number) {
-  const editable = manage() && owned(item);
+  const editable = canEditItem(item);
   const selectable=item.kind==="quiz"||Array.isArray(item.questions);
   const kind =
     item.assessment_type === "examination"
@@ -354,22 +371,24 @@ function renderSubject() {
       empty(
         "No subjects yet",
         manage()
-          ? "Create your first subject to start adding materials."
+          ? "Create your first subject or ask an administrator for subject access."
           : "Choose Find a subject to enroll.",
       );
     renderRight();
     return;
   }
   const s = state.active;
+  const editableSubject = canEditSubject(s);
+  const readOnlyInstructor = manage() && !editableSubject;
   const materials = state.items.filter((i) => i.kind === "material").length;
   const assessments = state.items.filter((i) => i.kind !== "material" && i.assessment_type !== "examination").length;
   const examinations = state.items.filter((i) => i.assessment_type === "examination").length;
   context.hidden = false;
-  context.innerHTML = `<section class="subject-hero"><div class="row between"><h1>${escape(s.title)}</h1>${manage()?button(icon("edit")+"Edit","edit-subject",'aria-label="Edit subject"',"quiet"):""}</div>${!manage()?`<div class="subject-progress"><progress max="100" value="${state.summary?.completion_percent||0}" aria-label="Subject completion"></progress><span>${state.summary?.completion_percent||0}% complete</span></div>`:`<span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations</span>`}</section>`;
+  context.innerHTML = `<section class="subject-hero"><div class="row between"><h1>${escape(s.title)}</h1>${editableSubject ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet") : readOnlyInstructor ? '<span class="tag blue">Read-only access</span>' : ""}</div>${!manage() ? `<div class="subject-progress"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress><span>${state.summary?.completion_percent || 0}% complete</span></div>` : `<span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and downloads disabled)" : ""}</span>`}</section>`;
   center.innerHTML =
     utility() +
-    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${manage() ? "Create. Arrange. Share." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", manage() ? "Add a material or an examination to begin." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${manage() ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
-  if (manage()) renderComposer();
+    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${editableSubject ? "Create. Arrange. Share." : readOnlyInstructor ? "Read-only instructor view." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : readOnlyInstructor ? "No entries have been added to this subject yet." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
+  if (editableSubject) renderComposer();
   applySubjectSearch();
   renderRight();
 }
@@ -444,12 +463,21 @@ function renderQuizBuilder() {
 function quizPreview(item) {
   const questions = item.questions || [{prompt:item.body,options:item.options,correct_index:item.correct_index}];
   const label = item.kind === "quiz" ? "quiz" : item.assessment_type === "examination" ? "examination" : "activity";
-  return `<details class="quiz-review"><summary>${questions.length} ${questions.length===1?"question":"questions"} · preview</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${j===q.correct_index?"✓ ":""}${escape(o)}</p>`).join("")}</div>`).join("")}<p class="small muted">Create a new ${label} to change questions or answer keys.</p></details>`;
+  const note = canEditItem(item)
+    ? `Create a new ${label} to change questions or answer keys.`
+    : "Read-only preview. Answer keys and editing require editor or administrator access.";
+  return `<details class="quiz-review"><summary>${questions.length} ${questions.length===1?"question":"questions"} · preview</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${j===q.correct_index?"✓ ":""}${escape(o)}</p>`).join("")}</div>`).join("")}<p class="small muted">${note}</p></details>`;
 }
 function renderRight() {
+  if (state.account?.must_change_password) {
+    $("#rightbar").innerHTML =
+      `<section class="progress-box"><div class="eyebrow">ACCOUNT SECURITY</div><p>New and reset accounts must set a private 15–128 character passphrase before opening subjects.</p></section>`;
+    return;
+  }
   const notices = state.announcements.slice(0, 3);
+  const editableSubject = canEditSubject();
   const tasks = state.items.filter((i) =>
-    manage() ? !i.published : !i.completed && i.kind !== "material",
+    manage() ? (editableSubject && !i.published) : !i.completed && i.kind !== "material",
   );
   $("#rightbar").innerHTML =
     `<section><div class="section-heading"><h2>Announcements</h2>${state.account.role === "admin" ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>${manage() ? "Teaching tasks" : "Your tasks"}</h2><span class="tag">${tasks.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
@@ -460,10 +488,11 @@ function renderRight() {
             `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon(manage() ? "edit" : "tasks")}</span><span><strong>${escape(t.title)}</strong><small>${manage() ? "Draft · finish and publish" : t.kind === "quiz" ? "Quiz · not submitted" : t.questions ? "Selection form · not submitted" : "Written work · not submitted"}</small></span></button>`,
         )
         .join("") ||
-      '<p class="small-info">No pending tasks in this subject.</p>'
-    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>Read, submitted and graded work</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter(isVisibleEntry).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
+      `<p class="small-info">${manage() && state.active && !editableSubject ? "Read-only access on this subject." : "No pending tasks in this subject."}</p>`
+    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>${editableSubject ? "Read, submitted and graded work" : "Read-only progress view"}</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter(isVisibleEntry).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
 }
 async function navigate(view, id) {
+  if (state.account?.must_change_password && view !== "settings") return;
   if (!(await leaveDraft())) return;
   state.compose = null;
   state.search = "";
@@ -485,7 +514,7 @@ async function navigate(view, id) {
           : "Make room for something new.",
         manage() ? button("+ New subject", "new-subject", "", "primary") : "",
       ) +
-      `<div class="course-grid">${state.subjects.map((s) => `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><span class="tag">${manage() ? "SUBJECT" : "ENROLLED"}</span><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`).join("")}</div>` +
+      `<div class="course-grid">${state.subjects.map((s) => `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${!manage() ? "READER · ENROLLED" : s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`).join("")}</div>` +
       (state.subjects.length
         ? ""
         : empty("No subjects yet", "Create or enroll in a subject to begin."));
@@ -500,6 +529,7 @@ async function navigate(view, id) {
     }
   }
   if (view === "eligibility") await renderEligibility();
+  if (view === "access") await renderAccess();
   if (view === "accounts") await renderAccounts();
   if (view === "announcements") renderAnnouncements();
   if (view === "discover") await renderDiscover();
@@ -518,7 +548,7 @@ async function renderAllWork(view) {
   }
   const items =
     view === "tasks"
-      ? state.allItems.filter((i) => (manage() ? !i.published : !i.completed))
+      ? state.allItems.filter((i) => (manage() ? !i.published && canEditSubject(i.subject) : !i.completed))
       : state.allItems.filter((i) => i.completed);
   $("#center").innerHTML =
     header(
@@ -553,16 +583,20 @@ async function renderLearners() {
   const d = await api(
     `/v1/subjects/${state.active.id}/learners?offset=${state.rosterOffset}`,
   );
+  const editableSubject = canEditSubject();
   $("#center").innerHTML =
     header(
       "Students & progress",
-      "A clear view of participation and assessment.",
+      editableSubject
+        ? "A clear view of participation and assessment."
+        : "Read-only view of participation and assessment. Grading and exports require editor access.",
     ) +
     chooseSubject() +
-    `<div class="section-heading"><span>${d.total} enrolled students · showing ${d.learners.length}</span>${button("Export Excel", "export", "", "quiet")}</div><div class="table-scroll"><table class="data-table"><thead><tr><th>Student</th><th>Read</th><th>Submitted</th><th>Graded</th><th></th></tr></thead><tbody>${d.learners.map((l) => `<tr><td>${escape(l.student.name)}<div class="small muted">${escape(l.student.student_number || l.student.email)}</div></td><td>${l.summary.read}/${l.summary.materials}</td><td>${l.summary.submitted}/${l.summary.required}</td><td>${l.summary.graded}</td><td>${button("View work", "learner", `data-id="${escape(l.student.id)}"`, "quiet")}</td></tr>`).join("")}</tbody></table></div>${!d.learners.length ? empty("No students enrolled yet", "Open Enrollment to set who can join.") : ""}<div class="form-actions">${button("Previous", "roster-page", `data-offset="${Math.max(0, state.rosterOffset - 100)}" ${state.rosterOffset ? "" : "disabled"}`)}${button("Next students", "roster-page", `data-offset="${d.next_offset || 0}" ${d.next_offset == null ? "disabled" : ""}`)}</div>`;
+    `<div class="section-heading"><span>${d.total} enrolled students · showing ${d.learners.length}</span>${editableSubject ? button("Export Excel", "export", "", "quiet") : '<span class="tag blue">Read-only access</span>'}</div><div class="table-scroll"><table class="data-table"><thead><tr><th>Student</th><th>Read</th><th>Submitted</th><th>Graded</th><th></th></tr></thead><tbody>${d.learners.map((l) => `<tr><td>${escape(l.student.name)}<div class="small muted">${escape(l.student.student_number || l.student.email)}</div></td><td>${l.summary.read}/${l.summary.materials}</td><td>${l.summary.submitted}/${l.summary.required}</td><td>${l.summary.graded}</td><td>${button("View work", "learner", `data-id="${escape(l.student.id)}"`, "quiet")}</td></tr>`).join("")}</tbody></table></div>${!d.learners.length ? empty("No students enrolled yet", "Open Enrollment to set who can join.") : ""}<div class="form-actions">${button("Previous", "roster-page", `data-offset="${Math.max(0, state.rosterOffset - 100)}" ${state.rosterOffset ? "" : "disabled"}`)}${button("Next students", "roster-page", `data-offset="${d.next_offset || 0}" ${d.next_offset == null ? "disabled" : ""}`)}</div>`;
 }
 async function renderLearner(id) {
   const data = await api(`/v1/subjects/${state.active.id}/learners/${id}`);
+  const editableSubject = canEditSubject();
   state.activeLearnerId = id;
   state.view = "learner";
   shell();
@@ -575,7 +609,7 @@ async function renderLearner(id) {
     data.items
       .map(
         (item) =>
-          `<article class="material" data-item="${escape(item.id)}"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag" data-work-status>${escape(item.status)}</span>${datesCaption(item)}${item.submission_id ? `<details class="work-instructions"><summary>Instructions</summary><div class="reading-copy">${readingText(item.body)}</div></details><p class="small muted">Submitted ${escape(new Date(item.submitted_at).toLocaleString())}</p>` : ""}${item.output ? `<div class="reading-copy">${readingText(item.output)}</div>` : ""}${item.answer ? `<div class="reading-copy">${readingText(item.answer)}</div>` : ""}${item.submission_id&&item.response_mode!=="choice" ? `<form data-form="grade" data-dirty="false" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save grade</button><span class="small grade-status" role="status" aria-live="polite">${item.graded_at ? "Saved · " + escape(new Date(item.graded_at).toLocaleString()) : "Awaiting grade"}</span></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}</p>` : ""}</div></article>`,
+          `<article class="material" data-item="${escape(item.id)}"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag" data-work-status>${escape(item.status)}</span>${datesCaption(item)}${item.submission_id ? `<details class="work-instructions"><summary>Instructions</summary><div class="reading-copy">${readingText(item.body)}</div></details><p class="small muted">Submitted ${escape(new Date(item.submitted_at).toLocaleString())}</p>` : ""}${item.output ? `<div class="reading-copy">${readingText(item.output)}</div>` : ""}${item.answer ? `<div class="reading-copy">${readingText(item.answer)}</div>` : ""}${item.submission_id && item.response_mode !== "choice" && editableSubject ? `<form data-form="grade" data-dirty="false" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save grade</button><span class="small grade-status" role="status" aria-live="polite">${item.graded_at ? "Saved · " + escape(new Date(item.graded_at).toLocaleString()) : "Awaiting grade"}</span></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}${item.feedback ? " · " + escape(item.feedback) : ""}</p>` : ""}</div></article>`,
       )
       .join("");
 }
@@ -588,10 +622,64 @@ async function renderEligibility() {
     return;
   }
   const d = await api(`/v1/subjects/${state.active.id}/eligibility`);
+  const editableSubject = canEditSubject();
   $("#center").innerHTML =
-    header("Enrollment", "Choose who can join this subject.") +
+    header(
+      "Enrollment",
+      editableSubject
+        ? "Choose who can join this subject."
+        : "Read-only enrollment policy. Only editors or administrators can change eligibility.",
+    ) +
     chooseSubject() +
-    `<form id="eligibility" class="inline-form" data-revision="${d.revision}"><h3>Eligible students</h3><p class="small muted">Students find the subject and join using their administrator-assigned ID. Existing administrator enrollments remain overrides.</p><label class="choice"><input name="all" type="checkbox" ${d.all_students ? "checked" : ""}>All students</label><label>Or allow these student IDs · one per line<textarea name="numbers" rows="5" placeholder="2026-001\n2026-002">${escape(d.student_numbers.join("\n"))}</textarea></label><p class="small muted">No IDs and All students unchecked closes self-enrollment. Changing eligibility can remove self-enrolled students’ access.</p><div class="form-actions"><button class="primary">Save eligibility</button></div></form><div class="inline-form"><h3>Subject code</h3><p class="small muted">Eligible students can paste this code in Find a subject.</p><input readonly aria-label="Subject code" value="${escape(state.active.id)}"><div class="form-actions">${button("Generate QR code", "generate-qr", "", "primary")}</div><div id="subject-qr" class="subject-qr" hidden></div><p class="small muted">${state.mode === "local" ? "Local test only: this PC’s subjects do not sync to phones. Mobile enrollment requires both apps to use the same organization server." : "Students scan this code in Academy while connected to this same organization server. Sign-in and eligibility are still required."}</p></div>`;
+    `<form id="eligibility" class="inline-form" data-revision="${d.revision}"><h3>Eligible students</h3><p class="small muted">Students find the subject and join using their administrator-assigned ID. Existing administrator enrollments remain overrides.</p><label class="choice"><input name="all" type="checkbox" ${d.all_students ? "checked" : ""} ${editableSubject ? "" : "disabled"}>All students</label><label>Or allow these student IDs · one per line<textarea name="numbers" rows="5" ${editableSubject ? "" : "readonly"} placeholder="2026-001\n2026-002">${escape(d.student_numbers.join("\n"))}</textarea></label><p class="small muted">No IDs and All students unchecked closes self-enrollment. Changing eligibility can remove self-enrolled students’ access.</p>${editableSubject ? '<div class="form-actions"><button class="primary">Save eligibility</button></div>' : ""}</form><div class="inline-form"><h3>Subject code</h3><p class="small muted">Eligible students can paste this code in Find a subject.</p><input readonly aria-label="Subject code" value="${escape(state.active.id)}">${editableSubject ? `<div class="form-actions">${button("Generate QR code", "generate-qr", "", "primary")}</div><div id="subject-qr" class="subject-qr" hidden></div>` : ""}<p class="small muted">${state.mode === "local" ? "Local test only: this PC’s subjects do not sync to phones. Mobile enrollment requires both apps to use the same organization server." : "Students scan this code in Academy while connected to this same organization server. Sign-in and eligibility are still required."}</p></div>`;
+}
+// Admin — Per-subject instructor access control (read-only vs editor, active vs suspended).
+async function renderAccess() {
+  if (state.account.role !== "admin") return;
+  if (!state.active && state.subjects.length) await loadSubject(state.subjects[0].id);
+  if (!state.active) {
+    $("#center").innerHTML =
+      header("Subject access", "Control instructor access per subject.") +
+      empty("No subjects yet", "Create a subject before assigning instructor access.");
+    return;
+  }
+  if (!state.capabilities.instructor_subject_access) {
+    $("#center").innerHTML =
+      header("Subject access", "Control instructor access per subject.") +
+      `<div class="banner"><strong>Server update required</strong>Update the connected organization server to manage per-subject instructor access.</div>`;
+    return;
+  }
+  const data = await api(`/v1/admin/subjects/${state.active.id}/instructors`);
+  $("#center").innerHTML =
+    header(
+      "Subject access",
+      "Assign, suspend or activate instructors per subject as Read only or Editor.",
+    ) +
+    chooseSubject() +
+    `<div class="inline-form"><h3>Instructor permissions · ${escape(data.subject.title)}</h3><p class="small muted">Students default to reader access on enrolled subjects with no download capability. Read-only instructors can view materials and progress without editing, grading, or downloading. Suspended instructors immediately lose subject access.</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Instructor</th><th>Access</th><th>Controls</th></tr></thead><tbody>${
+      data.instructors.length
+        ? data.instructors
+            .map((row) => {
+              const badge = !row.assigned
+                ? '<span class="tag">No access</span>'
+                : row.status === "suspended"
+                  ? `<span class="tag red">Suspended · ${row.access_level === "editor" ? "Editor" : "Read only"}</span>`
+                  : row.access_level === "editor"
+                    ? '<span class="tag green">Active · Editor</span>'
+                    : '<span class="tag blue">Active · Read only</span>';
+              const selected = row.access_level || "read_only";
+              return `<tr data-instructor-row="${escape(row.instructor_id)}"><td>${escape(row.name)} ${row.is_owner ? '<span class="tag">Owner</span>' : ""} ${row.account_status === "suspended" ? '<span class="tag red">Account suspended</span>' : ""}<div class="small muted">${escape(row.email)}</div></td><td>${badge}</td><td><div class="access-controls"><select data-access-level="${escape(row.instructor_id)}" aria-label="Access level for ${escape(row.name)}"><option value="read_only" ${selected === "read_only" ? "selected" : ""}>Read only</option><option value="editor" ${selected === "editor" ? "selected" : ""}>Editor</option></select>${
+                !row.assigned
+                  ? button("Grant access", "grant-instructor", `data-id="${escape(row.instructor_id)}"`, "primary")
+                  : row.status === "active"
+                    ? button("Save level", "save-instructor-level", `data-id="${escape(row.instructor_id)}"`, "") +
+                      button("Suspend", "suspend-instructor", `data-id="${escape(row.instructor_id)}"`, "quiet danger")
+                    : button("Activate", "activate-instructor", `data-id="${escape(row.instructor_id)}"`, "primary")
+              }</div></td></tr>`;
+            })
+            .join("")
+        : `<tr><td colspan="3">${empty("No instructor accounts yet", "Create an instructor account under Accounts first.")}</td></tr>`
+    }</tbody></table></div></div>`;
 }
 async function renderDiscover() {
   const data = await api(
@@ -622,10 +710,10 @@ async function renderAccounts() {
   $("#center").innerHTML =
     header(
       "Accounts",
-      "Manage access to your learning workspace.",
+      "Admin-managed instructor and student registration. Self-registration is disabled.",
       button("+ Create account", "new-account", "", "primary"),
     ) +
-    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td>${escape(a.status)}</td><td>${a.id !== state.account.id ? button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet") : ""}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
+    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role === "student" ? "student · reader" : a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td><span class="tag ${a.status === "active" ? "green" : "red"}">${escape(a.status)}</span></td><td>${a.id !== state.account.id ? `<div class="account-actions">${a.role === "student" ? button("Edit ID", "edit-student-id", `data-id="${escape(a.id)}" data-name="${escape(a.name)}" data-number="${escape(a.student_number || "")}"`, "quiet") : ""}${button("Reset password", "reset-password", `data-id="${escape(a.id)}" data-name="${escape(a.name)}"`, "quiet")}${button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet")}</div>` : ""}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
 }
 function renderAnnouncements() {
   $("#center").innerHTML =
@@ -648,14 +736,18 @@ function renderAnnouncements() {
         ));
 }
 function renderSettings() {
+  const pending = Boolean(state.account.must_change_password);
   $("#center").innerHTML =
-    header("Settings", "Your account and workspace.") +
-    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the Android test app." : "Your account and subjects are managed by your organization’s Academy server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · " + escape(state.account.student_number) : ""}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
+    header("Settings", "Your account and security.") +
+    (pending
+      ? `<div class="banner" role="status"><strong>Temporary password change required</strong>Choose a new 15–128 character passphrase different from your temporary password before accessing subjects.</div>`
+      : "") +
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the mobile app." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · ID " + escape(state.account.student_number) : ""}${state.account.role === "student" ? " · Reader (downloads disabled)" : ""}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><label>Confirm new passphrase<input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
 }
 function renderHelp() {
   $("#center").innerHTML =
-    header("A calmer way to learn", "Everything stays in one workspace.") +
-    `<div class="inline-form help-card"><h3>Add a material</h3><p>Choose a subject, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. When creating a quiz, set the question count and select Apply, then enter each question and its choices. Click the circle beside each correct answer. Students confirm readiness, can minimize or expand their assessment, and receive correct answers / total questions after submission.</p><p>In Students &amp; progress, open View work to rate submitted activities out of 100 and add feedback, then Export Excel for the current roster page. The Quiz scores sheet has dated quiz columns and numeric correct-answer counts; blank means not submitted. Dates are quiz creation dates in this PC’s time zone. Other sheets retain full assessment details. Minimize a material’s activities and quizzes with the chevron beside its title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, schedule, publish/unpublish or delete an entry using the controls in its top bar.</p><h3>Delete a subject</h3><p>Select Edit beside the subject heading, choose Delete subject, then confirm. Instructors can delete their own subjects; administrators can delete any subject. The subject and its contents leave active workspaces while saved learner records are retained.</p><h3>Learn and keep track</h3><p>Open a material link in your browser or select Read PDF for uploaded handouts. Mark reading as done, answer a selection form or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Instructors choose eligible student IDs or All students under Enrollment. Select Generate QR code to display and save the subject QR. Students join using the Academy mobile scanner, Find a subject or a subject code. Both apps must use the same organization server; local workspaces do not sync. A code does not bypass sign-in or eligibility. Accounts are created by an administrator.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. Protected PDFs can be uploaded when server storage is enabled and read in the Academy page viewer. Student save/export actions are disabled.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Academy keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh or Sync before opening an old link.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed Academy backend. Use Schedule on any saved entry to set publication and completion dates in Philippine time. Late work is accepted and marked late, without an automatic grade penalty. Quiz limits follow the connected server. Accounts currently support creation and suspension/reactivation; account deletion, ID edits and password resets remain available in the Android client. Enrollment supports generated QR images and pasted subject codes; this desktop has no camera scanner.</p></div>`;
+    header("A calmer way to learn", "Everything stays in Aeronautical Academy Repository.") +
+    `<div class="inline-form help-card"><h3>Subject access and roles</h3><p>Administrators provision all instructor and student accounts with temporary 15–128 character passphrases that must be rotated at first sign-in. Under Administration → Subject access, administrators can assign instructors to any subject as Read only or Editor, and suspend or reactivate their access to individual subjects at any time. Students default to reader access on enrolled subjects with no download capability.</p><h3>Add a material</h3><p>Choose a subject where you have editor access, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. When creating a quiz, set the question count and select Apply, then enter each question and its choices. Click the circle beside each correct answer. Students confirm readiness, can minimize or expand their assessment, and receive correct answers / total questions after submission.</p><p>In Students &amp; progress, open View work to rate submitted activities out of 100 and add feedback, then Export Excel for the current roster page. The Quiz scores sheet has dated quiz columns and numeric correct-answer counts; blank means not submitted. Dates are quiz creation dates in this PC’s time zone. Other sheets retain full assessment details. Minimize a material’s activities and quizzes with the chevron beside its title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, schedule, publish/unpublish or delete an entry using the controls in its top bar.</p><h3>Delete a subject</h3><p>Select Edit beside the subject heading, choose Delete subject, then confirm. Active editor owners can delete their own subjects; administrators can delete any subject. The subject and its contents leave active workspaces while saved learner records are retained.</p><h3>Learn and keep track</h3><p>Open a material link in your browser or select Read PDF for uploaded handouts. Mark reading as done, answer a selection form or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Editor instructors choose eligible student IDs or All students under Enrollment. Select Generate QR code to display and save the subject QR. Students join using the mobile scanner, Find a subject or a subject code. Both apps must use the same organization server; local workspaces do not sync. A code does not bypass sign-in or eligibility.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. Protected PDFs can be uploaded when server storage is enabled and read in the internal canvas page viewer. Student and read-only save/export actions are disabled.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Aeronautical Academy Repository keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh or Sync before opening an old link.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed backend. Use Schedule on any saved entry to set publication and completion dates in Philippine time. Late work is accepted and marked late, without an automatic grade penalty. Quiz limits follow the connected server. Accounts support creation, student ID edits, password resets, and suspension/reactivation. Enrollment supports generated QR images and pasted subject codes; this desktop has no camera scanner.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -670,7 +762,7 @@ function renderSubjectForm(edit = false) {
       edit ? "Edit subject" : "Create a subject",
       "A simple home for lessons and learning activities.",
     ) +
-    `<form id="subject-form" class="inline-form" data-edit="${s ? "true" : "false"}"><label>Subject title<input name="title" maxlength="160" required value="${escape(s?.title || "")}" placeholder="e.g. Aircraft Structures"></label><label>Description<textarea name="description" maxlength="1000" required placeholder="What will students learn?">${escape(s?.description || "")}</textarea></label><div class="form-actions">${s && manage() && owned(s) ? button("Delete subject", "delete-subject", `data-id="${escape(s.id)}"`, "quiet danger") + '<span class="push"></span>' : ""}${button("Cancel", s ? "subject" : "subjects", s ? `data-id="${escape(s.id)}"` : "", "quiet")}<button class="primary">${s ? "Save details" : "Create subject"}</button></div></form>`;
+    `<form id="subject-form" class="inline-form" data-edit="${s ? "true" : "false"}"><label>Subject title<input name="title" maxlength="160" required value="${escape(s?.title || "")}" placeholder="e.g. Aircraft Structures"></label><label>Description<textarea name="description" maxlength="1000" required placeholder="What will students learn?">${escape(s?.description || "")}</textarea></label><div class="form-actions">${s && canDeleteSubject(s) ? button("Delete subject", "delete-subject", `data-id="${escape(s.id)}"`, "quiet danger") + '<span class="push"></span>' : ""}${button("Cancel", s ? "subject" : "subjects", s ? `data-id="${escape(s.id)}"` : "", "quiet")}<button class="primary">${s ? "Save details" : "Create subject"}</button></div></form>`;
 }
 function capturePosition(preferredId) {
   const center = $("#center");
@@ -791,8 +883,8 @@ $("#login-form").addEventListener("submit", (e) => {
         $("#app").hidden = false;
         toast("Signed in. Your unsaved work is restored; review before saving.");
       } else if (state.account.must_change_password) {
-        shell();
         state.view = "settings";
+        shell();
         renderSettings();
         toast("Change your temporary password to continue.");
       } else {
@@ -813,7 +905,9 @@ $("#signin").addEventListener("cancel", (e) => e.preventDefault());
 $("#workspace").addEventListener("change", () => {
   const remote = $("#workspace").value === "organization";
   $("#origin-label").hidden = !remote;
+  $("#org-hint").hidden = !remote;
   $("#demo-hint").hidden = remote;
+  $("#login-form").elements.origin.required = remote;
   $("#login-form").elements.username.value = "";
   $("#login-form").elements.password.value = "";
 });
@@ -848,6 +942,16 @@ document.addEventListener("click", (event) => {
     toast("Drag this grip to reorder, or focus it and press Alt+↑ / Alt+↓.");
     return;
   }
+  if (action === "toggle-field-password") {
+    const input = target.closest(".password-field")?.querySelector("input");
+    if (!input) return;
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    target.textContent = show ? "Hide" : "Show";
+    target.setAttribute("aria-pressed", String(show));
+    input.focus();
+    return;
+  }
   act(async () => {
     if (
       [
@@ -857,6 +961,7 @@ document.addEventListener("click", (event) => {
         "results",
         "learners",
         "eligibility",
+        "access",
         "accounts",
         "announcements",
         "settings",
@@ -1002,7 +1107,7 @@ document.addEventListener("click", (event) => {
     }
     if (action === "delete-subject") {
       const subject = state.active;
-      if (!subject || subject.id !== id || !manage() || !owned(subject)) return;
+      if (!subject || subject.id !== id || !canDeleteSubject(subject)) return;
       const snapshot = {
         confirm_delete:true, expected_title:subject.title, expected_description:subject.description,
         expected_order_revision:subject.order_revision, expected_eligibility_revision:subject.eligibility_revision,
@@ -1081,7 +1186,7 @@ document.addEventListener("click", (event) => {
       state.view = "subject";
       shell();
       renderSubject();
-      if (manage()) {
+      if (manage() && canEditSubject()) {
         state.compose = { item };
         renderComposer();
         revealNearby($("#composer"));
@@ -1104,6 +1209,34 @@ document.addEventListener("click", (event) => {
       state.accountOffset = Number(target.dataset.offset);
       await renderAccounts();
     }
+    if (["grant-instructor", "save-instructor-level", "activate-instructor", "suspend-instructor"].includes(action)) {
+      if (!state.active) return;
+      const levelEl = document.querySelector(`[data-access-level="${CSS.escape(id)}"]`);
+      const access_level = levelEl ? levelEl.value : "read_only";
+      if (
+        action === "suspend-instructor" &&
+        !(await confirmAction(
+          "Suspend subject access?",
+          "This instructor will immediately lose access to this subject until reactivated.",
+          "Suspend access",
+        ))
+      )
+        return;
+      const status = action === "suspend-instructor" ? "suspended" : "active";
+      await post(`/v1/admin/subjects/${state.active.id}/instructors`, {
+        instructor_id: id,
+        access_level,
+        status,
+      });
+      await renderAccess();
+      toast(
+        action === "suspend-instructor"
+          ? "Instructor access suspended for this subject."
+          : action === "activate-instructor"
+            ? `Instructor access activated (${access_level === "editor" ? "Editor" : "Read only"}).`
+            : `Instructor access saved (${access_level === "editor" ? "Editor" : "Read only"}).`,
+      );
+    }
     if (action === "account-status") {
       if (
         !(await confirmAction(
@@ -1123,8 +1256,19 @@ document.addEventListener("click", (event) => {
       toast("Account updated.");
     }
     if (action === "new-account") {
+      if (!(await leaveDraft())) return;
       $("#account-form-slot").innerHTML =
-        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label>Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Temporary passphrase · at least 15 characters<input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><p class="small muted">The new account must change its password at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
+        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student (Reader)</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label id="student-id-field">Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Temporary passphrase · at least 15 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Students default to reader access with no download capability. New accounts must change their temporary passphrase at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
+    }
+    if (action === "reset-password") {
+      if (!(await leaveDraft())) return;
+      $("#account-form-slot").innerHTML =
+        `<form id="reset-password-form" class="inline-form" data-id="${escape(id)}"><h3>Reset temporary password · ${escape(target.dataset.name || "Account")}</h3><label>New temporary passphrase · at least 15 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Active sessions for this user are signed out immediately, and the user must choose a new passphrase at next sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Reset password</button></div></form>`;
+    }
+    if (action === "edit-student-id") {
+      if (!(await leaveDraft())) return;
+      $("#account-form-slot").innerHTML =
+        `<form id="edit-student-id-form" class="inline-form" data-id="${escape(id)}"><h3>Edit student ID · ${escape(target.dataset.name || "Student")}</h3><label>Student ID · leave blank to clear<input name="student_number" maxlength="32" value="${escape(target.dataset.number || "")}"></label><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Save ID</button></div></form>`;
     }
     if (action === "cancel-account") {
       if (!(await leaveDraft())) return;
@@ -1338,13 +1482,38 @@ document.addEventListener("submit", (event) => {
     }
     if (form.id === "new-account") {
       const payload = { ...d };
-      if (!payload.student_number) delete payload.student_number;
+      if (payload.role !== "student" || !payload.student_number?.trim()) delete payload.student_number;
       await post("/v1/admin/accounts", payload);
       state.dirty = false;
       await renderAccounts();
       toast("Account created.");
     }
+    if (form.id === "reset-password-form") {
+      if (
+        !(await confirmAction(
+          "Reset temporary password?",
+          "All active sessions for this user will be signed out immediately.",
+          "Reset password",
+        ))
+      )
+        return;
+      await post(`/v1/admin/accounts/${id}/password`, { password: d.password });
+      state.dirty = false;
+      $("#account-form-slot").innerHTML = "";
+      toast("Temporary password reset. Existing sessions signed out.");
+    }
+    if (form.id === "edit-student-id-form") {
+      await api(`/v1/admin/accounts/${id}`, {
+        method: "PATCH",
+        body: { student_number: d.student_number.trim() || null },
+      });
+      state.dirty = false;
+      await renderAccounts();
+      toast("Student ID updated.");
+    }
     if (form.id === "password") {
+      if (d.next !== d.confirm)
+        throw new Error("New passphrase and confirmation do not match.");
       await post("/v1/auth/password", {
         current_password: d.current,
         new_password: d.next,
@@ -1388,6 +1557,16 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#app form")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
+  if (event.target.matches("#new-account select[name=role]")) {
+    const isStudent = event.target.value === "student";
+    const field = $("#student-id-field");
+    if (field) {
+      field.hidden = !isStudent;
+      if (!isStudent) field.querySelector("input").value = "";
+    }
+    state.dirty = true;
+    return;
+  }
   if(event.target.id==="response-mode"){
     captureQuizDraft();state.compose.responseMode=event.target.value;
     const composer=$("#composer"),existing=$("#quiz-builder");if(existing)existing.remove();
@@ -1424,6 +1603,7 @@ document.addEventListener("change", (event) => {
       await loadSubject(event.target.value);
       shell();
       if (state.view === "learners") await renderLearners();
+      else if (state.view === "access") await renderAccess();
       else await renderEligibility();
     });
   else if (event.target.closest("#app form")) state.dirty = true;

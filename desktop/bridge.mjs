@@ -16,10 +16,10 @@ const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
 export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.9.sqlite");
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.10.sqlite");
   if(existsSync(database)&&!existsSync(snapshot)){
     const previous=new DatabaseSync(database,{readOnly:true});
-    try{if(previous.prepare('PRAGMA user_version').get().user_version<12)await backup(previous,snapshot);}finally{previous.close();}
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<13)await backup(previous,snapshot);}finally{previous.close();}
   }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),
@@ -53,6 +53,7 @@ export async function startLocal(directory, {legacyFixture=false,materialsForTes
           ),
       );
       const subject = randomUUID();
+      const seededAt = Date.now();
       academy.db
         .prepare(
           "INSERT INTO subjects(id,title,description,owner_id,created_at,self_enrol,eligibility_all) VALUES(?,?,?,?,?,1,1)",
@@ -62,8 +63,13 @@ export async function startLocal(directory, {legacyFixture=false,materialsForTes
           "Introduction to Aeronautics",
           "A place for your lessons, references and learning activities.",
           ids[1],
-          Date.now(),
+          seededAt,
         );
+      academy.db
+        .prepare(
+          "INSERT INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,'editor','active',?,?)",
+        )
+        .run(subject, ids[1], ids[0], seededAt);
       academy.db
         .prepare(
           "INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin')",
@@ -337,8 +343,9 @@ export class AcademyBridge {
     if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))
       throw new Error("Choose a valid subject.");
     const {subject} = await this.request(`/v1/subjects/${id}`);
-    if (!this.account || !(this.account.role === "admin" || this.account.role === "instructor" && subject.owner_id === this.account.id))
-      throw new Error("Only the subject instructor or administrator can generate enrollment codes.");
+    const canEdit = subject.can_edit ?? (this.account?.role === "admin" || (this.account?.role === "instructor" && subject.owner_id === this.account.id));
+    if (!this.account || this.account.role === "student" || !canEdit)
+      throw new Error("Only the subject instructor (editor) or an administrator can generate enrollment codes.");
     return enrollmentQr(subject.id);
   }
   async exportReport(id, offset = 0) {
@@ -350,6 +357,8 @@ export class AcademyBridge {
       offset > 100000
     )
       throw new Error("Choose a subject and report page.");
+    if (this.account?.role === "student")
+      throw new Error("Downloads and exports are disabled for student accounts.");
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return this.fetch(`/v1/subjects/${id}/export?offset=${offset}&timezone=${encodeURIComponent(timeZone)}`, {}, true);
   }

@@ -9,7 +9,7 @@ export function openDatabase(path){
   }
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>12){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>13){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   if(version>=6&&!db.prepare('PRAGMA table_info(items)').all().some(column=>column.name==='parent_id')){db.close();throw new Error('This is not a PC backend database. Use its matching server and a validated migration.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
@@ -158,6 +158,22 @@ export function openDatabase(path){
     ALTER TABLE items ADD COLUMN due_at INTEGER;
     CREATE INDEX items_release ON items(subject_id,archived,published,publish_at);
     PRAGMA user_version=12; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
+  // Instructor subject access — Admin-managed per-subject read_only/editor and active/suspended grants, schema 13.
+  if(version<13){try{db.exec(`BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS subject_instructors (
+      subject_id TEXT NOT NULL REFERENCES subjects(id),
+      instructor_id TEXT NOT NULL REFERENCES accounts(id),
+      access_level TEXT NOT NULL CHECK(access_level IN ('read_only','editor')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','suspended')),
+      updated_by TEXT REFERENCES accounts(id),
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(subject_id,instructor_id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS subject_instructors_instructor ON subject_instructors(instructor_id,status,access_level);
+    INSERT OR IGNORE INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at)
+      SELECT s.id,s.owner_id,'editor','active',s.owner_id,s.created_at
+      FROM subjects s JOIN accounts a ON a.id=s.owner_id WHERE a.role='instructor';
+    PRAGMA user_version=13; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
   if(db.prepare('PRAGMA quick_check').all().some(row=>row.quick_check!=='ok')||db.prepare('PRAGMA foreign_key_check').all().length){db.close();throw new Error('Database integrity check failed. Restore a verified backup.');}
   db.exec('PRAGMA busy_timeout=5000;');
 

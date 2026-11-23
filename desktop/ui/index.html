@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'"
     />
-    <title>Aeronautical Open Academy</title>
+    <title>Aeronautical Academy Repository</title>
     <link rel="stylesheet" href="style.css" />
     <script src="reader.js" defer></script>
     <script src="schedule.js" defer></script>
@@ -19,9 +19,9 @@
     <dialog id="signin" aria-labelledby="signin-title">
       <div class="login-brand">
         <span class="brand-mark">A</span
-        ><span>AERONAUTICAL<br />OPEN ACADEMY</span>
+        ><span>AERONAUTICAL<br />ACADEMY REPOSITORY</span>
       </div>
-      <div class="eyebrow">YOUR LEARNING WORKSPACE</div>
+      <div class="eyebrow">YOUR LEARNING REPOSITORY</div>
       <h1 id="signin-title">A little space.<br />A world of knowledge.</h1>
       <p class="muted">Sign in to teach, learn and stay on track.</p>
       <form id="login-form">
@@ -69,6 +69,13 @@
           Open workspace <span aria-hidden="true">→</span>
         </button>
       </form>
+      <div id="org-hint" hidden>
+        <p class="small muted">
+          Instructor and student accounts are created by your workspace
+          administrator. New accounts rotate their temporary passphrase at first
+          sign-in.
+        </p>
+      </div>
       <div id="demo-hint">
         <p class="small muted">
           Test accounts · username and password are the same

@@ -53,7 +53,7 @@ window.academyReader = (() => {
     documentPdf = loaded;
     if (!documentPdf.numPages || documentPdf.numPages > 2000) {await close(); throw new Error("Use a PDF with 1–2000 pages.");}
     dialog = document.createElement("dialog"); dialog.className = "pdf-reader";
-    dialog.innerHTML = '<h2></h2><div class="pdf-reader-bar"><div class="pdf-reader-nav"><button type="button" data-prev>Previous</button><span data-page></span><button type="button" data-next>Next</button></div><button type="button" class="quiet" data-close>Close</button></div><div class="pdf-pages"><canvas aria-label="Material page"></canvas></div><p role="status"></p>';
+    dialog.innerHTML = '<h2></h2><div class="pdf-reader-bar"><div class="pdf-reader-nav"><button type="button" data-prev>Previous</button><span data-page></span><button type="button" data-next>Next</button><span class="tag blue">View only · downloads disabled</span></div><button type="button" class="quiet" data-close>Close</button></div><div class="pdf-pages"><canvas aria-label="Material page"></canvas></div><p role="status"></p>';
     dialog.querySelector("h2").textContent = result.value.title;
     document.body.append(dialog);
     dialog.addEventListener("cancel", event => {event.preventDefault();void close();});
