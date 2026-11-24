@@ -59,6 +59,13 @@ test('rich HTML sanitizer preserves formatting/indent/safe image refs and strips
   assert.ok(!clean.includes('style='));
   assert.deepEqual(extractImageIds(clean), ['11111111-1111-1111-1111-111111111111']);
 
+  const obfuscated = '<p>Safe\0Text</p><!<!-- -->--<script>alert(6)</script><!-- unclosed <img onerror=alert(7)>';
+  const cleanObf = sanitizeRichHtml(obfuscated);
+  assert.ok(cleanObf.includes('<p>SafeText</p>'));
+  assert.ok(!cleanObf.includes('\0'));
+  assert.ok(!cleanObf.includes('alert('));
+  assert.ok(!cleanObf.includes('onerror'));
+
   assert.equal(detectImageMime(TINY_PNG), 'image/png');
   assert.equal(detectImageMime(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>')), null);
   assert.equal(detectImageMime(Buffer.from('not an image at all')), null);

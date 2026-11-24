@@ -53,25 +53,32 @@ try {
   await idle();
   await page.locator('#composer input[name=title]').fill('Lesson 02 — Wing Lift & Diagrams');
 
-  // Simulate pasting formatted HTML with Word-style margin-left indent and malicious script/img tags.
-  await page.evaluate(() => {
+  // Simulate Word/Excel dual-payload paste (formatted HTML + plain text + auxiliary PNG bitmap) — must adopt formatted HTML, not turn text into an image.
+  await page.evaluate((b64) => {
+    const raw = atob(b64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    const file = new File([bytes], 'word-preview.png', { type: 'image/png' });
     const ed = document.getElementById('rich-editor');
     ed.focus();
     const dt = new DataTransfer();
+    dt.items.add(file);
     dt.setData(
       'text/html',
       '<h2>Aerodynamic Forces</h2><p style="margin-left:56px"><span style="font-weight:bold">Bernoulli</span> and <em>circulation</em></p><ul><li>Leading edge</li><li>Trailing edge</li></ul><script>window.__xss=1</script><img src="x" onerror="window.__xss=2">',
     );
+    dt.setData('text/plain', 'Aerodynamic Forces\nBernoulli and circulation');
     ed.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
-  });
+  }, TINY_PNG_BASE64);
   assert.equal(await page.evaluate(() => window.__xss), undefined);
   assert.equal(await page.locator('#rich-editor h2').count(), 1);
   assert.equal(await page.locator('#rich-editor strong').textContent(), 'Bernoulli');
   assert.equal(await page.locator('#rich-editor em').textContent(), 'circulation');
   assert.equal(await page.locator('#rich-editor [data-indent="2"]').count(), 1);
   assert.equal(await page.locator('#rich-editor ul li').count(), 2);
+  assert.equal(await page.locator('#rich-editor figure.entry-figure').count(), 0);
 
-  // Paste a PNG screenshot snip into #rich-editor via clipboardData file.
+  // Paste a pure PNG screenshot snip (no text/plain) into #rich-editor via clipboardData file.
   await page.evaluate((b64) => {
     const raw = atob(b64);
     const bytes = new Uint8Array(raw.length);
@@ -84,6 +91,28 @@ try {
     ed.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
   }, TINY_PNG_BASE64);
   await page.locator('#rich-editor figure.entry-figure img[data-img]').waitFor();
+
+  // Verify left column expand/collapse via arrow controls while keeping the unsaved draft intact and zero horizontal overflow.
+  const sidebarWidth = () => page.locator('#sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  const hasOverflow = () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  const normalW = await sidebarWidth();
+  assert.ok(normalW >= 220 && normalW <= 250, `Expected normal sidebar ~236px, got ${normalW}`);
+  await page.locator('[data-action="sidebar-widen"]').click();
+  const expandedW = await sidebarWidth();
+  assert.ok(expandedW >= 320, `Expected expanded sidebar >= 320px, got ${expandedW}`);
+  assert.equal(await hasOverflow(), false);
+  assert.equal(await page.locator('[data-action="sidebar-widen"]').isDisabled(), true);
+  assert.equal(await page.locator('#composer input[name=title]').inputValue(), 'Lesson 02 — Wing Lift & Diagrams');
+  if (shotsDir) await page.screenshot({ path: join(shotsDir, '13-sidebar-expanded.png') });
+  await page.locator('[data-action="sidebar-narrow"]').click();
+  assert.equal(await sidebarWidth(), normalW);
+  await page.locator('[data-action="sidebar-narrow"]').click();
+  const collapsedW = await sidebarWidth();
+  assert.ok(collapsedW <= 64, `Expected collapsed sidebar <= 64px, got ${collapsedW}`);
+  assert.equal(await hasOverflow(), false);
+  assert.equal(await page.locator('[data-action="sidebar-widen"]').isVisible(), true);
+  await page.locator('[data-action="sidebar-widen"]').click();
+  assert.equal(await sidebarWidth(), normalW);
 
   // Toolbar Indent button + Relaxed paragraph spacing.
   await page.locator('#rich-editor h2').click();
