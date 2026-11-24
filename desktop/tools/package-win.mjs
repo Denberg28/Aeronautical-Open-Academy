@@ -32,7 +32,6 @@ for (const path of [
   "template.mjs",
   "assets",
   "materials.mjs",
-  "enrollment.mjs",
   "vendor",
   "package.json",
   "ui",

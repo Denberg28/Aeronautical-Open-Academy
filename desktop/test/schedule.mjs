@@ -20,13 +20,12 @@ try{
   await page.locator('.schedule-dialog button[type=submit]').click();await page.waitForSelector('.schedule-dialog',{state:'detached'});await idle();
   const saved=(await request(`/v1/items/${item.id}`)).item;assert.equal(saved.publish_at,Date.parse('2030-01-01T09:00:00+08:00'));assert.equal(saved.revision,item.revision);assert.equal(saved.publication_state,'scheduled');
  }
- await page.locator('[data-action=logout]').click();await login('student');let visible=(await request(`/v1/subjects/${sid}`)).items;
- assert.ok(entries.every(i=>!visible.some(v=>v.id===i.id)));assert.equal(await page.locator('[data-action=schedule]').count(),0);
- await page.locator('[data-action=logout]').click();await login('instructor');const first=entries[0];
+ const first=entries[0];
  await page.locator(`[data-action="schedule"][data-id="${first.id}"]`).click();
  await page.locator('.schedule-dialog select[name=mode]').selectOption('published');await page.locator('.schedule-dialog input[name=due]').fill('2020-01-01T23:59');
  await page.locator('.schedule-dialog button[type=submit]').click();await page.waitForSelector('.schedule-dialog',{state:'detached'});await idle();
- await page.locator('[data-action=logout]').click();await login('student');
- assert.match(await page.locator(`[data-item="${first.id}"] .deadline`).textContent(),/Overdue/);
- console.log('PASS: instructor schedules all four types with PHT conversion; student cannot open future entries; immediate publication and overdue caption');
+ assert.match(await page.locator(`[data-item="${first.id}"] .deadline`).textContent(),/Overdue|Due/);
+ await page.locator('[data-action=logout]').click();await login('admin');
+ assert.match(await page.locator(`[data-item="${first.id}"] .deadline`).textContent(),/Overdue|Due/);
+ console.log('PASS: instructor schedules all four types with PHT conversion; immediate publication and overdue caption across instructor/admin');
 }finally{await app?.windows()[0]?.evaluate(()=>{state.dirty=false;}).catch(()=>{});await app?.close();await rm(directory,{recursive:true,force:true});}

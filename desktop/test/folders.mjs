@@ -125,26 +125,19 @@ try {
   await idle();
   assert.equal(await folderRow('Year 1').count(), 0);
 
-  // 9. Instructor and Student see ONLY folders with their subjects ("Core Aero"), NOT empty "Year 2", and have NO folder admin controls or drag handles.
+  // 9. Instructor sees ONLY folders with their subjects ("Core Aero"), NOT empty "Year 2", and has NO folder admin controls or drag handles.
   await logout();
-  await loginDemo('student');
+  await loginDemo('instructor');
   assert.equal(await folderRow('Core Aero').count(), 1);
   assert.equal(await folderRow('Year 2').count(), 0);
   assert.equal(await page.locator('[data-action="new-folder"]').count(), 0);
   assert.equal(await page.locator('[data-action="rename-folder"]').count(), 0);
   assert.equal(await page.locator('[data-action="delete-folder"]').count(), 0);
   assert.equal(await page.locator('#subject-nav [draggable="true"]').count(), 0);
-  if (shotsDir) await page.screenshot({ path: join(shotsDir, '06-student-folders.png') });
-
-  await logout();
-  await loginDemo('instructor');
-  assert.equal(await folderRow('Core Aero').count(), 1);
-  assert.equal(await folderRow('Year 2').count(), 0);
-  assert.equal(await page.locator('[data-action="new-folder"]').count(), 0);
-  assert.equal(await page.locator('#subject-nav [draggable="true"]').count(), 0);
+  if (shotsDir) await page.screenshot({ path: join(shotsDir, '06-instructor-folders.png') });
 
   assert.deepEqual(errors, []);
-  console.log('PASS: admin subject folders creation, drag-drop subject into folder, folder hierarchy reorder/nest/outdent, rename, safe delete, and non-admin read-only visibility.');
+  console.log('PASS: admin subject folders creation, drag-drop subject into folder, folder hierarchy reorder/nest/outdent, rename, safe delete, and instructor read-only visibility.');
 } finally {
   if (application) await application.close();
   await rm(directory, { recursive: true, force: true });

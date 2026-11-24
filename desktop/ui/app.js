@@ -1,6 +1,6 @@
 "use strict";
 const desktopApi = Object.fromEntries(
-  ["login", "request", "logout", "openLink", "inspectLink", "exportReport", "subjectQr", "sync", "uploadMaterial", "uploadImage", "pickImage", "readImage"].map((method) => [method, async (...args) => {
+  ["login", "request", "logout", "openLink", "inspectLink", "sync", "uploadMaterial", "uploadImage", "pickImage", "readImage"].map((method) => [method, async (...args) => {
     const result = await window.academy[method](...args);
     if (!result.ok) {
       const error = new Error(result.error);
@@ -29,10 +29,8 @@ function generatePassphrase() {
 }
 const icons = {
   book: "M4 3h13a2 2 0 0 1 2 2v16H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3 M3 17h16 M7 7h8",
-  grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   check: "M5 12l4 4L19 6",
   tasks: "M9 6h12 M9 12h12 M9 18h12 M3 6h1 M3 12h1 M3 18h1",
-  chart: "M4 20V4 M4 20h17 M9 16v-5 M14 16V6 M19 16v-8",
   users:
     "M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3 M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M19 8v6 M16 11h6",
   link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
@@ -40,7 +38,6 @@ const icons = {
   edit: "M15 5l4 4 M3 21l5-1L21 7a2 2 0 0 0-4-4L4 16z",
   chevron: "M8 5l7 7-7 7",
   grip: "M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01",
-  more: "M5 12h.01 M12 12h.01 M19 12h.01",
   search: "M21 21l-5-5 M18 10a8 8 0 1 0-16 0 8 8 0 0 0 16 0",
   arrow: "M5 12h14 M14 7l5 5-5 5",
   external: "M14 3h7v7 M21 3L10 14 M10 3H3v18h18v-7",
@@ -52,7 +49,6 @@ const icons = {
   folderPlus: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6",
   play: "M6 4l14 8-14 8z",
   image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M8.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 16l-5-5-4 4-2-2-5 5",
-  minimize: "M6 12h12",
   arrowLeft: "M15 6l-6 6 6 6",
   arrowRight: "M9 6l6 6-6 6",
   settings:
@@ -69,16 +65,13 @@ const state = {
   collapsedMaterials: new Set(),
   collapsedEntries: new Set(),
   collapsedFolders: new Set(),
-  readyQuizzes: new Set(),
   mode: "local",
   subjects: [],
   folders: [],
   folderForm: null,
   announcements: [],
   active: null,
-  activeLearnerId: null,
   items: [],
-  summary: null,
   capabilities: {},
   view: "subject",
   search: "",
@@ -86,7 +79,6 @@ const state = {
   dirty: false,
   busy: false,
   allItems: [],
-  rosterOffset: 0,
   accountOffset: 0,
 };
 let resumeWorkspace = null;
@@ -183,30 +175,25 @@ async function leaveDraft() {
 const api = (path, options) => desktopApi.request(path, options);
 const post = (path, body, key) =>
   api(path, { method: "POST", body, ...(key ? { key } : {}) });
-const manage = () => state.account?.role !== "student";
+const isAdmin = () => state.account?.role === "admin";
 const owned = (item) =>
-  state.account.role === "admin" || item.owner_id === state.account.id;
+  isAdmin() || item.owner_id === state.account.id;
 const canEditSubject = (subject = state.active) =>
-  Boolean(subject ? (subject.can_edit ?? manage()) : manage());
+  Boolean(subject ? (subject.can_edit ?? true) : true);
 const canDeleteSubject = (subject = state.active) =>
-  Boolean(subject && (subject.can_delete ?? (manage() && owned(subject))));
+  Boolean(subject && (subject.can_delete ?? owned(subject)));
 const canEditItem = (item) =>
   Boolean(item && (item.can_edit ?? (canEditSubject() && owned(item))));
 const navLabel = () =>
   ({
     subject: "My subjects",
     subjects: "My subjects",
-    tasks: "Tasks",
-    results: "My results",
-    learners: "Students & progress",
-    eligibility: "Enrollment",
+    tasks: "Drafts",
     access: "Subject access",
     accounts: "Accounts",
     announcements: "Announcements",
     settings: "Settings",
     help: "Help",
-    discover: "Find a subject",
-    learner: "Student work",
   })[state.view] || "My subjects";
 function nav(label, action, glyph, active = false, extra = "") {
   return `<button class="nav-btn ${active ? "active" : ""}" data-action="${action}" ${extra}>${icon(glyph)}${label}</button>`;
@@ -300,6 +287,24 @@ function renderSubjectNav() {
 function syncSubjectNav() {
   const host = $("#subject-nav");
   if (host) host.innerHTML = renderSubjectNav();
+  const heroGroup = $("#subject-context .hero-title-group");
+  if (heroGroup && state.view === "subject" && state.active) {
+    const activeSubject =
+      state.subjects.find((item) => item.id === state.active.id) || state.active;
+    state.active = { ...state.active, folder_id: activeSubject.folder_id || null };
+    const folderPath = folderPathName(activeSubject.folder_id);
+    let badge = heroGroup.querySelector(".hero-folder-tag");
+    if (folderPath) {
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "tag hero-folder-tag";
+        heroGroup.appendChild(badge);
+      }
+      badge.textContent = folderPath;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
 }
 function syncSidebarState() {
   const app = $("#app");
@@ -334,24 +339,19 @@ function syncSidebarState() {
 function shell() {
   const a = state.account;
   const pendingPassword = Boolean(a.must_change_password);
-  const roleLabel = a.role === "student" ? "Student · Reader" : a.role;
+  const roleLabel = a.role === "admin" ? "Administrator" : "Instructor";
   $("#app").innerHTML =
     `<aside class="sidebar" id="sidebar" aria-label="Workspace navigation"><div class="sidebar-head"><div class="brand"><span class="brand-mark">A</span><span class="brand-text">AERONAUTICAL<br>ACADEMY REPOSITORY</span></div><div class="sidebar-width-controls" role="group" aria-label="Left column width">${button(icon("arrowLeft"), "sidebar-narrow", 'title="Collapse left column (Alt+[)" aria-label="Collapse left column"', "quiet sidebar-arrow-btn")}${button(icon("arrowRight"), "sidebar-widen", 'title="Expand left column wider (Alt+])" aria-label="Expand left column wider" aria-expanded="false"', "quiet sidebar-arrow-btn")}</div></div>${
       pendingPassword
         ? `<details open><summary>SECURITY</summary>${nav("Settings", "settings", "settings", true)}</details>`
-        : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view), canManageFolders() ? 'data-folder-drop="root"' : "")}<div id="subject-nav">${renderSubjectNav()}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
+        : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view), canManageFolders() ? 'data-folder-drop="root"' : "")}<div id="subject-nav">${renderSubjectNav()}</div>${nav("Drafts", "tasks", "tasks", state.view === "tasks")}${!isAdmin() ? nav("Announcements", "announcements", "bell", state.view === "announcements") : ""}</details>${isAdmin() ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
     }<div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Aeronautical Academy Repository · ${escape(state.version)}</p></div></aside><header class="topbar"><div class="breadcrumbs">Repository <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
         .slice(0, 2)
         .join(""),
-    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(roleLabel)}</div></div></div>${pendingPassword ? "" : button(icon("sync") + "Sync", "sync", 'title="Refresh shared materials, results and progress"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Learning workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and tasks"></aside>`;
-  if (!pendingPassword && a.role !== "admin")
-    $(".sidebar details").insertAdjacentHTML(
-      "beforeend",
-      nav("Announcements", "announcements", "bell", state.view === "announcements"),
-    );
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(roleLabel)}</div></div></div>${pendingPassword ? "" : button(icon("sync") + "Sync", "sync", 'title="Refresh shared subjects, folders and materials"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Repository workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and drafts"></aside>`;
   syncSidebarState();
   $("#app").hidden = false;
   renderRight();
@@ -377,7 +377,6 @@ async function loadSubject(id) {
   state.quizSupported = data.quiz_version >= 1;
   state.maxQuestions=state.quizSupported?(state.capabilities.max_quiz_questions||50):state.capabilities.choice_forms?20:1;
   state.formsSupported = data.choice_forms === true || state.capabilities.choice_forms === true;
-  state.summary = data.summary || null;
   state.compose = null;
   state.dirty = false;
 }
@@ -387,15 +386,10 @@ async function start() {
   state.collapsedEntries.clear();
   state.collapsedFolders.clear();
   state.folderForm = null;
-  state.readyQuizzes.clear();
   await refreshData();
   state.items = [];
-  state.summary = null;
   state.active = null;
-  state.activeLearnerId = null;
-  state.rosterOffset = 0;
   state.accountOffset = 0;
-  state.discoverOffset = 0;
   state.view = "subject";
   state.search = "";
   state.compose = null;
@@ -406,7 +400,7 @@ async function start() {
 }
 function utility() {
   const allMin = state.items.length > 0 && state.items.every((item) => state.collapsedEntries.has(item.id));
-  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
+  return `<div class="utility"><span class="eyebrow">${isAdmin() ? "ADMIN SPACE" : "INSTRUCTOR SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
 }
 function header(title, subtitle, actions = "") {
   return `<div class="row between"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions}</div>`;
@@ -493,7 +487,7 @@ function applySubjectSearch() {
   syncMaterialSections();
   if ($("#search-empty")) $("#search-empty").hidden = count > 0 || !query;
 }
-// Collapse only changes the view, leaving student responses and editors intact.
+// Collapse only changes the view, leaving active editors intact.
 function syncMaterialSections() {
   for (const bodyEl of document.querySelectorAll("[data-entry-body]")) {
     const id = bodyEl.dataset.entryBody;
@@ -547,25 +541,8 @@ function itemCard(item, index, number) {
         : item.kind === "activity"
           ? (selectable?"Activity":"Written activity")
           : "Material";
-  let student = "";
-  if (!manage()) {
-    if (item.kind === "material")
-      student = `<div class="material-tools">${button(`${icon(item.completed ? "check" : "book")}${item.completed ? "Read · mark unread" : "Mark as read"}`, "complete", `data-id="${escape(item.id)}"`, item.completed ? "quiet" : "")}<span class="compose-hint">Self-reported reading</span></div>`;
-    if (selectable) {
-      const questions = item.questions || [{prompt:item.body,options:item.options}];
-      const attempt=item.form_result?{score:item.form_result.correct,max_score:item.form_result.total}:item.attempt;
-      const total = attempt?.max_score || questions.length;
-      student = attempt
-        ? `<div class="result"><strong>Done · ${attempt.score} / ${total} correct · ${Math.round(attempt.score*10000/total)/100}%</strong><span class="small">Assessment submitted</span></div><details class="quiz-review"><summary>Review</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${item.form_result?.answers?.[i]===j?"Selected · ":""}${escape(o)}</p>`).join("")}</div>`).join("")}</details>`
-        : `<div class="quiz-intro" ${state.readyQuizzes.has(item.id)?"hidden":""}><span class="tag">${total} ${total===1?"question":"questions"}</span><p class="small muted">One submission. One point for each correct answer.</p>${button(item.kind==="quiz"?"Take quiz":item.assessment_type==="examination"?"Take examination":"Take activity", "start-quiz", `data-id="${escape(item.id)}"`, "primary")}</div><details class="quiz-attempt" data-quiz="${escape(item.id)}" ${state.readyQuizzes.has(item.id)?"open":""} ${!state.readyQuizzes.has(item.id)?"hidden":""}><summary>Questions · minimize / expand</summary><form data-form="${item.kind==="quiz"&&(!item.questions||state.quizSupported)?"quiz":"answers"}" data-id="${escape(item.id)}" data-revision="${item.revision}">${questions.map((q,i)=>`<fieldset class="quiz-question"><legend>${i+1}. ${escape(q.prompt)}</legend>${q.options.map((option,j)=>`<label class="choice"><input type="radio" name="answer-${i}" value="${j}" required>${escape(option)}</label>`).join("")}</fieldset>`).join("")}<div class="form-actions"><button class="primary" type="submit">Submit answers</button></div></form></details>`;
-    }
-    if (item.kind === "activity"&&!selectable)
-      student = item.submission
-        ? `<div class="result">${item.submission.score == null ? "Submitted · awaiting assessment" : `Score ${item.submission.score} / 100`}${item.submission.feedback ? `<div class="reading-copy">${readingText(item.submission.feedback)}</div>` : ""}<details><summary>Your response</summary><div class="reading-copy">${readingText(item.submission.output)}</div></details></div>`
-        : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
-  }
-  const playable = manage() && item.kind !== "material";
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder or move ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight" title="Drag to reorder or nest across levels · keyboard: Alt+↑/↓/←/→"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() ? `<span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable || playable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${playable ? button(icon("play") + "Play", "play-item", `data-id="${escape(item.id)}" title="Play full screen for class"`, "quiet play-btn") : ""}${editable && item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${editable && state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${editable ? button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger") : ""}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3><div class="entry-heading-tools">${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}${button("Minimize", "toggle-entry", `data-id="${escape(item.id)}" aria-expanded="true" aria-controls="entry-body-${escape(item.id)}"`, "quiet entry-min-btn")}</div></div><div class="entry-body" id="entry-body-${escape(item.id)}" data-entry-body="${escape(item.id)}">${datesCaption(item)}${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  const playable = item.kind !== "material";
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder or move ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight" title="Drag to reorder or nest across levels · keyboard: Alt+↑/↓/←/→"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} <span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span></div>${editable || playable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${playable ? button(icon("play") + "Play", "play-item", `data-id="${escape(item.id)}" title="Play full screen for class"`, "quiet play-btn") : ""}${editable && item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${editable && state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${editable ? button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger") : ""}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3><div class="entry-heading-tools">${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize nested entries"`, "quiet material-toggle") : ""}${button("Minimize", "toggle-entry", `data-id="${escape(item.id)}" aria-expanded="true" aria-controls="entry-body-${escape(item.id)}"`, "quiet entry-min-btn")}</div></div><div class="entry-body" id="entry-body-${escape(item.id)}" data-entry-body="${escape(item.id)}">${datesCaption(item)}${bodyParts(item)}${selectable ? quizPreview(item) : ""}</div></div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -576,29 +553,28 @@ function renderSubject() {
     center.innerHTML =
       header(
         "My subjects",
-        "Your teaching and learning start here.",
-        manage() ? button("+ New subject", "new-subject", "", "primary") : "",
+        "Your teaching repository starts here.",
+        button("+ New subject", "new-subject", "", "primary"),
       ) +
       empty(
         "No subjects yet",
-        manage()
-          ? "Create your first subject or ask an administrator for subject access."
-          : "Choose Find a subject to enroll.",
+        "Create your first subject or ask an administrator for subject access.",
       );
     renderRight();
     return;
   }
   const s = state.active;
   const editableSubject = canEditSubject(s);
-  const readOnlyInstructor = manage() && !editableSubject;
+  const readOnlyInstructor = !editableSubject;
+  const folderPath = folderPathName(s.folder_id);
   const materials = state.items.filter((i) => i.kind === "material").length;
   const assessments = state.items.filter((i) => i.kind !== "material" && i.assessment_type !== "examination").length;
   const examinations = state.items.filter((i) => i.assessment_type === "examination").length;
   context.hidden = false;
-  context.innerHTML = `<section class="subject-hero"><div class="row between"><h1>${escape(s.title)}</h1>${editableSubject ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet") : readOnlyInstructor ? '<span class="tag blue">Read-only access</span>' : ""}</div>${!manage() ? `<div class="subject-progress"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress><span>${state.summary?.completion_percent || 0}% complete</span></div>` : `<span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and downloads disabled)" : ""}</span>`}</section>`;
+  context.innerHTML = `<section class="subject-hero"><div class="row between"><div class="hero-title-group"><h1>${escape(s.title)}</h1>${folderPath ? `<span class="tag hero-folder-tag">${escape(folderPath)}</span>` : ""}</div>${editableSubject ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet") : '<span class="tag blue">Read-only access</span>'}</div><span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and answer keys disabled)" : ""}</span></section>`;
   center.innerHTML =
     utility() +
-    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${editableSubject ? "Create. Arrange across levels. Share." : readOnlyInstructor ? "Read-only instructor view." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : readOnlyInstructor ? "No entries have been added to this subject yet." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
+    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>Subject content</h2><span>${editableSubject ? "Create. Arrange across levels. Present." : "Read-only instructor view."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : "No entries have been added to this subject yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable nested entries inside materials.</p>' : ""}` : ""}`;
   if (editableSubject) renderComposer();
   applySubjectSearch();
   window.academyEditor?.hydrateImages(center, desktopApi.readImage, { subjectId: s.id });
@@ -668,7 +644,7 @@ function renderComposer() {
     state.compose.initialLinks = [...links];
   }
   const imageCapable = state.capabilities.entry_images === "v1";
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations start at top level. Drag any entry across levels anytime."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Title<input name="title" maxlength="160" value="${escape(initialTitle)}" placeholder="e.g. Lesson 01 — The principles of flight"></label><div class="editor-field"><div class="editor-label-row"><span>Content <span class="muted">· paste formatted text or screenshot snips (Ctrl+V)</span></span><label class="spacing-control">Spacing<select name="paragraph_spacing" id="paragraph-spacing" aria-label="Paragraph spacing"><option value="compact" ${spacing === "compact" ? "selected" : ""}>Compact</option><option value="normal" ${spacing === "normal" ? "selected" : ""}>Normal</option><option value="relaxed" ${spacing === "relaxed" ? "selected" : ""}>Relaxed</option><option value="loose" ${spacing === "loose" ? "selected" : ""}>Loose</option></select></label></div><div class="editor-toolbar" role="toolbar" aria-label="Content formatting"><select data-editor-block aria-label="Paragraph style"><option value="p">Normal</option><option value="h2">Heading</option><option value="h3">Subheading</option><option value="blockquote">Quote</option></select><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><strong>B</strong></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><em>I</em></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><u>U</u></button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">• List</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">1. List</button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="outdent" title="Decrease indent (Shift+Tab)" aria-label="Decrease indent">← Indent</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="indent" title="Increase indent (Tab)" aria-label="Increase indent">Indent →</button>${imageCapable ? `<span class="tool-sep" aria-hidden="true"></span>${button(icon("image") + "Image", "insert-image", 'title="Insert image file or paste snip with Ctrl+V"', "quiet tool-btn")}` : ""}</div><div id="rich-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Entry content" data-spacing="${escape(spacing)}" data-placeholder="Write instructions, paste formatted notes from Word/Docs, or press Ctrl+V to paste a screenshot snip…">${initialRichHtml}</div><p class="compose-hint">Tab / Shift+Tab indents paragraphs · pasted formatting is adopted and sanitized automatically.</p></div>${kind === "material" ? `${!item&&state.capabilities.material_upload?'<label>Format<select name="format"><option value="text">Text, images and links</option><option value="file">PDF upload · save draft first</option></select></label>':""}<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or web references</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations start at top level. Drag any entry across levels anytime."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Title<input name="title" maxlength="160" value="${escape(initialTitle)}" placeholder="e.g. Lesson 01 — The principles of flight"></label><div class="editor-field"><div class="editor-label-row"><span>Content <span class="muted">· paste formatted text or screenshot snips (Ctrl+V)</span></span><label class="spacing-control">Spacing<select name="paragraph_spacing" id="paragraph-spacing" aria-label="Paragraph spacing"><option value="compact" ${spacing === "compact" ? "selected" : ""}>Compact</option><option value="normal" ${spacing === "normal" ? "selected" : ""}>Normal</option><option value="relaxed" ${spacing === "relaxed" ? "selected" : ""}>Relaxed</option><option value="loose" ${spacing === "loose" ? "selected" : ""}>Loose</option></select></label></div><div class="editor-toolbar" role="toolbar" aria-label="Content formatting"><select data-editor-block aria-label="Paragraph style"><option value="p">Normal</option><option value="h2">Heading</option><option value="h3">Subheading</option><option value="blockquote">Quote</option></select><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><strong>B</strong></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><em>I</em></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><u>U</u></button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">• List</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">1. List</button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="outdent" title="Decrease indent (Shift+Tab)" aria-label="Decrease indent">← Indent</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="indent" title="Increase indent (Tab)" aria-label="Increase indent">Indent →</button>${imageCapable ? `<span class="tool-sep" aria-hidden="true"></span>${button(icon("image") + "Image", "insert-image", 'title="Insert image file or paste snip with Ctrl+V"', "quiet tool-btn")}` : ""}</div><div id="rich-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Entry content" data-spacing="${escape(spacing)}" data-placeholder="Write instructions, paste formatted notes from Word/Docs, or press Ctrl+V to paste a screenshot snip…">${initialRichHtml}</div><p class="compose-hint">Tab / Shift+Tab indents paragraphs · pasted formatting is adopted and sanitized automatically.</p></div>${kind === "material" ? `${!item&&state.capabilities.material_upload?'<label>Format<select name="format"><option value="text">Text, images and links</option><option value="file">PDF upload · save draft first</option></select></label>':""}<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or web references</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Share permissions at the original host for assigned instructors.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written prompt</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · class presenter &amp; answer key</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Published</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
   const editorEl = $("#rich-editor");
   if (editorEl && window.academyEditor) {
     window.academyEditor.wireEditor(editorEl, {
@@ -720,20 +696,19 @@ function renderRight() {
   }
   const notices = state.announcements.slice(0, 3);
   const editableSubject = canEditSubject();
-  const tasks = state.items.filter((i) =>
-    manage() ? (editableSubject && !i.published) : !i.completed && i.kind !== "material",
-  );
+  const drafts = editableSubject ? state.items.filter((i) => !i.published) : [];
+  const publishedCount = state.items.filter(isVisibleEntry).length;
   $("#rightbar").innerHTML =
-    `<section><div class="section-heading"><h2>Announcements</h2>${state.account.role === "admin" ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>${manage() ? "Teaching tasks" : "Your tasks"}</h2><span class="tag">${tasks.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
-      tasks
+    `<section><div class="section-heading"><h2>Announcements</h2>${isAdmin() ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>Drafts</h2><span class="tag">${drafts.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
+      drafts
         .slice(0, 5)
         .map(
           (t) =>
-            `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon(manage() ? "edit" : "tasks")}</span><span><strong>${escape(t.title)}</strong><small>${manage() ? "Draft · finish and publish" : t.kind === "quiz" ? "Quiz · not submitted" : t.questions ? "Selection form · not submitted" : "Written work · not submitted"}</small></span></button>`,
+            `<button class="task-row" data-action="task-item" data-id="${escape(t.id)}"><span class="task-icon">${icon("edit")}</span><span><strong>${escape(t.title)}</strong><small>Draft · finish and publish</small></span></button>`,
         )
         .join("") ||
-      `<p class="small-info">${manage() && state.active && !editableSubject ? "Read-only access on this subject." : "No pending tasks in this subject."}</p>`
-    }${manage() && state.active ? `<button class="task-row" data-action="learners"><span class="task-icon">${icon("users")}</span><span><strong>Review student progress</strong><small>${editableSubject ? "Read, submitted and graded work" : "Read-only progress view"}</small></span></button>` : ""}</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">${manage() ? "AT A GLANCE" : "YOUR PROGRESS"}</div><div class="row between"><span class="big">${manage() ? state.items.filter(isVisibleEntry).length : (state.summary?.completion_percent || 0) + "%"}</span><span class="tag">${manage() ? "published entries" : "completed"}</span></div>${!manage() ? `<div class="progress-track"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress></div>` : ""}<p>${manage() ? "Knowledge grows, one lesson at a time." : "Reading is self-reported; completion is separate from grades."}</p></section>`;
+      `<p class="small-info">${state.active && !editableSubject ? "Read-only access on this subject." : "No pending drafts in this subject."}</p>`
+    }</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">AT A GLANCE</div><div class="row between"><span class="big">${publishedCount}</span><span class="tag">published entries</span></div><p>${drafts.length ? `${drafts.length} ${drafts.length === 1 ? "draft" : "drafts"} waiting to publish.` : "Knowledge grows, one lesson at a time."}</p></section>`;
 }
 async function navigate(view, id) {
   if (state.account?.must_change_password && view !== "settings") return;
@@ -741,11 +716,10 @@ async function navigate(view, id) {
   state.compose = null;
   state.search = "";
   state.view = view;
-  if (view === "subject")
-    {
-      const selected = id || state.active?.id || state.subjects[0]?.id;
-      if (selected) await loadSubject(selected);
-    }
+  if (view === "subject") {
+    const selected = id || state.active?.id || state.subjects[0]?.id;
+    if (selected) await loadSubject(selected);
+  }
   shell();
   if (view === "subject") return renderSubject();
   const center = $("#center");
@@ -753,133 +727,49 @@ async function navigate(view, id) {
     center.innerHTML =
       header(
         "My subjects",
-        manage()
-          ? "A clear home for everything you teach."
-          : "Make room for something new.",
-        manage() ? button("+ New subject", "new-subject", "", "primary") : "",
+        "A clear home for everything you organize and present.",
+        button("+ New subject", "new-subject", "", "primary"),
       ) +
-      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="row"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${!manage() ? "READER · ENROLLED" : s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${!manage() ? `<progress value="${s.summary.completion_percent}" max="100"></progress><span class="small muted">${s.summary.completion_percent}% complete</span>` : icon("arrow")}</button>`; }).join("")}</div>` +
+      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="row"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${icon("arrow")}</button>`; }).join("")}</div>` +
       (state.subjects.length
         ? ""
-        : empty("No subjects yet", "Create or enroll in a subject to begin."));
-  if (view === "tasks" || view === "results") await renderAllWork(view);
-  if (view === "learners") await renderLearners();
-  if (view === "learner") {
-    if (state.active && state.activeLearnerId) await renderLearner(state.activeLearnerId);
-    else {
-      state.view = "learners";
-      shell();
-      await renderLearners();
-    }
-  }
-  if (view === "eligibility") await renderEligibility();
+        : empty("No subjects yet", "Create a subject or ask an administrator for access."));
+  if (view === "tasks") await renderDrafts();
   if (view === "access") await renderAccess();
   if (view === "accounts") await renderAccounts();
   if (view === "announcements") renderAnnouncements();
-  if (view === "discover") await renderDiscover();
   if (view === "settings") renderSettings();
   if (view === "help") renderHelp();
 }
 function chooseSubject() {
   return `<label>Subject<select id="context-subject">${state.subjects.map((s) => `<option value="${escape(s.id)}" ${state.active?.id === s.id ? "selected" : ""}>${escape(s.title)}</option>`).join("")}</select></label>`;
 }
-async function renderAllWork(view) {
+async function renderDrafts() {
   state.allItems = [];
-  // Sequential bounded reads avoid overwhelming a school backend.
+  // Sequential bounded reads avoid overwhelming an organization backend.
   for (const subject of state.subjects) {
     const d = await api(`/v1/subjects/${subject.id}`);
     state.allItems.push(...d.items.map((item) => ({ ...item, subject })));
   }
-  const items =
-    view === "tasks"
-      ? state.allItems.filter((i) => (manage() ? !i.published && canEditSubject(i.subject) : !i.completed))
-      : state.allItems.filter((i) => i.completed);
+  const items = state.allItems.filter((i) => !i.published && canEditSubject(i.subject));
   $("#center").innerHTML =
     header(
-      view === "tasks" ? "Tasks" : "My results",
-      view === "tasks"
-        ? "Everything waiting for your attention, across your subjects."
-        : "Reading, submissions and scores, kept separate.",
+      "Drafts",
+      "Unpublished entries waiting for review across your editable subjects.",
     ) +
     items
       .map(
         (item) =>
-          `<article class="material"><div class="material-content"><span class="small muted">${escape(item.subject.title)}</span><h3>${escape(item.title)}</h3>${datesCaption(item)}<p>${item.kind === "material" ? "Reading · self-reported" : item.form_result ? `Result: ${item.form_result.correct} / ${item.form_result.total} correct · ${item.form_result.score}%` : item.attempt ? `Quiz score: ${item.attempt.score} / ${item.attempt.max_score || item.question_count || 1}` : item.submission?.score != null ? `Written score: ${item.submission.score} / 100` : item.submission ? "Submitted · awaiting assessment" : manage() ? "Draft · unpublished" : "Not submitted"}</p>${button("Open subject " + icon("arrow"), "subject", `data-id="${escape(item.subject.id)}"`, "quiet")}</div></article>`,
+          `<article class="material"><div class="material-content"><span class="small muted">${escape(item.subject.title)}</span><h3>${escape(item.title)}</h3>${datesCaption(item)}<p>Draft · unpublished</p>${button("Open subject " + icon("arrow"), "subject", `data-id="${escape(item.subject.id)}"`, "quiet")}</div></article>`,
       )
       .join("") +
     (items.length
       ? ""
-      : empty(
-          "All clear",
-          view === "tasks"
-            ? "There are no pending tasks."
-            : "Completed items will appear here.",
-        ));
-}
-async function renderLearners() {
-  if (!state.active) {
-    $("#center").innerHTML = empty(
-      "Choose a subject first",
-      "Create a subject to see student progress.",
-    );
-    return;
-  }
-  const d = await api(
-    `/v1/subjects/${state.active.id}/learners?offset=${state.rosterOffset}`,
-  );
-  const editableSubject = canEditSubject();
-  $("#center").innerHTML =
-    header(
-      "Students & progress",
-      editableSubject
-        ? "A clear view of participation and assessment."
-        : "Read-only view of participation and assessment. Grading and exports require editor access.",
-    ) +
-    chooseSubject() +
-    `<div class="section-heading"><span>${d.total} enrolled students · showing ${d.learners.length}</span>${editableSubject ? button("Export Excel", "export", "", "quiet") : '<span class="tag blue">Read-only access</span>'}</div><div class="table-scroll"><table class="data-table"><thead><tr><th>Student</th><th>Read</th><th>Submitted</th><th>Graded</th><th></th></tr></thead><tbody>${d.learners.map((l) => `<tr><td>${escape(l.student.name)}<div class="small muted">${escape(l.student.student_number || l.student.email)}</div></td><td>${l.summary.read}/${l.summary.materials}</td><td>${l.summary.submitted}/${l.summary.required}</td><td>${l.summary.graded}</td><td>${button("View work", "learner", `data-id="${escape(l.student.id)}"`, "quiet")}</td></tr>`).join("")}</tbody></table></div>${!d.learners.length ? empty("No students enrolled yet", "Open Enrollment to set who can join.") : ""}<div class="form-actions">${button("Previous", "roster-page", `data-offset="${Math.max(0, state.rosterOffset - 100)}" ${state.rosterOffset ? "" : "disabled"}`)}${button("Next students", "roster-page", `data-offset="${d.next_offset || 0}" ${d.next_offset == null ? "disabled" : ""}`)}</div>`;
-}
-async function renderLearner(id) {
-  const data = await api(`/v1/subjects/${state.active.id}/learners/${id}`);
-  const editableSubject = canEditSubject();
-  state.activeLearnerId = id;
-  state.view = "learner";
-  shell();
-  $("#center").innerHTML =
-    header(
-      data.student.name,
-      "Student work · " + state.active.title,
-      button("Back to students", "learners", "", "quiet"),
-    ) +
-    data.items
-      .map(
-        (item) =>
-          `<article class="material" data-item="${escape(item.id)}"><div class="material-content"><h3>${escape(item.title)}</h3><span class="tag" data-work-status>${escape(item.status)}</span>${datesCaption(item)}${item.submission_id ? `<details class="work-instructions"><summary>Instructions</summary><div class="reading-copy">${readingText(item.body)}</div></details><p class="small muted">Submitted ${escape(new Date(item.submitted_at).toLocaleString())}</p>` : ""}${item.output ? `<div class="reading-copy">${readingText(item.output)}</div>` : ""}${item.answer ? `<div class="reading-copy">${readingText(item.answer)}</div>` : ""}${item.submission_id && item.response_mode !== "choice" && editableSubject ? `<form data-form="grade" data-dirty="false" data-id="${escape(item.submission_id)}" data-student="${escape(id)}" data-graded="${item.graded_at || ""}"><div class="form-grid"><label>Score / 100<input type="number" min="0" max="100" step="any" name="score" value="${item.score ?? ""}" required></label><label>Feedback<input name="feedback" maxlength="1000" value="${escape(item.feedback)}"></label></div><div class="form-actions"><button class="primary">Save grade</button><span class="small grade-status" role="status" aria-live="polite">${item.graded_at ? "Saved · " + escape(new Date(item.graded_at).toLocaleString()) : "Awaiting grade"}</span></div></form>` : item.score != null ? `<p>Score: ${item.score} / ${item.max_score}${item.feedback ? " · " + escape(item.feedback) : ""}</p>` : ""}</div></article>`,
-      )
-      .join("");
-}
-async function renderEligibility() {
-  if (!state.active) {
-    $("#center").innerHTML = empty(
-      "Choose a subject first",
-      "Create a subject to manage enrollment.",
-    );
-    return;
-  }
-  const d = await api(`/v1/subjects/${state.active.id}/eligibility`);
-  const editableSubject = canEditSubject();
-  $("#center").innerHTML =
-    header(
-      "Enrollment",
-      editableSubject
-        ? "Choose who can join this subject."
-        : "Read-only enrollment policy. Only editors or administrators can change eligibility.",
-    ) +
-    chooseSubject() +
-    `<form id="eligibility" class="inline-form" data-revision="${d.revision}"><h3>Eligible students</h3><p class="small muted">Students find the subject and join using their administrator-assigned ID. Existing administrator enrollments remain overrides.</p><label class="choice"><input name="all" type="checkbox" ${d.all_students ? "checked" : ""} ${editableSubject ? "" : "disabled"}>All students</label><label>Or allow these student IDs · one per line<textarea name="numbers" rows="5" ${editableSubject ? "" : "readonly"} placeholder="2026-001\n2026-002">${escape(d.student_numbers.join("\n"))}</textarea></label><p class="small muted">No IDs and All students unchecked closes self-enrollment. Changing eligibility can remove self-enrolled students’ access.</p>${editableSubject ? '<div class="form-actions"><button class="primary">Save eligibility</button></div>' : ""}</form><div class="inline-form"><h3>Subject code</h3><p class="small muted">Eligible students can paste this code in Find a subject.</p><input readonly aria-label="Subject code" value="${escape(state.active.id)}">${editableSubject ? `<div class="form-actions">${button("Generate QR code", "generate-qr", "", "primary")}</div><div id="subject-qr" class="subject-qr" hidden></div>` : ""}<p class="small muted">${state.mode === "local" ? "Local test only: this PC’s subjects do not sync to phones. Mobile enrollment requires both apps to use the same organization server." : "Students scan this code in Academy while connected to this same organization server. Sign-in and eligibility are still required."}</p></div>`;
+      : empty("All clear", "There are no unpublished drafts across your subjects."));
 }
 // Admin — Per-subject instructor access control (read-only vs editor, active vs suspended).
 async function renderAccess() {
-  if (state.account.role !== "admin") return;
+  if (!isAdmin()) return;
   if (!state.active && state.subjects.length) await loadSubject(state.subjects[0].id);
   if (!state.active) {
     $("#center").innerHTML =
@@ -900,7 +790,7 @@ async function renderAccess() {
       "Assign, suspend or activate instructors per subject as Read only or Editor.",
     ) +
     chooseSubject() +
-    `<div class="inline-form"><h3>Instructor permissions · ${escape(data.subject.title)}</h3><p class="small muted">Students default to reader access on enrolled subjects with no download capability. Read-only instructors can view materials and progress without editing, grading, or downloading. Suspended instructors immediately lose subject access.</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Instructor</th><th>Access</th><th>Controls</th></tr></thead><tbody>${
+    `<div class="inline-form"><h3>Instructor permissions · ${escape(data.subject.title)}</h3><p class="small muted">Read-only instructors can view materials and present class slides without editing or viewing answer keys. Editors can author, arrange, and present with answer keys. Suspended instructors immediately lose subject access.</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Instructor</th><th>Access</th><th>Controls</th></tr></thead><tbody>${
       data.instructors.length
         ? data.instructors
             .map((row) => {
@@ -925,56 +815,34 @@ async function renderAccess() {
         : `<tr><td colspan="3">${empty("No instructor accounts yet", "Create an instructor account under Accounts first.")}</td></tr>`
     }</tbody></table></div></div>`;
 }
-async function renderDiscover() {
-  const data = await api(
-    `/v1/subjects/discover?offset=${state.discoverOffset || 0}`,
-  );
-  $("#center").innerHTML =
-    header(
-      "Find a subject",
-      "Only subjects eligible for your account appear here.",
-    ) +
-    `<form id="join-code" class="inline-form"><label>Subject code<input name="code" required placeholder="Paste the subject code from your instructor"></label><div class="form-actions"><button class="primary">Enroll</button></div></form>` +
-    data.subjects
-      .map(
-        (s) =>
-          `<article class="material"><div class="material-content"><h3>${escape(s.title)}</h3>${s.description ? `<div class="reading-copy">${readingText(s.description)}</div>` : ""}<div class="form-actions">${button("Enroll in subject", "enrol", `data-id="${escape(s.id)}"`, "primary")}</div></div></article>`,
-      )
-      .join("") +
-    (data.subjects.length
-      ? ""
-      : empty(
-          "No new subjects available",
-          "Ask your instructor to check your student ID and eligibility.",
-        )) +
-    `<div class="form-actions">${button("Previous", "discover-page", `data-offset="${Math.max(0, (state.discoverOffset || 0) - 100)}" ${state.discoverOffset ? "" : "disabled"}`)}${button("Next", "discover-page", `data-offset="${(state.discoverOffset || 0) + 100}" ${data.subjects.length < 100 ? "disabled" : ""}`)}</div>`;
-}
 async function renderAccounts() {
+  if (!isAdmin()) return;
   const d = await api(`/v1/admin/accounts?offset=${state.accountOffset}`);
+  const accounts = d.accounts.filter((a) => a.role === "admin" || a.role === "instructor");
   $("#center").innerHTML =
     header(
       "Accounts",
-      "Create accounts with passwords, update account passwords, and manage instructor/student access.",
+      "Create administrator and instructor accounts, update passwords, and manage access.",
       button("+ Create account", "new-account", "", "primary"),
     ) +
-    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role === "student" ? "student · reader" : a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td><span class="tag ${a.status === "active" ? "green" : "red"}">${escape(a.status)}</span></td><td>${a.id !== state.account.id ? `<div class="account-actions">${a.role === "student" ? button("Edit ID", "edit-student-id", `data-id="${escape(a.id)}" data-name="${escape(a.name)}" data-number="${escape(a.student_number || "")}"`, "quiet") : ""}${button("Update password", "reset-password", `data-id="${escape(a.id)}" data-name="${escape(a.name)}"`, "quiet")}${button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet")}</div>` : `<div class="account-actions">${button("Update my password", "settings", "", "quiet")}</div>`}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
+    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>${accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role === "admin" ? "Administrator" : "Instructor")}</td><td><span class="tag ${a.status === "active" ? "green" : "red"}">${escape(a.status)}</span></td><td>${a.id !== state.account.id ? `<div class="account-actions">${button("Update password", "reset-password", `data-id="${escape(a.id)}" data-name="${escape(a.name)}"`, "quiet")}${button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet")}</div>` : `<div class="account-actions">${button("Update my password", "settings", "", "quiet")}</div>`}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
 }
 function renderAnnouncements() {
   $("#center").innerHTML =
-    header("Announcements", "Updates for everyone in the workspace.") +
-    (state.account.role === "admin"
+    header("Announcements", "Updates for administrators and instructors.") +
+    (isAdmin()
       ? `<form id="announcement" class="inline-form"><h3>Share an update</h3><label>Title<input name="title" required maxlength="160"></label><label>Message<textarea name="body" required maxlength="5000" rows="3"></textarea></label><div class="form-actions"><button class="primary">Publish announcement</button></div></form>`
       : "") +
     (state.announcements.length
       ? state.announcements
           .map(
             (n) =>
-              `<article class="material"><div class="material-content"><span class="small muted">${new Date(n.created_at).toLocaleDateString()}</span><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div>${state.account.role === "admin" ? `<div class="form-actions">${button("Delete", "delete-announcement", `data-id="${escape(n.id)}"`, "quiet danger")}</div>` : ""}</div></article>`,
+              `<article class="material"><div class="material-content"><span class="small muted">${new Date(n.created_at).toLocaleDateString()}</span><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div>${isAdmin() ? `<div class="form-actions">${button("Delete", "delete-announcement", `data-id="${escape(n.id)}"`, "quiet danger")}</div>` : ""}</div></article>`,
           )
           .join("")
       : empty(
           "No announcements yet",
-          state.account.role === "admin"
+          isAdmin()
             ? "Share an update above to notify everyone in this workspace."
             : "Updates from your administrator will appear here.",
         ));
@@ -986,12 +854,12 @@ function renderSettings() {
     (pending
       ? `<div class="banner" role="status"><strong>Temporary password change required</strong>Choose a new 15–128 character passphrase different from your temporary password before accessing subjects.</div>`
       : "") +
-    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the mobile app." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · ID " + escape(state.account.student_number) : ""}${state.account.role === "student" ? " · Reader (downloads disabled)" : ""}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Update password</h3><label>Current password<span class="password-field"><input name="current" type="password" required autocomplete="current-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label>New password · 15–128 characters<span class="password-field"><input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="next" data-confirm="confirm"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">${state.mode === "local" ? "In the local workspace, you can update the built-in admin, instructor, or student password using your current sign-in password." : "Updating your password signs out all active sessions on every device."}</p><div class="form-actions"><button class="primary">Update password & sign out</button></div></form>`;
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)} · ${escape(isAdmin() ? "Administrator" : "Instructor")}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Update password</h3><label>Current password<span class="password-field"><input name="current" type="password" required autocomplete="current-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label>New password · 15–128 characters<span class="password-field"><input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="next" data-confirm="confirm"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">${state.mode === "local" ? "In the local workspace, you can update the built-in admin or instructor password using your current sign-in password." : "Updating your password signs out all active sessions on every device."}</p><div class="form-actions"><button class="primary">Update password & sign out</button></div></form>`;
 }
 function renderHelp() {
   $("#center").innerHTML =
-    header("A calmer way to learn", "Everything stays in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Navigation &amp; left column width</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore its standard width, or collapse it to a compact rail while keeping your current editor and scroll position intact.</p><h3>Subject access and accounts</h3><p>Administrators create instructor, student, and administrator accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Users can update their own password under Settings. Under Administration → Subject access, administrators assign instructors to any subject as Read only or Editor and can suspend or activate access per subject. Students default to reader access on enrolled subjects with no download capability.</p><h3>Rich subject content &amp; pasted images</h3><p>Choose a subject where you have editor access and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Activities, quizzes and examinations</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key. In Students &amp; progress, open View work to rate written submissions out of 100 and Export Excel for dated quiz scores and summaries.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time. Protected PDFs and pasted images render in-app with student downloads disabled.</p></div>`;
+    header("Repository guide", "Admin and instructor tools in Aeronautical Academy Repository.") +
+    `<div class="inline-form help-card"><h3>Navigation &amp; expandable left column</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore standard width, or collapse it to a compact rail without disturbing active drafts or scroll position. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. The local workspace stays on this PC; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1004,9 +872,9 @@ function renderSubjectForm(edit = false) {
   $("#center").innerHTML =
     header(
       edit ? "Edit subject" : "Create a subject",
-      "A simple home for lessons and learning activities.",
+      "A clear home for lessons, references, and class assessments.",
     ) +
-    `<form id="subject-form" class="inline-form" data-edit="${s ? "true" : "false"}"><label>Subject title<input name="title" maxlength="160" required value="${escape(s?.title || "")}" placeholder="e.g. Aircraft Structures"></label><label>Description<textarea name="description" maxlength="1000" required placeholder="What will students learn?">${escape(s?.description || "")}</textarea></label><div class="form-actions">${s && canDeleteSubject(s) ? button("Delete subject", "delete-subject", `data-id="${escape(s.id)}"`, "quiet danger") + '<span class="push"></span>' : ""}${button("Cancel", s ? "subject" : "subjects", s ? `data-id="${escape(s.id)}"` : "", "quiet")}<button class="primary">${s ? "Save details" : "Create subject"}</button></div></form>`;
+    `<form id="subject-form" class="inline-form" data-edit="${s ? "true" : "false"}"><label>Subject title<input name="title" maxlength="160" required value="${escape(s?.title || "")}" placeholder="e.g. Aircraft Structures"></label><label>Description<textarea name="description" maxlength="1000" required placeholder="Summarize the scope and topics covered by this subject.">${escape(s?.description || "")}</textarea></label><div class="form-actions">${s && canDeleteSubject(s) ? button("Delete subject", "delete-subject", `data-id="${escape(s.id)}"`, "quiet danger") + '<span class="push"></span>' : ""}${button("Cancel", s ? "subject" : "subjects", s ? `data-id="${escape(s.id)}"` : "", "quiet")}<button class="primary">${s ? "Save details" : "Create subject"}</button></div></form>`;
 }
 function capturePosition(preferredId) {
   const center = $("#center");
@@ -1250,7 +1118,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (action === "play-item") {
-    if (!manage()) return;
+    if (!state.account) return;
     const item = state.items.find((entry) => entry.id === id);
     if (!item || item.kind === "material") return;
     window.academyPresenter?.open(item, state.active?.title || "");
@@ -1314,7 +1182,7 @@ document.addEventListener("click", (event) => {
       if (
         !(await confirmAction(
           "Delete folder?",
-          `Remove folder “${folder.name}”? Subjects and subfolders inside will move up one level; no subjects or student records will be deleted.`,
+          `Remove folder “${folder.name}”? Subjects and subfolders inside will move up one level; no subjects or repository content will be deleted.`,
           "Delete folder",
         ))
       )
@@ -1333,22 +1201,18 @@ document.addEventListener("click", (event) => {
         "subjects",
         "subject",
         "tasks",
-        "results",
-        "learners",
-        "eligibility",
         "access",
         "accounts",
         "announcements",
         "settings",
         "help",
-        "discover",
       ].includes(action)
     )
       return navigate(action, id);
     if (action === "logout-all") {
       if(!(await leaveDraft()))return;
       await post("/v1/auth/logout-all",{});
-      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.sidebarState="normal";state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
+      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.sidebarState="normal";state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;resumeWorkspace=null;
       window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();$("#app").classList.remove("sidebar-collapsed","sidebar-expanded");$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
@@ -1364,7 +1228,6 @@ document.addEventListener("click", (event) => {
       Object.assign(state, {
         account: null,
         active: null,
-        activeLearnerId: null,
         items: [],
         subjects: [],
         folders: [],
@@ -1379,7 +1242,7 @@ document.addEventListener("click", (event) => {
     if (action === "add") {
       if (!(await leaveDraft())) return;
       const parentId = target.dataset.parent || "";
-      if (parentId && !state.treeSupported) throw new Error("Update the learning service to use the subject tree.");
+      if (parentId && !state.treeSupported) throw new Error("Update the repository service to use nested entries.");
       state.compose = { parentId, kind: parentId ? "activity" : "material" };
       renderComposer();
       revealNearby($("#composer"));
@@ -1422,9 +1285,9 @@ document.addEventListener("click", (event) => {
       const receipt=await desktopApi.sync();state.account=receipt.account;
       await refreshData();
       if(id&&state.subjects.some(subject=>subject.id===id))await loadSubject(id);
-      else{state.active=null;state.items=[];state.summary=null;}
+      else{state.active=null;state.items=[];}
       await navigate(state.view,id);restorePosition(position);
-      toast(state.mode==="local"?"Local test data refreshed. Organization sharing uses the server workspace.":"Synced · materials, results and progress refreshed.");
+      toast(state.mode==="local"?"Local test data refreshed. Organization sharing uses the server workspace.":"Synced · subjects, folders and materials refreshed.");
     }
     if (action === "refresh") {
       if (!(await leaveDraft())) return;
@@ -1449,13 +1312,6 @@ document.addEventListener("click", (event) => {
         revision: state.items.find((i) => i.id === id).revision,
         url: target.dataset.url,
       });
-    if (action === "complete") {
-      if (!(await leaveDraft())) return;
-      const item = state.items.find((i) => i.id === id);
-      await post(`/v1/items/${id}/complete`, { completed: !item.completed });
-      await reloadActive();
-      toast(item.completed ? "Marked unread." : "Reading marked complete.");
-    }
     if (action === "publish") {
       if (!(await leaveDraft())) return;
       const item = state.items.find((i) => i.id === id);
@@ -1475,7 +1331,7 @@ document.addEventListener("click", (event) => {
       if (
         !(await confirmAction(
           "Delete this entry?",
-          children.length ? `Remove this material and its ${children.length} activities/quizzes? Historical learning records are retained.` : "This removes it from the subject. Historical learning records are retained.",
+          children.length ? `Remove this material and its ${children.length} nested entries? Archived history is retained.` : "This removes it from the subject. Archived history is retained.",
           "Delete entry",
         ))
       )
@@ -1496,11 +1352,11 @@ document.addEventListener("click", (event) => {
         expected_order_revision:subject.order_revision, expected_eligibility_revision:subject.eligibility_revision,
         expected_items:state.items.map((item) => ({id:item.id,edit_version:item.edit_version})),
       };
-      if (!(await confirmAction("Delete this subject?", `Remove “${subject.title}” and all its materials, activities and quizzes from active workspaces? Saved student work and grades are retained.${state.dirty ? " Unsaved changes will be discarded." : ""}`, "Delete subject"))) return;
+      if (!(await confirmAction("Delete this subject?", `Remove “${subject.title}” and all its materials, activities and quizzes from active workspaces? Archived records are retained.${state.dirty ? " Unsaved changes will be discarded." : ""}`, "Delete subject"))) return;
       await post(`/v1/subjects/${subject.id}/archive`, snapshot);
       // Commit UI removal immediately after acknowledgement, independent of refresh availability.
       state.subjects = state.subjects.filter((item) => item.id !== subject.id);
-      Object.assign(state,{active:null,items:[],summary:null,allItems:[],compose:null,dirty:false,search:""});
+      Object.assign(state,{active:null,items:[],allItems:[],compose:null,dirty:false,search:""});
       state.collapsedMaterials.clear();
       state.collapsedEntries.clear();
       await navigate("subjects");
@@ -1510,12 +1366,6 @@ document.addEventListener("click", (event) => {
     if (action === "new-subject" || action === "edit-subject") {
       if (!(await leaveDraft())) return;
       renderSubjectForm(action === "edit-subject");
-    }
-    if (action === "learner" && !(await leaveDraft())) return;
-    if (action === "learner") await renderLearner(id);
-    if (action === "roster-page") {
-      state.rosterOffset = Number(target.dataset.offset);
-      await renderLearners();
     }
     if (action === "quiz-count" || action === "add-quiz-choice" || action === "remove-quiz-choice") {
       captureQuizDraft();
@@ -1535,34 +1385,6 @@ document.addEventListener("click", (event) => {
       renderQuizBuilder(); $("#center").scrollTop=scroll;
       state.dirty=true;
     }
-    if (action === "start-quiz") {
-      const item=state.items.find(i=>i.id===id);
-      if (!item || item.attempt||item.form_result) return;
-      const total=item.question_count||1;
-      if (!(await confirmAction("Ready to start?", `${total} ${total===1?"question":"questions"}. Answer every question before submitting. You can minimize and expand this assessment while working. You have one submission for this version.`, "Start"))) return;
-      state.readyQuizzes.add(id);
-      const card=document.querySelector(`[data-item="${id}"]`);
-      card.querySelector(".quiz-intro").hidden=true;
-      const details=card.querySelector(".quiz-attempt");details.hidden=false;details.open=true;
-      revealNearby(details);
-    }
-    if (action === "generate-qr") {
-      const qr = await desktopApi.subjectQr(state.active.id);
-      const host = $("#subject-qr");
-      host.innerHTML = `<img src="${escape(qr.image)}" alt="Enrollment QR for ${escape(state.active.title)}"><p class="small muted">Scan with the Academy mobile app.</p>${button("Save QR image (SVG)", "save-qr", "", "quiet")}`;
-      host.hidden = false;
-    }
-    if (action === "save-qr") {
-      const result = await desktopApi.subjectQr(state.active.id, true);
-      if (result.saved) toast("Subject QR image saved.");
-    }
-    if (action === "export") {
-      const result = await desktopApi.exportReport(
-        state.active.id,
-        state.rosterOffset,
-      );
-      if (result.saved) toast("Excel report saved.");
-    }
     if (action === "task-item") {
       if (!(await leaveDraft())) return;
       const item = state.items.find((i) => i.id === id);
@@ -1574,7 +1396,7 @@ document.addEventListener("click", (event) => {
       state.view = "subject";
       shell();
       renderSubject();
-      if (manage() && canEditSubject()) {
+      if (canEditSubject()) {
         state.compose = { item };
         renderComposer();
         revealNearby($("#composer"));
@@ -1582,16 +1404,6 @@ document.addEventListener("click", (event) => {
         document
           .querySelector(`[data-item="${id}"]`)
           ?.scrollIntoView({ block: "center" });
-    }
-    if (action === "enrol") {
-      await post(`/v1/subjects/${id}/enrol`, { source: "self" });
-      await refreshData();
-      await navigate("subject", id);
-      toast("You’re enrolled.");
-    }
-    if (action === "discover-page") {
-      state.discoverOffset = Number(target.dataset.offset);
-      await renderDiscover();
     }
     if (action === "account-page") {
       state.accountOffset = Number(target.dataset.offset);
@@ -1646,17 +1458,12 @@ document.addEventListener("click", (event) => {
     if (action === "new-account") {
       if (!(await leaveDraft())) return;
       $("#account-form-slot").innerHTML =
-        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student (Reader)</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label id="student-id-field">Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Password · 15–128 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="password" data-confirm="confirm_password"', "quiet")}</span></label><label>Confirm password<span class="password-field"><input name="confirm_password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Students default to reader access with no download capability. New accounts rotate their initial password at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
+        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label></div><label>Role<select name="role"><option value="instructor">Instructor</option><option value="admin">Administrator</option></select></label><label>Password · 15–128 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="password" data-confirm="confirm_password"', "quiet")}</span></label><label>Confirm password<span class="password-field"><input name="confirm_password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Create an administrator or instructor account. New accounts rotate their initial password at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
     }
     if (action === "reset-password") {
       if (!(await leaveDraft())) return;
       $("#account-form-slot").innerHTML =
         `<form id="reset-password-form" class="inline-form" data-id="${escape(id)}"><h3>Update password · ${escape(target.dataset.name || "Account")}</h3><label>New password · 15–128 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="password" data-confirm="confirm_password"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm_password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label class="choice"><input type="checkbox" name="require_change" checked>Require password change at next sign-in</label><p class="small muted">All active sessions for this user are signed out immediately after saving.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Update password</button></div></form>`;
-    }
-    if (action === "edit-student-id") {
-      if (!(await leaveDraft())) return;
-      $("#account-form-slot").innerHTML =
-        `<form id="edit-student-id-form" class="inline-form" data-id="${escape(id)}"><h3>Edit student ID · ${escape(target.dataset.name || "Student")}</h3><label>Student ID · leave blank to clear<input name="student_number" maxlength="32" value="${escape(target.dataset.number || "")}"></label><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Save ID</button></div></form>`;
     }
     if (action === "cancel-account") {
       if (!(await leaveDraft())) return;
@@ -1792,101 +1599,6 @@ document.addEventListener("submit", (event) => {
       }
       toast("Subject saved.");
     }
-    if (["quiz","answers","submission"].includes(form.dataset.form)) {
-      const position = capturePosition(id);
-      if (
-        !(await confirmAction(
-          "Submit your work?",
-          "You can submit once for this version of the entry.",
-          "Submit",
-        ))
-      )
-        return;
-      form.dataset.key ||= crypto.randomUUID();
-      const submitted=await post(
-        `/v1/items/${id}/${form.dataset.form === "quiz" ? "quiz" : form.dataset.form === "answers" ? "answers" : "submission"}`,
-        form.dataset.form !== "submission"
-          ? { answers:(state.items.find(i=>i.id===id).questions||[{}]).map((_,i)=>Number(d[`answer-${i}`])), expected_revision:Number(form.dataset.revision), ...(!state.quizSupported?{choice:Number(d["answer-0"])}:{}) }
-          : { output: d.output },
-        form.dataset.key,
-      );
-      state.dirty = false;
-      state.readyQuizzes.delete(id);
-      // Acknowledged submission: prevent another write if the following refresh fails.
-      form.replaceChildren(Object.assign(document.createElement("p"),{textContent:submitted.result?`${submitted.result.correct} / ${submitted.result.total} correct · ${submitted.result.score}%`:submitted.attempt?`${submitted.attempt.score} / ${submitted.attempt.max_score||1} correct`:"Submitted. Refresh to view your result."}));
-      await reloadActive({position,feedbackId:id});
-      toast("Work submitted.");
-    }
-    if (form.dataset.form === "grade") {
-      const saved = await post(`/v1/submissions/${id}/grade`, {
-        score: Number(d.score),
-        feedback: d.feedback,
-        expected_graded_at: form.dataset.graded ? Number(form.dataset.graded) : null,
-      });
-      // Acknowledge this form alone. Other grades remain editable and unsaved.
-      form.dataset.dirty = "false";
-      form.dataset.refreshRequired = "true";
-      form.querySelector("button").disabled = true;
-      form.querySelector(".grade-status").textContent = "Saved";
-      form.closest("[data-item]").querySelector("[data-work-status]").textContent = "Graded";
-      state.dirty = Boolean(document.querySelector('[data-form="grade"][data-dirty="true"]'));
-      let grade = saved.submission;
-      if (!grade) {
-        // Compatibility with older organization services returning only graded:true.
-        try {
-          const view = await api(`/v1/subjects/${state.active.id}/learners/${form.dataset.student}`);
-          grade = view.items.find(item => item.submission_id === id);
-        } catch (error) {
-          form.querySelector(".grade-status").textContent = "Saved · reopen work before editing this grade";
-          toast("Grade saved. Other drafts are kept. Reopen this work to refresh its saved grade. " + error.message);
-          return;
-        }
-      }
-      if (!grade?.graded_at) {
-        form.querySelector(".grade-status").textContent = "Saved · reopen work before editing this grade";
-        toast("Grade saved. Reopen this work to refresh its saved grade.");
-        return;
-      }
-      form.dataset.graded = String(grade.graded_at);
-      form.dataset.refreshRequired = "false";
-      form.elements.score.value = grade.score;
-      form.elements.feedback.value = grade.feedback;
-      form.querySelector(".grade-status").textContent = "Saved · " + new Date(grade.graded_at).toLocaleString();
-      toast("Grade saved.");
-    }
-    if (form.id === "eligibility") {
-      if (
-        !(await confirmAction(
-          "Save enrollment eligibility?",
-          "Self-enrolled students who no longer qualify may lose access. Administrator enrollments remain overrides.",
-          "Save eligibility",
-        ))
-      )
-        return;
-      await post(`/v1/subjects/${state.active.id}/eligibility`, {
-        all_students: !!d.all,
-        student_numbers: d.all
-          ? []
-          : d.numbers
-              .split(/[\n,]+/)
-              .map((x) => x.trim())
-              .filter(Boolean),
-        expected_revision: Number(form.dataset.revision),
-      });
-      state.dirty = false;
-      await renderEligibility();
-      toast("Eligibility saved.");
-    }
-    if (form.id === "join-code") {
-      const code = d.code.trim().toLowerCase().replace(/^aoa:\/\/subject\//, "");
-      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(code))
-        throw new Error("Enter the full subject code or Academy QR value.");
-      await post(`/v1/subjects/${code}/enrol`, { source: "qr" });
-      state.dirty = false;
-      await refreshData();
-      await navigate("subject", code);
-      toast("You’re enrolled.");
-    }
     if (form.id === "announcement") {
       await post("/v1/announcements", { title: d.title, body: d.body });
       state.dirty = false;
@@ -1898,9 +1610,9 @@ document.addEventListener("submit", (event) => {
     if (form.id === "new-account") {
       if (d.confirm_password !== undefined && d.password !== d.confirm_password)
         throw new Error("Password and confirmation do not match.");
-      const payload = { ...d };
-      delete payload.confirm_password;
-      if (payload.role !== "student" || !payload.student_number?.trim()) delete payload.student_number;
+      if (!["admin", "instructor"].includes(d.role))
+        throw new Error("Choose Administrator or Instructor.");
+      const payload = { name: d.name, email: d.email, role: d.role, password: d.password };
       await post("/v1/admin/accounts", payload);
       state.dirty = false;
       await renderAccounts();
@@ -1924,15 +1636,6 @@ document.addEventListener("submit", (event) => {
       state.dirty = false;
       $("#account-form-slot").innerHTML = "";
       toast(requireChange ? "Password updated. User must rotate password at next sign-in." : "Account password updated. Existing sessions signed out.");
-    }
-    if (form.id === "edit-student-id-form") {
-      await api(`/v1/admin/accounts/${id}`, {
-        method: "PATCH",
-        body: { student_number: d.student_number.trim() || null },
-      });
-      state.dirty = false;
-      await renderAccounts();
-      toast("Student ID updated.");
     }
     if (form.id === "folder-form") {
       if (!canManageFolders()) return;
@@ -1972,18 +1675,19 @@ document.addEventListener("submit", (event) => {
       window.academyPresenter?.close();
       window.academyEditor?.clearImageCache();
       await window.academyReader.close();
+      state.sidebarState = "normal";
       state.collapsedFolders.clear();
       state.collapsedEntries.clear();
       Object.assign(state, {
         account: null,
         active: null,
-        activeLearnerId: null,
         items: [],
         subjects: [],
         folders: [],
         folderForm: null,
         announcements: [],
       });
+      $("#app").classList.remove("sidebar-collapsed", "sidebar-expanded");
       $("#app").innerHTML = "";
       showLogin();
       toast("Password updated. Sign in again.");
@@ -2003,12 +1707,6 @@ document.addEventListener("input", (event) => {
     clearTimeout(event.target.linkTimer);
     event.target.linkTimer = setTimeout(() => inspectLinkField(event.target), 200);
   }
-  const gradeForm = event.target.closest('[data-form="grade"]');
-  if (gradeForm) {
-    gradeForm.dataset.dirty = "true";
-    gradeForm.querySelector("button").disabled = gradeForm.dataset.refreshRequired === "true";
-    gradeForm.querySelector(".grade-status").textContent = gradeForm.dataset.refreshRequired === "true" ? "Reopen work before saving another grade" : "Unsaved changes";
-  }
   if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
@@ -2024,16 +1722,6 @@ document.addEventListener("change", (event) => {
     const editorEl = $("#rich-editor");
     if (editorEl) editorEl.dataset.spacing = event.target.value;
     if (state.compose) state.compose.paragraphSpacing = event.target.value;
-    state.dirty = true;
-    return;
-  }
-  if (event.target.matches("#new-account select[name=role]")) {
-    const isStudent = event.target.value === "student";
-    const field = $("#student-id-field");
-    if (field) {
-      field.hidden = !isStudent;
-      if (!isStudent) field.querySelector("input").value = "";
-    }
     state.dirty = true;
     return;
   }
@@ -2078,12 +1766,9 @@ document.addEventListener("change", (event) => {
   if (event.target.id === "context-subject")
     act(async () => {
       if (!(await leaveDraft())) return;
-      state.rosterOffset = 0;
       await loadSubject(event.target.value);
       shell();
-      if (state.view === "learners") await renderLearners();
-      else if (state.view === "access") await renderAccess();
-      else await renderEligibility();
+      if (state.view === "access") await renderAccess();
     });
   else if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });

@@ -11,10 +11,9 @@ import { hashPassword } from "../server/src/security.mjs";
 import { detectImageMime, MAX_IMAGE_BYTES } from "../server/src/richtext.mjs";
 import { externalUrl } from "../server/src/links.mjs";
 import { materialPresentation, describeLink } from "./materials.mjs";
-import { enrollmentQr } from "./enrollment.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
-const roles = ["admin", "instructor", "student"];
+const roles = ["admin", "instructor"];
 export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.12.sqlite");
@@ -37,20 +36,15 @@ export async function startLocal(directory, {legacyFixture=false,materialsForTes
       roles.forEach((role, i) =>
         academy.db
           .prepare(
-            "INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,0,?,?)",
+            "INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,0,?,NULL)",
           )
           .run(
             ids[i],
             `${role}@academy.test`,
-            role === "admin"
-              ? "Administrator"
-              : role === "instructor"
-                ? "Demo instructor"
-                : "Demo student",
+            role === "admin" ? "Administrator" : "Demo instructor",
             role,
             hashes[i],
             Date.now(),
-            role === "student" ? "TEST-001" : null,
           ),
       );
       const subject = randomUUID();
@@ -71,11 +65,6 @@ export async function startLocal(directory, {legacyFixture=false,materialsForTes
           "INSERT INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,'editor','active',?,?)",
         )
         .run(subject, ids[1], ids[0], seededAt);
-      academy.db
-        .prepare(
-          "INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin')",
-        )
-        .run(subject, ids[2]);
       const materialId = randomUUID();
       academy.db
         .prepare(
@@ -166,7 +155,7 @@ export function validateOrigin(raw) {
 function validateRequest(path, options) {
   if (
     typeof path !== "string" ||
-    (!/^\/v1\/[a-z0-9/-]+(?:\?offset=\d{1,6})?$/.test(path) && !/^\/v1\/subjects\/[a-f0-9-]{36}\/export\?offset=\d{1,6}&timezone=[A-Za-z0-9_%+.-]{1,100}$/.test(path)) ||
+    !/^\/v1\/[a-z0-9/-]+(?:\?offset=\d{1,6})?$/.test(path) ||
     path.includes("//") ||
     path.length > 250
   )
@@ -253,6 +242,17 @@ export class AcademyBridge {
       method: "POST",
       body: { email, password: pass },
     });
+    if (!["admin", "instructor"].includes(result.account?.role)) {
+      this.token = result.token || "";
+      try {
+        if (this.token) await this.fetch("/v1/auth/logout", { method: "POST" });
+      } catch { /* Best-effort session cleanup for rejected role. */ }
+      this.token = "";
+      this.account = null;
+      const err = new Error("Aeronautical Academy Repository desktop is for administrators and instructors only.");
+      err.status = 403;
+      throw err;
+    }
     this.token = result.token;
     this.account = result.account;
     return {
@@ -267,13 +267,24 @@ export class AcademyBridge {
       error.status = 401;
       throw error;
     }
+    const cleanPath = path.split("?")[0];
     if (
-      path.startsWith("/v1/auth/login") ||
-      path.split("?")[0].endsWith("/export") ||
-      path.split("?")[0].endsWith("/content") ||
-      path.split("?")[0].includes("/images")
+      cleanPath.startsWith("/v1/auth/login") ||
+      cleanPath.endsWith("/export") ||
+      cleanPath.endsWith("/content") ||
+      cleanPath.includes("/images")
     )
-      throw new Error("Use the dedicated sign-in, image, or export action.");
+      throw new Error("Use the dedicated sign-in or media action.");
+    if (
+      /^\/v1\/subjects\/discover$/.test(cleanPath) ||
+      /\/(enrol|eligibility|learners|complete|submission|answers|quiz|grade)(?:\/|$)/.test(cleanPath) ||
+      /^\/v1\/admin\/enrolments$/.test(cleanPath) ||
+      /^\/v1\/submissions\//.test(cleanPath)
+    ) {
+      const error = new Error("Student features are not available in this desktop application.");
+      error.status = 403;
+      throw error;
+    }
     let opts = options;
     if (
       path === "/v1/auth/password" &&
@@ -402,28 +413,5 @@ export class AcademyBridge {
     const safe = externalUrl(result.url);
     await this.openExternal(safe);
     return { opened: true };
-  }
-  async subjectQr(id) {
-    if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))
-      throw new Error("Choose a valid subject.");
-    const {subject} = await this.request(`/v1/subjects/${id}`);
-    const canEdit = subject.can_edit ?? (this.account?.role === "admin" || (this.account?.role === "instructor" && subject.owner_id === this.account.id));
-    if (!this.account || this.account.role === "student" || !canEdit)
-      throw new Error("Only the subject instructor (editor) or an administrator can generate enrollment codes.");
-    return enrollmentQr(subject.id);
-  }
-  async exportReport(id, offset = 0) {
-    if (
-      !this.token ||
-      !/^[a-f0-9-]{36}$/.test(id) ||
-      !Number.isInteger(offset) ||
-      offset < 0 ||
-      offset > 100000
-    )
-      throw new Error("Choose a subject and report page.");
-    if (this.account?.role === "student")
-      throw new Error("Downloads and exports are disabled for student accounts.");
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return this.fetch(`/v1/subjects/${id}/export?offset=${offset}&timezone=${encodeURIComponent(timeZone)}`, {}, true);
   }
 }

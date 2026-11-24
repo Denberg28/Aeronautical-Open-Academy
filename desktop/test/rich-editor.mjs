@@ -184,23 +184,19 @@ try {
     'Alt+ArrowLeft outdents entry one level up',
   );
 
-  // Student sees the hydrated pasted image with draggable="false" and no download/edit controls.
-  await logout();
-  await loginDemo('student');
-  const studentRichCard = page.locator(`[data-item="${richId}"]`);
-  await studentRichCard.locator('details.reading-entry > summary').click();
-  await studentRichCard.locator('.rich-copy img.entry-image[data-loaded="1"]').waitFor();
-  assert.equal(await studentRichCard.locator('.rich-copy img.entry-image').getAttribute('draggable'), 'false');
-
-  // 4. Admin creates account with generated password, updates password directly (without forced rotation), and user updates own password in Settings.
+  // Admin views the hydrated pasted image with draggable="false".
   await logout();
   await loginDemo('admin');
+  const adminRichCard = page.locator(`[data-item="${richId}"]`);
+  await adminRichCard.locator('.rich-copy img.entry-image[data-loaded="1"]').waitFor();
+  assert.equal(await adminRichCard.locator('.rich-copy img.entry-image').getAttribute('draggable'), 'false');
+
+  // 4. Admin creates an Instructor account with generated password, updates password directly (without forced rotation), and instructor updates own password in Settings.
   await page.locator('[data-action="accounts"]').click();
   await idle();
   await page.locator('[data-action="new-account"]').click();
-  await page.locator('#new-account [name=name]').fill('Flight Cadet');
-  await page.locator('#new-account [name=email]').fill('cadet@academy.test');
-  await page.locator('#new-account [name=student_number]').fill('CAD-2026');
+  await page.locator('#new-account [name=name]').fill('Flight Instructor');
+  await page.locator('#new-account [name=email]').fill('finst@academy.test');
   await page.locator('#new-account [data-action="generate-password"]').click();
   const generatedPass = await page.locator('#new-account [name=password]').inputValue();
   assert.ok(generatedPass.length >= 15);
@@ -208,12 +204,12 @@ try {
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '12-accounts-password.png') });
   await page.locator('#new-account button.primary').click();
   await idle();
-  await page.getByText('cadet@academy.test', { exact: true }).waitFor();
+  await page.getByText('finst@academy.test', { exact: true }).waitFor();
 
-  // Admin updates cadet password directly (unchecking require_change so user can sign in immediately).
-  const cadetRow = page.locator('tr', { hasText: 'cadet@academy.test' });
-  await cadetRow.locator('[data-action="reset-password"]').click();
-  const directPass = 'Direct Cadet Password 2026!';
+  // Admin updates instructor password directly (unchecking require_change so user can sign in immediately).
+  const finstRow = page.locator('tr', { hasText: 'finst@academy.test' });
+  await finstRow.locator('[data-action="reset-password"]').click();
+  const directPass = 'Direct Instructor Password 2026!';
   await page.locator('#reset-password-form [name=password]').fill(directPass);
   await page.locator('#reset-password-form [name=confirm_password]').fill(directPass);
   await page.locator('#reset-password-form [name=require_change]').uncheck();
@@ -221,14 +217,14 @@ try {
   await page.locator('#confirm-yes').click();
   await idle();
 
-  // Cadet signs in with direct password (no forced password rotation) and updates own password in Settings.
+  // Instructor signs in with direct password (no forced password rotation) and updates own password in Settings.
   await logout();
-  await loginCredentials('cadet@academy.test', directPass);
+  await loginCredentials('finst@academy.test', directPass);
   assert.equal(await page.locator('#password').count(), 0);
   await page.locator('.sidebar summary', { hasText: 'MORE' }).click();
   await page.locator('[data-action="settings"]').click();
   await idle();
-  const finalPass = 'Cadet Self Updated Password 2026!';
+  const finalPass = 'Instructor Self Updated Password 2026!';
   await page.locator('#password [name=current]').fill(directPass);
   await page.locator('#password [name=next]').fill(finalPass);
   await page.locator('#password [name=confirm]').fill(finalPass);
@@ -236,11 +232,11 @@ try {
   await page.waitForSelector('#signin[open]');
   await idle();
 
-  await loginCredentials('cadet@academy.test', finalPass);
-  assert.match(await page.locator('.topbar').textContent(), /Flight Cadet/);
+  await loginCredentials('finst@academy.test', finalPass);
+  assert.match(await page.locator('.topbar').textContent(), /Flight Instructor/);
 
   assert.deepEqual(errors, []);
-  console.log('PASS: rich content paste format adoption, snip PNG paste, text indentation, paragraph spacing, entry minimize/expand all, multi-level entry drag-and-drop/Alt+ArrowLeft, and account password creation/updates.');
+  console.log('PASS: left column expand/collapse arrows, rich content paste format adoption, snip PNG paste, text indentation, paragraph spacing, entry minimize/expand all, multi-level entry drag-and-drop/Alt+ArrowLeft, and admin/instructor password creation/updates.');
 } finally {
   if (application) {
     const pages = application.windows();

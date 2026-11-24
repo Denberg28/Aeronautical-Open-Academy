@@ -41,8 +41,7 @@ try{
  const file=randomUUID(),bytes=fixturePdf();
  await mkdir(join(directory,'local-test-workspace','files'),{recursive:true});await writeFile(join(directory,'local-test-workspace','files',file+'.pdf'),bytes);
  const db=new DatabaseSync(database);db.prepare('UPDATE items SET file_ref=?,file_sha256=?,file_bytes=? WHERE id=?').run(file,createHash('sha256').update(bytes).digest('hex'),bytes.length,id);db.close();
- await page.locator('[data-action=logout]').click();await login('student');
- await page.locator(`[data-item="${id}"] details.reading-entry > summary`).click();
+ await page.locator('[data-action="refresh"]').click();await page.waitForFunction(()=>!document.body.classList.contains('working'));
  await page.locator(`[data-action="read-pdf"][data-id="${id}"]`).click();
  await page.getByText('Page 1 of 2',{exact:true}).waitFor();
  assert.ok(await page.locator('.pdf-reader canvas').evaluate(canvas=>canvas.width>0&&canvas.height>0));
@@ -58,7 +57,7 @@ try{
  await page.locator(`[data-action="read-pdf"][data-id="${id}"]`).click();
  await page.getByText('Page 1 of 2',{exact:true}).waitFor();
  // A revoked account must lose the next page, not continue using cached PDF bytes.
- const revoke=new DatabaseSync(database);revoke.prepare("UPDATE accounts SET status='suspended' WHERE role='student'").run();revoke.close();
+ const revoke=new DatabaseSync(database);revoke.prepare("UPDATE accounts SET status='suspended' WHERE role='instructor'").run();revoke.close();
  await page.locator('.pdf-reader [data-next]').click();await page.locator('#signin').waitFor({state:'visible'});
  assert.equal(await page.locator('.pdf-reader canvas').count(),0);
  console.log('PASS: locked draft recovery, private PDF pages, cancellation and page-turn revocation');

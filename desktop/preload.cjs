@@ -12,13 +12,11 @@ contextBridge.exposeInMainWorld(
     logout: () => call("academy:logout"),
     openLink: (data) => call("academy:link", data),
     inspectLink: (url) => call("academy:inspect-link", url),
-    exportReport: (id, offset) => call("academy:export", id, offset),
     sync: () => call("academy:sync"),
     readMaterial: (id, revision) => call("academy:read-material", id, revision),
     uploadMaterial: (id, version) => call("academy:upload-material", id, version),
     uploadImage: (subjectId, base64) => call("academy:upload-image", subjectId, base64),
     pickImage: (subjectId) => call("academy:pick-image", subjectId),
     readImage: (params) => call("academy:read-image", params),
-    subjectQr: (id, save) => call("academy:subject-qr", id, save),
   }),
 );
