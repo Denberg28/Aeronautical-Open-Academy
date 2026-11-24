@@ -1,6 +1,6 @@
 "use strict";
 const desktopApi = Object.fromEntries(
-  ["login", "request", "logout", "openLink", "inspectLink", "sync", "uploadMaterial", "uploadImage", "pickImage", "readImage"].map((method) => [method, async (...args) => {
+  ["login", "request", "logout", "openLink", "inspectLink", "sync", "uploadMaterial", "uploadImage", "pickImage", "readImage", "exportPackage", "previewImport", "commitImport", "cancelImport"].map((method) => [method, async (...args) => {
     const result = await window.academy[method](...args);
     if (!result.ok) {
       const error = new Error(result.error);
@@ -49,6 +49,8 @@ const icons = {
   folderPlus: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6",
   play: "M6 4l14 8-14 8z",
   image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M8.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 16l-5-5-4 4-2-2-5 5",
+  export: "M12 3v12 M7 8l5-5 5 5 M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4",
+  import: "M12 15V3 M7 10l5 5 5-5 M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4",
   arrowLeft: "M15 6l-6 6 6 6",
   arrowRight: "M9 6l6 6-6 6",
   settings:
@@ -403,7 +405,7 @@ function utility() {
   return `<div class="utility"><span class="eyebrow">${isAdmin() ? "ADMIN SPACE" : "INSTRUCTOR SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
 }
 function header(title, subtitle, actions = "") {
-  return `<div class="row between"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions}</div>`;
+  return `<div class="row between page-header"><div class="page-header-copy"><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions ? `<div class="header-actions">${actions}</div>` : ""}</div>`;
 }
 function empty(title, description) {
   return `<div class="empty">${icon("book")}<h3>${escape(title)}</h3><p>${escape(description)}</p></div>`;
@@ -554,11 +556,12 @@ function renderSubject() {
       header(
         "My subjects",
         "Your teaching repository starts here.",
-        button("+ New subject", "new-subject", "", "primary"),
+        button(icon("import") + "Import", "import-package", 'aria-label="Import subject or repository package"', "quiet") +
+          button("+ New subject", "new-subject", "", "primary"),
       ) +
       empty(
         "No subjects yet",
-        "Create your first subject or ask an administrator for subject access.",
+        "Create your first subject, import an exported package, or ask an administrator for subject access.",
       );
     renderRight();
     return;
@@ -571,7 +574,7 @@ function renderSubject() {
   const assessments = state.items.filter((i) => i.kind !== "material" && i.assessment_type !== "examination").length;
   const examinations = state.items.filter((i) => i.assessment_type === "examination").length;
   context.hidden = false;
-  context.innerHTML = `<section class="subject-hero"><div class="row between"><div class="hero-title-group"><h1>${escape(s.title)}</h1>${folderPath ? `<span class="tag hero-folder-tag">${escape(folderPath)}</span>` : ""}</div>${editableSubject ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet") : '<span class="tag blue">Read-only access</span>'}</div><span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and answer keys disabled)" : ""}</span></section>`;
+  context.innerHTML = `<section class="subject-hero"><div class="row between"><div class="hero-title-group"><h1>${escape(s.title)}</h1>${folderPath ? `<span class="tag hero-folder-tag">${escape(folderPath)}</span>` : ""}</div>${editableSubject ? `<div class="hero-actions">${button(icon("export") + "Export", "export-subject", `data-id="${escape(s.id)}" aria-label="Export subject package"`, "quiet")}${button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet")}</div>` : '<span class="tag blue">Read-only access</span>'}</div><span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and answer keys disabled)" : ""}</span></section>`;
   center.innerHTML =
     utility() +
     `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>Subject content</h2><span>${editableSubject ? "Create. Arrange across levels. Present." : "Read-only instructor view."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : "No entries have been added to this subject yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable nested entries inside materials.</p>' : ""}` : ""}`;
@@ -723,17 +726,21 @@ async function navigate(view, id) {
   shell();
   if (view === "subject") return renderSubject();
   const center = $("#center");
-  if (view === "subjects")
+  if (view === "subjects") {
+    const canExportAny = state.subjects.some((s) => canEditSubject(s));
     center.innerHTML =
       header(
         "My subjects",
         "A clear home for everything you organize and present.",
-        button("+ New subject", "new-subject", "", "primary"),
+        button(icon("import") + "Import", "import-package", 'aria-label="Import subject or repository package"', "quiet") +
+          (canExportAny ? button(icon("export") + "Export all", "export-repository", 'aria-label="Export all editable subjects"', "quiet") : "") +
+          button("+ New subject", "new-subject", "", "primary"),
       ) +
-      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="row"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p>${icon("arrow")}</button>`; }).join("")}</div>` +
+      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="course-card-tags"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p><span class="course-card-foot">Open subject ${icon("arrow")}</span></button>`; }).join("")}</div>` +
       (state.subjects.length
         ? ""
-        : empty("No subjects yet", "Create a subject or ask an administrator for access."));
+        : empty("No subjects yet", "Create a subject, import an exported package, or ask an administrator for access."));
+  }
   if (view === "tasks") await renderDrafts();
   if (view === "access") await renderAccess();
   if (view === "accounts") await renderAccounts();
@@ -849,17 +856,18 @@ function renderAnnouncements() {
 }
 function renderSettings() {
   const pending = Boolean(state.account.must_change_password);
+  const canExportAny = state.subjects.some((s) => canEditSubject(s));
   $("#center").innerHTML =
-    header("Settings", "Your account and password security.") +
+    header("Settings", "Your workspace, backup transfer, and password security.") +
     (pending
       ? `<div class="banner" role="status"><strong>Temporary password change required</strong>Choose a new 15–128 character passphrase different from your temporary password before accessing subjects.</div>`
       : "") +
-    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)} · ${escape(isAdmin() ? "Administrator" : "Instructor")}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Update password</h3><label>Current password<span class="password-field"><input name="current" type="password" required autocomplete="current-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label>New password · 15–128 characters<span class="password-field"><input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="next" data-confirm="confirm"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">${state.mode === "local" ? "In the local workspace, you can update the built-in admin or instructor password using your current sign-in password." : "Updating your password signs out all active sessions on every device."}</p><div class="form-actions"><button class="primary">Update password & sign out</button></div></form>`;
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved locally on this PC under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)} · ${escape(isAdmin() ? "Administrator" : "Instructor")}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div>${pending ? "" : `<section id="transfer-card" class="inline-form"><h3>Export &amp; Import</h3><p class="small muted">Export editable subjects, rich content, pasted images, folder structure, and assessments as a verified <code>.aoa.json</code> package. Suggested filenames automatically include the subject or repository name and exact date and time of creation (<code>YYYY-MM-DD_HH-mm-ss</code>). Importing validates SHA-256 integrity and adds subjects without overwriting existing work.</p><div class="form-actions">${button(icon("import") + "Import package", "import-package", 'aria-label="Import subject or repository package"', "quiet")}${canExportAny ? button(icon("export") + "Export all subjects", "export-repository", 'aria-label="Export all editable subjects"', "primary") : ""}</div></section>`}<form id="password" class="inline-form"><h3>Update password</h3><label>Current password<span class="password-field"><input name="current" type="password" required autocomplete="current-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label>New password · 15–128 characters<span class="password-field"><input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="next" data-confirm="confirm"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">${state.mode === "local" ? "In the local workspace, you can update the built-in admin or instructor password using your current sign-in password." : "Updating your password signs out all active sessions on every device."}</p><div class="form-actions"><button class="primary">Update password & sign out</button></div></form>`;
 }
 function renderHelp() {
   $("#center").innerHTML =
     header("Repository guide", "Admin and instructor tools in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Navigation &amp; expandable left column</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore standard width, or collapse it to a compact rail without disturbing active drafts or scroll position. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. The local workspace stays on this PC; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
+    `<div class="inline-form help-card"><h3>Navigation &amp; expandable left column</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore standard width, or collapse it to a compact rail without disturbing active drafts or scroll position. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Export &amp; import packages</h3><p>Use Export in any editable subject header—or Export all and Import in My subjects or Settings—to save or transfer subjects with their multi-level entries, rich formatting, paragraph spacing, pasted images, schedules, assessments, and folder paths. Export filenames automatically include the date and time of creation (YYYY-MM-DD_HH-mm-ss) and a SHA-256 checksum verified before import. Importing always creates new subjects without overwriting existing work.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. Local workspace data is saved under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1366,6 +1374,49 @@ document.addEventListener("click", (event) => {
     if (action === "new-subject" || action === "edit-subject") {
       if (!(await leaveDraft())) return;
       renderSubjectForm(action === "edit-subject");
+    }
+    if (action === "export-subject" || action === "export-repository") {
+      const scope = action === "export-repository" ? "repository" : "subject";
+      const subjectId = scope === "subject" ? id || state.active?.id : null;
+      const result = await desktopApi.exportPackage({ scope, subjectId });
+      if (result.canceled) return;
+      toast(
+        scope === "repository"
+          ? `Exported ${result.filename} (${result.summary.subjectCount} ${result.summary.subjectCount === 1 ? "subject" : "subjects"}, ${result.summary.itemCount} entries).`
+          : `Exported ${result.filename} (${result.summary.itemCount} ${result.summary.itemCount === 1 ? "entry" : "entries"}).`,
+      );
+      return;
+    }
+    if (action === "import-package") {
+      if (!(await leaveDraft())) return;
+      const preview = await desktopApi.previewImport();
+      if (preview.canceled) return;
+      const s = preview.summary;
+      const subjectPreview =
+        s.subjectTitles.length <= 3
+          ? s.subjectTitles.join(", ")
+          : `${s.subjectTitles.slice(0, 3).join(", ")} +${s.subjectTitles.length - 3} more`;
+      const details = `${s.filename} · Created ${s.createdAtLocal}. Contains ${s.subjectCount} ${s.subjectCount === 1 ? "subject" : "subjects"} (${subjectPreview}), ${s.itemCount} ${s.itemCount === 1 ? "entry" : "entries"}, and ${s.imageCount} embedded ${s.imageCount === 1 ? "image" : "images"}. Existing subjects will not be overwritten.`;
+      const ok = await confirmAction("Import package into workspace?", details, "Import");
+      if (!ok) {
+        await desktopApi.cancelImport(preview.importId).catch(() => {});
+        return;
+      }
+      const imported = await desktopApi.commitImport(preview.importId);
+      await refreshData();
+      const firstId = imported.importedSubjects?.[0]?.id;
+      if (firstId) {
+        await loadSubject(firstId);
+        state.view = "subject";
+        shell();
+        renderSubject();
+      } else {
+        await navigate("subjects");
+      }
+      toast(
+        `Imported ${imported.importedSubjects.length} ${imported.importedSubjects.length === 1 ? "subject" : "subjects"} (${imported.totalItems} ${imported.totalItems === 1 ? "entry" : "entries"}${imported.totalImages ? `, ${imported.totalImages} ${imported.totalImages === 1 ? "image" : "images"}` : ""}).`,
+      );
+      return;
     }
     if (action === "quiz-count" || action === "add-quiz-choice" || action === "remove-quiz-choice") {
       captureQuizDraft();

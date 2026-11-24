@@ -17,6 +17,7 @@ for (const file of [
   "resources/app/desktop/preload.cjs",
   "resources/app/desktop/bridge.mjs",
   "resources/app/desktop/transport.mjs",
+  "resources/app/desktop/transfer.mjs",
   "resources/app/desktop/ui/reader.js",
   "resources/app/desktop/ui/schedule.js",
   "resources/app/desktop/ui/presenter.js",

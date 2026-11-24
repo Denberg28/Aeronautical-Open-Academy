@@ -18,5 +18,9 @@ contextBridge.exposeInMainWorld(
     uploadImage: (subjectId, base64) => call("academy:upload-image", subjectId, base64),
     pickImage: (subjectId) => call("academy:pick-image", subjectId),
     readImage: (params) => call("academy:read-image", params),
+    exportPackage: (options) => call("academy:export-package", options),
+    previewImport: () => call("academy:preview-import"),
+    commitImport: (importId) => call("academy:commit-import", importId),
+    cancelImport: (importId) => call("academy:cancel-import", importId),
   }),
 );
