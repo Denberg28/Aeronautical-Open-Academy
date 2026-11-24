@@ -61,6 +61,7 @@ async function boot() {
           "/reader.js": "reader.js",
           "/schedule.js": "schedule.js",
           "/presenter.js": "presenter.js",
+          "/editor.js": "editor.js",
           "/style.css": "style.css",
         };
         if(url.host==='app'&&/^\/pdfjs\/(?:pdf(?:\.worker)?\.mjs|(?:cmaps|wasm|standard_fonts)\/[a-zA-Z0-9_.-]+)$/.test(url.pathname))
@@ -143,6 +144,26 @@ async function boot() {
         if((await stat(selected.filePaths[0])).size>50*1024*1024)throw new Error('Choose a PDF up to 50 MiB.');
         return bridge.uploadMaterial(id,version,await readFile(selected.filePaths[0]));
       });
+      register("academy:upload-image", async (subjectId, base64) => {
+        if (typeof base64 !== "string" || base64.length > 7 * 1024 * 1024)
+          throw new Error("Paste or choose an image up to 5 MB.");
+        const bytes = Buffer.from(base64, "base64");
+        return bridge.uploadImage(subjectId, bytes);
+      });
+      register("academy:pick-image", async (subjectId) => {
+        if (!bridge.account || bridge.account.role === "student")
+          throw new Error("Instructor editor access required.");
+        const selected = await dialog.showOpenDialog(window, {
+          title: "Insert image",
+          properties: ["openFile"],
+          filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
+        });
+        if (selected.canceled) return { canceled: true };
+        if ((await stat(selected.filePaths[0])).size > 5 * 1024 * 1024)
+          throw new Error("Choose an image up to 5 MB.");
+        return bridge.uploadImage(subjectId, await readFile(selected.filePaths[0]));
+      });
+      register("academy:read-image", (params) => bridge.readImage(params || {}));
       register("academy:link", (data) => bridge.openLink(data));
       register("academy:inspect-link", (url) => bridge.inspectLink(url));
       register("academy:subject-qr", async (id, save = false) => {

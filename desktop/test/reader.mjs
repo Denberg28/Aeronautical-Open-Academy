@@ -27,13 +27,14 @@ try{
  await login('instructor');
  // Expiry locks the editor; signing back into the same authorized account restores it.
  await page.locator('[data-action="add"][data-parent=""]').first().click();
- await page.locator('#composer textarea[name=text]').fill('Recoverable instructor draft\nSynthetic text.');
+ await page.locator('#composer input[name=title]').fill('Recoverable instructor draft');
+ await page.locator('#rich-editor').fill('Synthetic text.');
  const database=join(directory,'local-test-workspace','academy.sqlite');
  const expire=new DatabaseSync(database);expire.prepare('DELETE FROM sessions').run();expire.close();
  await page.evaluate(()=>act(()=>desktopApi.request('/v1/me')));
  assert.equal(await page.locator('#app').isVisible(),false);
  await login('instructor');
- assert.match(await page.locator('#composer textarea[name=text]').inputValue(),/Recoverable instructor draft/);
+ assert.match(await page.locator('#composer input[name=title]').inputValue(),/Recoverable instructor draft/);
  await page.locator('#composer button[type=submit]').click();
  await page.waitForSelector('#composer',{state:'detached'});
  const {id}=await page.evaluate(async()=>{const list=await window.academy.request('/v1/subjects');return window.academy.request(`/v1/subjects/${list.value.subjects[0].id}/items`,{method:'POST',body:{kind:'material',material_mode:'file',title:'Private PDF fixture',body:'Read inside Academy.',published:true}}).then(result=>result.value);});

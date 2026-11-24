@@ -1,6 +1,6 @@
 "use strict";
 const desktopApi = Object.fromEntries(
-  ["login", "request", "logout", "openLink", "inspectLink", "exportReport", "subjectQr", "sync", "uploadMaterial"].map((method) => [method, async (...args) => {
+  ["login", "request", "logout", "openLink", "inspectLink", "exportReport", "subjectQr", "sync", "uploadMaterial", "uploadImage", "pickImage", "readImage"].map((method) => [method, async (...args) => {
     const result = await window.academy[method](...args);
     if (!result.ok) {
       const error = new Error(result.error);
@@ -19,6 +19,14 @@ const escape = (value) =>
         c
       ],
   );
+function generatePassphrase() {
+  const words = ["Aero", "Lift", "Wing", "Glide", "Mach", "Airfoil", "Vector", "Thrust", "Climb", "Rotor", "Chord", "Vortex", "Camber", "Pitch", "Yaw", "Orbit"];
+  const buf = new Uint32Array(4);
+  crypto.getRandomValues(buf);
+  const pick = (i) => words[buf[i] % words.length];
+  const digits = String(1000 + (buf[3] % 9000));
+  return `${pick(0)}-${pick(1)}-${pick(2)}-${digits}!`;
+}
 const icons = {
   book: "M4 3h13a2 2 0 0 1 2 2v16H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3 M3 17h16 M7 7h8",
   grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
@@ -43,6 +51,8 @@ const icons = {
   folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
   folderPlus: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6",
   play: "M6 4l14 8-14 8z",
+  image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M8.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 16l-5-5-4 4-2-2-5 5",
+  minimize: "M6 12h12",
   settings:
     "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
 };
@@ -54,6 +64,7 @@ const state = {
   account: null,
   version: "",
   collapsedMaterials: new Set(),
+  collapsedEntries: new Set(),
   collapsedFolders: new Set(),
   readyQuizzes: new Set(),
   mode: "local",
@@ -112,10 +123,11 @@ async function act(fn) {
       if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
       window.academyPresenter?.close();
+      window.academyEditor?.clearImageCache();
       await window.academyReader.close();
       // Recovery — Lock a dirty form behind sign-in; discard other private views.
       // Resume below rechecks subject access before revealing the retained editor.
-      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;$("#app").replaceChildren();}
+      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;state.collapsedEntries.clear();$("#app").replaceChildren();}
       showLogin();
     }
   } finally {
@@ -337,6 +349,7 @@ async function loadSubject(id) {
 }
 async function start() {
   state.collapsedMaterials.clear();
+  state.collapsedEntries.clear();
   state.collapsedFolders.clear();
   state.folderForm = null;
   state.readyQuizzes.clear();
@@ -357,7 +370,8 @@ async function start() {
   renderSubject();
 }
 function utility() {
-  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
+  const allMin = state.items.length > 0 && state.items.every((item) => state.collapsedEntries.has(item.id));
+  return `<div class="utility"><span class="eyebrow">${manage() ? "TEACHING SPACE" : "LEARNING SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
 }
 function header(title, subtitle, actions = "") {
   return `<div class="row between"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions}</div>`;
@@ -378,8 +392,16 @@ function readingText(value) {
 function datesCaption(item) {const text=window.academySchedule.caption(item);return text?`<p class="small deadline">${escape(text)}</p>`:"";}
 function bodyParts(item) {
   const material = item.material || { text: item.body, links: [] };
-  return `${item.has_file ? button(icon("book") + "Read PDF", "read-pdf", `data-id="${escape(item.id)}"`, "pdf-trigger") : ""}${material.text ? `<div class="reading-copy">${readingText(material.text)}</div>` : ""}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
+  const spacing = ["compact", "normal", "relaxed", "loose"].includes(item.paragraph_spacing) ? item.paragraph_spacing : "normal";
+  const richMarkup = item.body_html ? window.academyEditor?.renderSafeHtml(item.body_html, item.id) : "";
+  const copyMarkup = richMarkup
+    ? `<div class="reading-copy rich-copy" data-spacing="${escape(spacing)}">${richMarkup}</div>`
+    : material.text
+      ? `<div class="reading-copy" data-spacing="${escape(spacing)}">${readingText(material.text)}</div>`
+      : "";
+  return `${item.has_file ? button(icon("book") + "Read PDF", "read-pdf", `data-id="${escape(item.id)}"`, "pdf-trigger") : ""}${copyMarkup}<div class="material-links">${material.links.map(({url, label, host}) => button(`${icon("link")}<span><strong>${escape(label)}</strong><small>${escape(host)}</small></span>${icon("external")}`, "open-link", `data-id="${escape(item.id)}" data-url="${escape(url)}" title="Open ${escape(label)}: ${escape(url)}"`, "link resource-link")).join("")}</div>`;
 }
+const MAX_ENTRY_DEPTH = 4;
 const siblingsOf = (item) => state.items.filter((other) => (other.parent_id || null) === (item.parent_id || null));
 const childrenOf = (id) => state.items.filter((item) => item.parent_id === id);
 const rootsOf = () => state.items.filter((item) => !item.parent_id);
@@ -389,6 +411,36 @@ const ancestorsOf = (item) => {
   return parents;
 };
 const descendantsOf = (id) => childrenOf(id).flatMap((item) => [item, ...descendantsOf(item.id)]);
+const entryDepth = (id) => {
+  let depth = 0, cur = id;
+  const seen = new Set();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const node = state.items.find((entry) => entry.id === cur);
+    if (!node) break;
+    depth++;
+    cur = node.parent_id || null;
+  }
+  return depth;
+};
+const entrySubtreeHeight = (id) => {
+  let max = 0;
+  const stack = [[id, 0]];
+  while (stack.length) {
+    const [cur, d] = stack.pop();
+    if (d > max) max = d;
+    for (const child of childrenOf(cur)) stack.push([child.id, d + 1]);
+  }
+  return max;
+};
+const canNestEntryInside = (sourceId, targetMaterialId) => {
+  const source = state.items.find((entry) => entry.id === sourceId);
+  const target = state.items.find((entry) => entry.id === targetMaterialId);
+  if (!source || !target || target.kind !== "material") return false;
+  if (source.id === target.id) return false;
+  if (descendantsOf(source.id).some((d) => d.id === target.id)) return false;
+  return entryDepth(target.id) + 1 + entrySubtreeHeight(source.id) <= MAX_ENTRY_DEPTH;
+};
 const isVisibleEntry = (item) => [item, ...ancestorsOf(item)].every((entry) => entry.published && entry.publication_state !== "scheduled");
 function flattenTree(roots, groups = new Map()) {
   return roots.flatMap((item) => [item.id, ...flattenTree(groups.get(item.id) || childrenOf(item.id), groups)]);
@@ -408,6 +460,22 @@ function applySubjectSearch() {
 }
 // Collapse only changes the view, leaving student responses and editors intact.
 function syncMaterialSections() {
+  for (const bodyEl of document.querySelectorAll("[data-entry-body]")) {
+    const id = bodyEl.dataset.entryBody;
+    const card = document.querySelector(`[data-item="${id}"]`);
+    const toggle = document.querySelector(`[data-action="toggle-entry"][data-id="${id}"]`);
+    const editing = Boolean(document.querySelector(`[data-edit-slot="${id}"] #composer`));
+    const expanded = !state.collapsedEntries.has(id) || Boolean(state.search) || editing;
+    bodyEl.hidden = !expanded;
+    card?.classList.toggle("is-minimized", !expanded);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} entry`);
+      toggle.disabled = Boolean(state.search) || editing;
+      toggle.title = editing ? "Finish or cancel editing before minimizing" : state.search ? "Clear search to minimize" : expanded ? "Minimize entry" : "Expand entry";
+      toggle.textContent = expanded ? "Minimize" : "Expand";
+    }
+  }
   for (const region of document.querySelectorAll("[data-children]")) {
     const id = region.dataset.children;
     const toggle = document.querySelector(`[data-action="toggle-material"][data-id="${id}"]`);
@@ -418,6 +486,12 @@ function syncMaterialSections() {
     toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} activities and quizzes`);
     toggle.disabled = Boolean(state.search) || editing;
     toggle.title = editing ? "Finish or cancel editing before minimizing" : state.search ? "Clear search to minimize" : expanded ? "Minimize section" : "Expand section";
+  }
+  const allBtn = document.querySelector('[data-action="toggle-all-entries"]');
+  if (allBtn && state.items.length) {
+    const allMin = state.items.every((item) => state.collapsedEntries.has(item.id));
+    allBtn.textContent = allMin ? "Expand all" : "Minimize all";
+    allBtn.title = allMin ? "Expand all subject entries" : "Minimize all subject entries";
   }
 }
 function treeMarkup(items = rootsOf(), prefix = "") {
@@ -455,7 +529,7 @@ function itemCard(item, index, number) {
         : `<form data-form="submission" data-id="${escape(item.id)}"><label>Your response<textarea name="output" maxlength="12000" required rows="3" placeholder="Write your response here…"></textarea></label><div class="form-actions"><button class="primary" type="submit">Submit work</button></div></form>`;
   }
   const playable = manage() && item.kind !== "material";
-  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="Drag to reorder · keyboard: Alt+↑ / Alt+↓"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() && !item.parent_id && item.kind !== "material" && item.assessment_type !== "examination" ? '<span class="tag gold">Choose a material</span>' : ""} ${manage() ? `<span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable || playable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${playable ? button(icon("play") + "Play", "play-item", `data-id="${escape(item.id)}" title="Play full screen for class"`, "quiet play-btn") : ""}${editable && item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${editable && state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${editable ? button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger") : ""}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3>${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}</div>${datesCaption(item)}${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
+  return `<article class="material" data-parent="${escape(item.parent_id || "")}" data-item="${escape(item.id)}"><div class="entry-rail"><div class="number">${escape(number)}</div>${editable ? button(icon("grip"), "reorder-handle", `draggable="true" data-drag="${escape(item.id)}" data-id="${escape(item.id)}" aria-label="Reorder or move ${escape(item.title)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight" title="Drag to reorder or nest across levels · keyboard: Alt+↑/↓/←/→"`, "quiet drag-handle") : ""}</div><div class="material-content"><div class="entry-topbar"><div class="material-type">${escape(kind)} ${manage() && item.parent_id && !isVisibleEntry(item) && item.published ? '<span class="tag gold">Hidden with material</span>' : ""} ${manage() ? `<span class="tag ${item.publication_state === "scheduled" ? "blue" : item.published ? "green" : "gold"}">${item.publication_state==="scheduled"?"Scheduled":item.published ? "Published" : "Draft"}</span>` : item.completed ? '<span class="tag green">Complete</span>' : ""}</div>${editable || playable ? `<div class="entry-actions" role="group" aria-label="Entry actions">${playable ? button(icon("play") + "Play", "play-item", `data-id="${escape(item.id)}" title="Play full screen for class"`, "quiet play-btn") : ""}${editable && item.kind==="material"&&item.material_mode==="file"&&state.capabilities.material_upload?button(item.has_file?"Replace PDF":"Upload PDF","upload-pdf",`data-id="${escape(item.id)}"`,"quiet"):""}${editable && state.capabilities.scheduling==="dates-v1"?button("Schedule", "schedule", `data-id="${escape(item.id)}"`, "quiet"):""}${editable ? button(icon("edit") + "Edit", "edit", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button(item.published ? "Unpublish" : "Publish", "publish", `data-id="${escape(item.id)}"`, "quiet") : ""}${editable ? button("Delete", "delete", `data-id="${escape(item.id)}"`, "quiet danger") : ""}</div>` : ""}</div><div class="entry-heading"><h3>${escape(item.title)}</h3><div class="entry-heading-tools">${item.kind === "material" ? button(`${icon("chevron")}<span>${childrenOf(item.id).length}</span>`, "toggle-material", `data-id="${escape(item.id)}" aria-controls="children-${escape(item.id)}" aria-expanded="true" aria-label="Minimize activities and quizzes"`, "quiet material-toggle") : ""}${button("Minimize", "toggle-entry", `data-id="${escape(item.id)}" aria-expanded="true" aria-controls="entry-body-${escape(item.id)}"`, "quiet entry-min-btn")}</div></div><div class="entry-body" id="entry-body-${escape(item.id)}" data-entry-body="${escape(item.id)}">${datesCaption(item)}${!manage()&&item.kind==="material"?`<details class="reading-entry"><summary>Read</summary>${bodyParts(item)}${student}</details>`:`${!manage()&&selectable?"":bodyParts(item)}${student}`}${manage() && selectable ? quizPreview(item) : ""}</div></div></article>${editable ? `<div class="entry-editor" data-edit-slot="${escape(item.id)}"></div>` : ""}`;
 }
 function renderSubject() {
   const center = $("#center");
@@ -488,9 +562,10 @@ function renderSubject() {
   context.innerHTML = `<section class="subject-hero"><div class="row between"><h1>${escape(s.title)}</h1>${editableSubject ? button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet") : readOnlyInstructor ? '<span class="tag blue">Read-only access</span>' : ""}</div>${!manage() ? `<div class="subject-progress"><progress max="100" value="${state.summary?.completion_percent || 0}" aria-label="Subject completion"></progress><span>${state.summary?.completion_percent || 0}% complete</span></div>` : `<span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and downloads disabled)" : ""}</span>`}</section>`;
   center.innerHTML =
     utility() +
-    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${editableSubject ? "Create. Arrange. Share." : readOnlyInstructor ? "Read-only instructor view." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : readOnlyInstructor ? "No entries have been added to this subject yet." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
+    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>${manage() ? "Subject content" : "Your learning materials"}</h2><span>${editableSubject ? "Create. Arrange across levels. Share." : readOnlyInstructor ? "Read-only instructor view." : "One step at a time."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : readOnlyInstructor ? "No entries have been added to this subject yet." : "Your instructor has not published any content yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable activities and quizzes inside materials.</p>' : ""}` : ""}`;
   if (editableSubject) renderComposer();
   applySubjectSearch();
+  window.academyEditor?.hydrateImages(center, desktopApi.readImage, { subjectId: s.id });
   renderRight();
 }
 function linkField(url = "") {
@@ -528,17 +603,49 @@ function renderComposer() {
   if (!slot) return;
   const kind = item ? (item.assessment_type === "examination" ? "examination" : item.kind) : state.compose.kind || (parentId ? "activity" : "material");
   const choices = parentId ? [["activity", "Activity"], ["quiz", "Quiz"]] : [["material", "Material / links"], ["examination", "Examination"]];
-  const parentChoices = item && ["activity", "quiz"].includes(item.kind) && item.assessment_type !== "examination" && state.treeSupported ? `<label>Material<select name="parent_id" aria-label="Parent material" required>${!item.parent_id ? '<option value="">Choose a material to group this entry</option>' : ""}${state.items.filter((entry) => entry.kind === "material" && (owned(entry) || entry.id === item.parent_id)).map((entry) => `<option value="${escape(entry.id)}" ${entry.id === item.parent_id ? "selected" : ""}>${escape((entry.parent_id ? "↳ " : "") + entry.title)}</option>`).join("")}</select></label>` : "";
+  const validParents = item && state.treeSupported
+    ? state.items.filter((entry) => entry.kind === "material" && canNestEntryInside(item.id, entry.id) && (owned(entry) || entry.id === item.parent_id))
+    : [];
+  const parentChoices = item && state.treeSupported ? `<label>Level / parent material<select name="parent_id" aria-label="Parent material"><option value="" ${!item.parent_id ? "selected" : ""}>Top level (subject root)</option>${validParents.map((entry) => { const d = entryDepth(entry.id) - 1; return `<option value="${escape(entry.id)}" ${entry.id === item.parent_id ? "selected" : ""}>${escape((d > 0 ? "↳ ".repeat(d) : "") + entry.title)}</option>`; }).join("")}</select></label>` : "";
+  let initialTitle = item?.title || "";
   let text = item?.body || "";
-  if (item && text.split("\n")[0].trim() !== item.title.trim()) text = item.title + "\n" + text;
   const links = [];
-  if (item && kind === "material") {
+  if (item) {
     const lines = text.split("\n");
-    while (/^https?:\/\/\S+$/.test(lines.at(-1))) links.unshift(lines.pop());
-    text = lines.join("\n") || item.title;
+    if (kind === "material") {
+      while (/^https?:\/\/\S+$/.test(lines.at(-1))) links.unshift(lines.pop());
+    }
+    if (lines[0]?.trim() === item.title.trim()) lines.shift();
+    text = lines.join("\n").trim();
   }
-  if (item) { state.compose.initialText = text; state.compose.initialLinks = [...links]; }
-  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations appear at subject level."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Text <span class="muted">· first line becomes the title</span><textarea name="text" rows="3" maxlength="11500" required placeholder="e.g. Lesson 01 — The principles of flight">${escape(text)}</textarea></label>${kind === "material" ? `${!item&&state.capabilities.material_upload?'<label>Format<select name="format"><option value="text">Text and links</option><option value="file">PDF upload · save draft first</option></select></label>':""}<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or images</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  const spacing = state.compose.paragraphSpacing || item?.paragraph_spacing || "normal";
+  const initialRichHtml = item?.body_html
+    ? window.academyEditor.sanitizeHtmlFragment(item.body_html, { keepEditorControls: true })
+    : text
+      ? window.academyEditor.plainTextToHtml(text)
+      : "";
+  if (item) {
+    state.compose.initialTitle = initialTitle;
+    state.compose.initialText = text;
+    state.compose.initialRichHtml = item.body_html || null;
+    state.compose.initialSpacing = item.paragraph_spacing || "normal";
+    state.compose.initialLinks = [...links];
+  }
+  const imageCapable = state.capabilities.entry_images === "v1";
+  slot.innerHTML = `<form id="composer" class="composer"><div class="type-row"><div><h3 class="compose-title">${item ? "Edit entry" : parent ? "Add to this material" : "Add to your subject"}</h3><span class="compose-hint">${parent ? escape(parent.title) : "Materials and examinations start at top level. Drag any entry across levels anytime."}</span></div>${item ? `<span class="tag">${escape(kind)}</span>` : `<select name="kind" id="entry-kind" aria-label="Entry type">${choices.map(([value,label]) => `<option value="${value}" ${value === kind ? "selected" : ""}>${label}</option>`).join("")}</select>`}</div>${parentChoices}<label>Title<input name="title" maxlength="160" value="${escape(initialTitle)}" placeholder="e.g. Lesson 01 — The principles of flight"></label><div class="editor-field"><div class="editor-label-row"><span>Content <span class="muted">· paste formatted text or screenshot snips (Ctrl+V)</span></span><label class="spacing-control">Spacing<select name="paragraph_spacing" id="paragraph-spacing" aria-label="Paragraph spacing"><option value="compact" ${spacing === "compact" ? "selected" : ""}>Compact</option><option value="normal" ${spacing === "normal" ? "selected" : ""}>Normal</option><option value="relaxed" ${spacing === "relaxed" ? "selected" : ""}>Relaxed</option><option value="loose" ${spacing === "loose" ? "selected" : ""}>Loose</option></select></label></div><div class="editor-toolbar" role="toolbar" aria-label="Content formatting"><select data-editor-block aria-label="Paragraph style"><option value="p">Normal</option><option value="h2">Heading</option><option value="h3">Subheading</option><option value="blockquote">Quote</option></select><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><strong>B</strong></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><em>I</em></button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><u>U</u></button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">• List</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">1. List</button><span class="tool-sep" aria-hidden="true"></span><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="outdent" title="Decrease indent (Shift+Tab)" aria-label="Decrease indent">← Indent</button><button type="button" class="quiet tool-btn" data-action="editor-cmd" data-cmd="indent" title="Increase indent (Tab)" aria-label="Increase indent">Indent →</button>${imageCapable ? `<span class="tool-sep" aria-hidden="true"></span>${button(icon("image") + "Image", "insert-image", 'title="Insert image file or paste snip with Ctrl+V"', "quiet tool-btn")}` : ""}</div><div id="rich-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Entry content" data-spacing="${escape(spacing)}" data-placeholder="Write instructions, paste formatted notes from Word/Docs, or press Ctrl+V to paste a screenshot snip…">${initialRichHtml}</div><p class="compose-hint">Tab / Shift+Tab indents paragraphs · pasted formatting is adopted and sanitized automatically.</p></div>${kind === "material" ? `${!item&&state.capabilities.material_upload?'<label>Format<select name="format"><option value="text">Text, images and links</option><option value="file">PDF upload · save draft first</option></select></label>':""}<div class="attach-row">${button(icon("link") + " Attach link", "attach", "", "quiet")}<span class="compose-hint">Drive, Docs, Sheets, Slides, YouTube or web references</span></div><div id="link-fields">${links.map(linkField).join("")}</div><p class="compose-hint">Links open in your browser. Give students access at the original host.</p>` : ""}${!item&&["activity","examination"].includes(kind)&&state.formsSupported?`<label>Response type<select id="response-mode"><option value="written" ${state.compose.responseMode!=="choice"?"selected":""}>Written response</option><option value="choice" ${state.compose.responseMode==="choice"?"selected":""}>Selection form · automatic result</option></select></label>`:""}${!item&&(kind === "quiz"||(["activity","examination"].includes(kind)&&state.compose.responseMode==="choice")) ? '<div id="quiz-builder"></div>' : ""}<div class="form-actions"><label class="choice"><input type="checkbox" name="published" ${item?.published === false ? "" : "checked"}>Publish to students</label><span class="push"></span>${button("Cancel", "cancel-compose", "", "quiet")}<button type="submit" class="primary">${icon("check")} Done</button></div><p id="compose-error" class="error small" role="alert"></p></form>`;
+  const editorEl = $("#rich-editor");
+  if (editorEl && window.academyEditor) {
+    window.academyEditor.wireEditor(editorEl, {
+      getSubjectId: () => state.active?.id,
+      uploadImage: (subjectId, base64) => desktopApi.uploadImage(subjectId, base64),
+      onChange: () => { state.dirty = true; },
+      onError: (err) => {
+        toast(err.message || "Could not paste image.", "error");
+        if ($("#compose-error")) $("#compose-error").textContent = err.message || "Could not paste image.";
+      },
+    });
+    window.academyEditor.hydrateImages(editorEl, desktopApi.readImage, { subjectId: state.active?.id || "" });
+  }
   slot.querySelectorAll("input[name=link]").forEach(inspectLinkField);
   renderQuizBuilder();
   syncMaterialSections();
@@ -811,10 +918,10 @@ async function renderAccounts() {
   $("#center").innerHTML =
     header(
       "Accounts",
-      "Admin-managed instructor and student registration. Self-registration is disabled.",
+      "Create accounts with passwords, update account passwords, and manage instructor/student access.",
       button("+ Create account", "new-account", "", "primary"),
     ) +
-    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role === "student" ? "student · reader" : a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td><span class="tag ${a.status === "active" ? "green" : "red"}">${escape(a.status)}</span></td><td>${a.id !== state.account.id ? `<div class="account-actions">${a.role === "student" ? button("Edit ID", "edit-student-id", `data-id="${escape(a.id)}" data-name="${escape(a.name)}" data-number="${escape(a.student_number || "")}"`, "quiet") : ""}${button("Reset password", "reset-password", `data-id="${escape(a.id)}" data-name="${escape(a.name)}"`, "quiet")}${button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet")}</div>` : ""}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
+    `<div id="account-form-slot"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Name</th><th>Role / ID</th><th>Status</th><th></th></tr></thead><tbody>${d.accounts.map((a) => `<tr><td>${escape(a.name)}<div class="small muted">${escape(a.email)}</div></td><td>${escape(a.role === "student" ? "student · reader" : a.role)}<div class="small muted">${escape(a.student_number || "")}</div></td><td><span class="tag ${a.status === "active" ? "green" : "red"}">${escape(a.status)}</span></td><td>${a.id !== state.account.id ? `<div class="account-actions">${a.role === "student" ? button("Edit ID", "edit-student-id", `data-id="${escape(a.id)}" data-name="${escape(a.name)}" data-number="${escape(a.student_number || "")}"`, "quiet") : ""}${button("Update password", "reset-password", `data-id="${escape(a.id)}" data-name="${escape(a.name)}"`, "quiet")}${button(a.status === "active" ? "Suspend" : "Reactivate", "account-status", `data-id="${escape(a.id)}" data-status="${a.status === "active" ? "suspended" : "active"}"`, "quiet")}</div>` : `<div class="account-actions">${button("Update my password", "settings", "", "quiet")}</div>`}</td></tr>`).join("")}</tbody></table></div><div class="form-actions">${button("Previous", "account-page", `data-offset="${Math.max(0, state.accountOffset - 100)}" ${state.accountOffset ? "" : "disabled"}`)}${button("Next", "account-page", `data-offset="${state.accountOffset + 100}" ${d.accounts.length < 100 ? "disabled" : ""}`)}</div>`;
 }
 function renderAnnouncements() {
   $("#center").innerHTML =
@@ -839,16 +946,16 @@ function renderAnnouncements() {
 function renderSettings() {
   const pending = Boolean(state.account.must_change_password);
   $("#center").innerHTML =
-    header("Settings", "Your account and security.") +
+    header("Settings", "Your account and password security.") +
     (pending
       ? `<div class="banner" role="status"><strong>Temporary password change required</strong>Choose a new 15–128 character passphrase different from your temporary password before accessing subjects.</div>`
       : "") +
-    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the mobile app." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · ID " + escape(state.account.student_number) : ""}${state.account.role === "student" ? " · Reader (downloads disabled)" : ""}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Change password</h3><label>Current password<input name="current" type="password" required autocomplete="current-password"></label><label>New passphrase · 15–128 characters<input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><label>Confirm new passphrase<input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password"></label><div class="form-actions"><button class="primary">Change password & sign out</button></div></form>`;
+    `<div class="inline-form"><h3>${state.mode === "local" ? "Local test workspace" : "Organization workspace"}</h3><p class="small muted">${state.mode === "local" ? "This workspace is saved on this PC. It does not synchronize with other computers or the mobile app." : "Your account and subjects are managed by your organization’s Aeronautical Academy Repository server."}</p><p class="small">${escape(state.account.email)}${state.account.student_number ? " · ID " + escape(state.account.student_number) : ""}${state.account.role === "student" ? " · Reader (downloads disabled)" : ""}</p><div class="form-actions">${button("Sign out all devices", "logout-all", "", "quiet")}</div></div><form id="password" class="inline-form"><h3>Update password</h3><label>Current password<span class="password-field"><input name="current" type="password" required autocomplete="current-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label>New password · 15–128 characters<span class="password-field"><input name="next" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="next" data-confirm="confirm"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">${state.mode === "local" ? "In the local workspace, you can update the built-in admin, instructor, or student password using your current sign-in password." : "Updating your password signs out all active sessions on every device."}</p><div class="form-actions"><button class="primary">Update password & sign out</button></div></form>`;
 }
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Subject access and roles</h3><p>Administrators provision all instructor and student accounts with temporary 15–128 character passphrases that must be rotated at first sign-in. Under Administration → Subject access, administrators can assign instructors to any subject as Read only or Editor, and suspend or reactivate their access to individual subjects at any time. Students default to reader access on enrolled subjects with no download capability.</p><h3>Add a material</h3><p>Choose a subject where you have editor access, select + Add material or examination at subject level, choose Material, write a text line and attach the material’s web link. Select Done to save. Published entries are visible to enrolled students.</p><h3>Activities, quizzes and examinations</h3><p>Each material has + Add activity or quiz below its last child. When creating a quiz, set the question count and select Apply, then enter each question and its choices. Click the circle beside each correct answer. Students confirm readiness, can minimize or expand their assessment, and receive correct answers / total questions after submission.</p><p>In Students &amp; progress, open View work to rate submitted activities out of 100 and add feedback, then Export Excel for the current roster page. The Quiz scores sheet has dated quiz columns and numeric correct-answer counts; blank means not submitted. Dates are quiz creation dates in this PC’s time zone. Other sheets retain full assessment details. Minimize a material’s activities and quizzes with the chevron beside its title. The subject-level + creates materials or examinations. To group an older standalone activity or quiz, choose Edit → Material. Examinations stay beside materials.</p><h3>Arrange your subject</h3><p>Drag the grip at the left of an entry within the same level. For keyboard reordering, focus the grip and press Alt+Up or Alt+Down. Minimize or expand activities and quizzes using the chevron beside a material title. Moving a material carries its activities and quizzes. Use Edit → Material to move a child between materials. Edit, schedule, publish/unpublish or delete an entry using the controls in its top bar.</p><h3>Delete a subject</h3><p>Select Edit beside the subject heading, choose Delete subject, then confirm. Active editor owners can delete their own subjects; administrators can delete any subject. The subject and its contents leave active workspaces while saved learner records are retained.</p><h3>Learn and keep track</h3><p>Open a material link in your browser or select Read PDF for uploaded handouts. Mark reading as done, answer a selection form or submit written work. Results and tasks appear in the left navigation.</p><h3>Share access</h3><p>Editor instructors choose eligible student IDs or All students under Enrollment. Select Generate QR code to display and save the subject QR. Students join using the mobile scanner, Find a subject or a subject code. Both apps must use the same organization server; local workspaces do not sync. A code does not bypass sign-in or eligibility.</p><h3>Keep originals where they belong</h3><p>Google Drive, Docs, Sheets, Slides, YouTube and image links open in your browser. Attach several links to one material or paste links into its text. Share the original with your students’ Google accounts; a Drive link alone does not grant access. Their own sharing permissions and sign-in still apply. Protected PDFs can be uploaded when server storage is enabled and read in the internal canvas page viewer. Student and read-only save/export actions are disabled.</p><h3>If a link does not open</h3><p>Sign in to the correct Google account in your browser. Ask the owner to grant access if needed. Aeronautical Academy Repository keeps the original sharing URL and does not change its permissions. After an entry is changed, use Refresh or Sync before opening an old link.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed backend. Use Schedule on any saved entry to set publication and completion dates in Philippine time. Late work is accepted and marked late, without an automatic grade penalty. Quiz limits follow the connected server. Accounts support creation, student ID edits, password resets, and suspension/reactivation. Enrollment supports generated QR images and pasted subject codes; this desktop has no camera scanner.</p></div>`;
+    `<div class="inline-form help-card"><h3>Subject access and accounts</h3><p>Administrators create instructor, student, and administrator accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Users can update their own password under Settings. Under Administration → Subject access, administrators assign instructors to any subject as Read only or Editor and can suspend or activate access per subject. Students default to reader access on enrolled subjects with no download capability.</p><h3>Rich subject content &amp; pasted images</h3><p>Choose a subject where you have editor access and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Activities, quizzes and examinations</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key. In Students &amp; progress, open View work to rate written submissions out of 100 and Export Excel for dated quiz scores and summaries.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time. Protected PDFs and pasted images render in-app with student downloads disabled.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1039,8 +1146,30 @@ document.addEventListener("click", (event) => {
     restorePosition(position);
     return;
   }
+  if (action === "toggle-entry") {
+    if (state.collapsedEntries.has(id)) state.collapsedEntries.delete(id);
+    else state.collapsedEntries.add(id);
+    const position = capturePosition(id);
+    syncMaterialSections();
+    restorePosition(position);
+    return;
+  }
+  if (action === "toggle-all-entries") {
+    const allMin = state.items.length > 0 && state.items.every((item) => state.collapsedEntries.has(item.id));
+    if (allMin) state.collapsedEntries.clear();
+    else for (const item of state.items) state.collapsedEntries.add(item.id);
+    syncMaterialSections();
+    return;
+  }
+  if (action === "editor-cmd") {
+    const editorEl = $("#rich-editor");
+    if (!editorEl) return;
+    window.academyEditor?.applyCommand(editorEl, target.dataset.cmd);
+    state.dirty = true;
+    return;
+  }
   if (action === "reorder-handle") {
-    toast("Drag this grip to reorder, or focus it and press Alt+↑ / Alt+↓.");
+    toast("Drag this grip to reorder or drop onto another level · keyboard: Alt+↑/↓/←/→.");
     return;
   }
   if (action === "toggle-folder") {
@@ -1081,7 +1210,7 @@ document.addEventListener("click", (event) => {
     window.academyPresenter?.open(item, state.active?.title || "");
     return;
   }
-  if (action === "toggle-field-password") {
+  if (action === "toggle-field-password" || action === "toggle-confirm-password") {
     const input = target.closest(".password-field")?.querySelector("input");
     if (!input) return;
     const show = input.type === "password";
@@ -1091,7 +1220,47 @@ document.addEventListener("click", (event) => {
     input.focus();
     return;
   }
+  if (action === "generate-password") {
+    const form = target.closest("form");
+    if (!form) return;
+    const pass = generatePassphrase();
+    const mainName = target.dataset.target || "password";
+    const confirmName = target.dataset.confirm || "confirm_password";
+    const mainInput = form.elements[mainName];
+    const confirmInput = form.elements[confirmName];
+    if (mainInput) {
+      mainInput.value = pass;
+      mainInput.type = "text";
+      const showBtn = mainInput.closest(".password-field")?.querySelector('[data-action="toggle-field-password"]');
+      if (showBtn) { showBtn.textContent = "Hide"; showBtn.setAttribute("aria-pressed", "true"); }
+    }
+    if (confirmInput) {
+      confirmInput.value = pass;
+      confirmInput.type = "text";
+      const showBtn = confirmInput.closest(".password-field")?.querySelector('[data-action="toggle-confirm-password"]');
+      if (showBtn) { showBtn.textContent = "Hide"; showBtn.setAttribute("aria-pressed", "true"); }
+    }
+    state.dirty = true;
+    toast("Strong password generated. Copy it before saving.");
+    return;
+  }
   act(async () => {
+    if (action === "insert-image") {
+      if (!state.active) return;
+      const editorEl = $("#rich-editor");
+      if (!editorEl) return;
+      const result = await desktopApi.pickImage(state.active.id);
+      if (!result.canceled && result.image) {
+        window.academyEditor?.insertImageFigure(editorEl, {
+          id: result.image.id,
+          dataUrl: result.dataUrl,
+          alt: "Inserted image",
+        });
+        state.dirty = true;
+        toast("Image inserted.");
+      }
+      return;
+    }
     if (action === "delete-folder") {
       if (!canManageFolders()) return;
       const folder = state.folders.find((f) => f.id === id);
@@ -1133,16 +1302,18 @@ document.addEventListener("click", (event) => {
     if (action === "logout-all") {
       if(!(await leaveDraft()))return;
       await post("/v1/auth/logout-all",{});
-      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.collapsedFolders.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
-      window.academyPresenter?.close();await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
+      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
+      window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
       if (!(await leaveDraft())) return;
       await desktopApi.logout();
       resumeWorkspace = null;
       window.academyPresenter?.close();
+      window.academyEditor?.clearImageCache();
       await window.academyReader.close();
       state.collapsedFolders.clear();
+      state.collapsedEntries.clear();
       Object.assign(state, {
         account: null,
         active: null,
@@ -1164,7 +1335,7 @@ document.addEventListener("click", (event) => {
       state.compose = { parentId, kind: parentId ? "activity" : "material" };
       renderComposer();
       revealNearby($("#composer"));
-      $("#composer textarea").focus({preventScroll:true});
+      $("#composer input[name=title]")?.focus({preventScroll:true});
     }
     if (action === "attach") {
       if ($("#link-fields").children.length >= 12) throw new Error("Use up to 12 attached links per entry.");
@@ -1222,7 +1393,7 @@ document.addEventListener("click", (event) => {
       state.compose = { item: state.items.find((i) => i.id === id) };
       renderComposer();
       revealNearby($("#composer"));
-      $("#composer textarea").focus({preventScroll:true});
+      $("#composer input[name=title]")?.focus({preventScroll:true});
     }
     if (action === "open-link")
       await desktopApi.openLink({
@@ -1422,12 +1593,12 @@ document.addEventListener("click", (event) => {
     if (action === "new-account") {
       if (!(await leaveDraft())) return;
       $("#account-form-slot").innerHTML =
-        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student (Reader)</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label id="student-id-field">Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Temporary passphrase · at least 15 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Students default to reader access with no download capability. New accounts must change their temporary passphrase at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
+        `<form id="new-account" class="inline-form"><h3>Create account</h3><div class="form-grid"><label>Name<input name="name" maxlength="100" required></label><label>Email<input name="email" type="email" maxlength="254" required></label><label>Role<select name="role"><option value="student">Student (Reader)</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></label><label id="student-id-field">Student ID · students only<input name="student_number" maxlength="32"></label></div><label>Password · 15–128 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="password" data-confirm="confirm_password"', "quiet")}</span></label><label>Confirm password<span class="password-field"><input name="confirm_password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Students default to reader access with no download capability. New accounts rotate their initial password at first sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Create account</button></div></form>`;
     }
     if (action === "reset-password") {
       if (!(await leaveDraft())) return;
       $("#account-form-slot").innerHTML =
-        `<form id="reset-password-form" class="inline-form" data-id="${escape(id)}"><h3>Reset temporary password · ${escape(target.dataset.name || "Account")}</h3><label>New temporary passphrase · at least 15 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}</span></label><p class="small muted">Active sessions for this user are signed out immediately, and the user must choose a new passphrase at next sign-in.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Reset password</button></div></form>`;
+        `<form id="reset-password-form" class="inline-form" data-id="${escape(id)}"><h3>Update password · ${escape(target.dataset.name || "Account")}</h3><label>New password · 15–128 characters<span class="password-field"><input name="password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-field-password", 'aria-pressed="false"', "quiet")}${button("Generate", "generate-password", 'data-target="password" data-confirm="confirm_password"', "quiet")}</span></label><label>Confirm new password<span class="password-field"><input name="confirm_password" type="password" minlength="15" maxlength="128" required autocomplete="new-password">${button("Show", "toggle-confirm-password", 'aria-pressed="false"', "quiet")}</span></label><label class="choice"><input type="checkbox" name="require_change" checked>Require password change at next sign-in</label><p class="small muted">All active sessions for this user are signed out immediately after saving.</p><div class="form-actions">${button("Cancel", "cancel-account", "", "quiet")}<button class="primary">Update password</button></div></form>`;
     }
     if (action === "edit-student-id") {
       if (!(await leaveDraft())) return;
@@ -1464,23 +1635,50 @@ document.addEventListener("submit", (event) => {
     const id = form.dataset.id;
     if (form.id === "composer") {
       const position = capturePosition(state.compose.item?.id || state.compose.parentId);
-      const text = d.text.trim();
+      const editorEl = $("#rich-editor");
+      const serialized = window.academyEditor ? window.academyEditor.serializeEditor(editorEl) : { bodyText: "", bodyHtml: null, imageIds: [], hasFormatting: false };
+      let title = String(d.title || "").trim();
+      let contentText = serialized.bodyText;
+      if (!title && contentText) {
+        const lines = contentText.split("\n");
+        title = lines.shift().trim();
+        contentText = lines.join("\n").trim();
+      }
+      if (!title || title.length > 160)
+        throw new Error("Enter a title between 1 and 160 characters.");
       const rawLinks = new FormData(form).getAll("link").map((raw) => raw.trim());
       const links = await Promise.all(rawLinks.map((raw) => desktopApi.inspectLink(raw)));
-      let body = [text, ...new Set(links.map((link) => link.url))].join("\n");
-      const title = text.split("\n")[0].trim();
-      if (!title || title.length > 160)
-        throw new Error("Keep the first line between 1 and 160 characters.");
+      const parts = [title];
+      if (contentText && contentText.split("\n")[0]?.trim() !== title) parts.push(contentText);
+      else if (contentText && contentText !== title) parts.push(contentText);
+      const uniqueLinks = [...new Set(links.map((link) => link.url))];
+      if (uniqueLinks.length) parts.push(...uniqueLinks);
+      let body = parts.join("\n");
+      const spacing = d.paragraph_spacing || "normal";
+      let bodyHtml = serialized.hasFormatting ? serialized.bodyHtml : null;
       const item = state.compose.item;
-      if (item && text === state.compose.initialText && JSON.stringify(rawLinks) === JSON.stringify(state.compose.initialLinks)) body = item.body;
+      if (
+        item &&
+        title === state.compose.initialTitle &&
+        contentText === state.compose.initialText &&
+        JSON.stringify(rawLinks) === JSON.stringify(state.compose.initialLinks) &&
+        bodyHtml === state.compose.initialRichHtml
+      ) {
+        body = item.body;
+      }
       if (body.length > 12000)
         throw new Error("Keep this entry within 12,000 characters.");
       let savedId = item?.id;
       const kind = item?.kind || d.kind;
       const payload = { title, body, published: !!d.published };
+      if (state.capabilities.rich_content === "v1") {
+        payload.body_html = bodyHtml;
+        payload.paragraph_spacing = spacing;
+      }
       if (item) {
-        if (d.parent_id && d.parent_id !== item.parent_id) {
-          payload.parent_id = d.parent_id;
+        const nextParent = form.elements.parent_id ? (d.parent_id || null) : item.parent_id;
+        if (nextParent !== (item.parent_id || null)) {
+          payload.parent_id = nextParent;
           payload.expected_order_revision = state.active.order_revision;
         }
         await api(`/v1/items/${item.id}`, {
@@ -1645,7 +1843,10 @@ document.addEventListener("submit", (event) => {
       toast("Announcement published.");
     }
     if (form.id === "new-account") {
+      if (d.confirm_password !== undefined && d.password !== d.confirm_password)
+        throw new Error("Password and confirmation do not match.");
       const payload = { ...d };
+      delete payload.confirm_password;
       if (payload.role !== "student" || !payload.student_number?.trim()) delete payload.student_number;
       await post("/v1/admin/accounts", payload);
       state.dirty = false;
@@ -1653,18 +1854,23 @@ document.addEventListener("submit", (event) => {
       toast("Account created.");
     }
     if (form.id === "reset-password-form") {
+      if (d.confirm_password !== undefined && d.password !== d.confirm_password)
+        throw new Error("New password and confirmation do not match.");
+      const requireChange = form.elements.require_change ? form.elements.require_change.checked : true;
       if (
         !(await confirmAction(
-          "Reset temporary password?",
-          "All active sessions for this user will be signed out immediately.",
-          "Reset password",
+          "Update account password?",
+          requireChange
+            ? "All active sessions for this user will be signed out immediately, and they must choose a new password at next sign-in."
+            : "All active sessions for this user will be signed out immediately and they can sign in with this new password right away.",
+          "Update password",
         ))
       )
         return;
-      await post(`/v1/admin/accounts/${id}/password`, { password: d.password });
+      await post(`/v1/admin/accounts/${id}/password`, { password: d.password, require_change: requireChange });
       state.dirty = false;
       $("#account-form-slot").innerHTML = "";
-      toast("Temporary password reset. Existing sessions signed out.");
+      toast(requireChange ? "Password updated. User must rotate password at next sign-in." : "Account password updated. Existing sessions signed out.");
     }
     if (form.id === "edit-student-id-form") {
       await api(`/v1/admin/accounts/${id}`, {
@@ -1703,7 +1909,7 @@ document.addEventListener("submit", (event) => {
     }
     if (form.id === "password") {
       if (d.next !== d.confirm)
-        throw new Error("New passphrase and confirmation do not match.");
+        throw new Error("New password and confirmation do not match.");
       await post("/v1/auth/password", {
         current_password: d.current,
         new_password: d.next,
@@ -1711,8 +1917,10 @@ document.addEventListener("submit", (event) => {
       state.dirty = false;
       resumeWorkspace = null;
       window.academyPresenter?.close();
+      window.academyEditor?.clearImageCache();
       await window.academyReader.close();
       state.collapsedFolders.clear();
+      state.collapsedEntries.clear();
       Object.assign(state, {
         account: null,
         active: null,
@@ -1725,7 +1933,7 @@ document.addEventListener("submit", (event) => {
       });
       $("#app").innerHTML = "";
       showLogin();
-      toast("Password changed. Sign in again.");
+      toast("Password updated. Sign in again.");
     }
   });
 });
@@ -1751,6 +1959,21 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-editor-block]")) {
+    const editorEl = $("#rich-editor");
+    if (editorEl) {
+      window.academyEditor?.applyCommand(editorEl, "formatBlock", event.target.value);
+      state.dirty = true;
+    }
+    return;
+  }
+  if (event.target.id === "paragraph-spacing") {
+    const editorEl = $("#rich-editor");
+    if (editorEl) editorEl.dataset.spacing = event.target.value;
+    if (state.compose) state.compose.paragraphSpacing = event.target.value;
+    state.dirty = true;
+    return;
+  }
   if (event.target.matches("#new-account select[name=role]")) {
     const isStudent = event.target.value === "student";
     const field = $("#student-id-field");
@@ -1776,9 +1999,15 @@ document.addEventListener("change", (event) => {
       if (field.name !== "link" && (field.name !== "correct" || field.checked)) fields[field.name] = field;
     }
     if ($("#link-fields")) fields.links = previous.filter((field) => field.name === "link");
-    state.compose = { ...state.compose, kind: event.target.value, fields };
+    const richHtml = $("#rich-editor")?.innerHTML || "";
+    const paragraphSpacing = form.elements.paragraph_spacing?.value || state.compose.paragraphSpacing || "normal";
+    state.compose = { ...state.compose, kind: event.target.value, fields, paragraphSpacing };
     renderComposer();
     const restored = $("#composer");
+    if ($("#rich-editor") && richHtml) {
+      $("#rich-editor").innerHTML = richHtml;
+      $("#rich-editor").dataset.spacing = paragraphSpacing;
+    }
     for (const field of [...Object.values(fields).filter((field) => field.name && field.name !== "correct"), ...(fields.links || [])]) {
       if (field.name === "link" && $("#link-fields")) $("#link-fields").insertAdjacentHTML("beforeend", linkField(field.value));
       else if (restored.elements[field.name]) {
@@ -1802,6 +2031,62 @@ document.addEventListener("change", (event) => {
     });
   else if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
+function computeMultiLevelIds(sourceId, nextParentId, targetId = null, position = "inside") {
+  const source = state.items.find((entry) => entry.id === sourceId);
+  if (!source) return null;
+  const groups = new Map();
+  const addChild = (parentKey, item) => {
+    const key = parentKey || "__root__";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  };
+  for (const item of state.items) {
+    if (item.id === sourceId) continue;
+    addChild(item.parent_id || null, item);
+  }
+  const destKey = nextParentId || "__root__";
+  const destList = groups.get(destKey) || [];
+  if (position === "before" && targetId) {
+    const idx = destList.findIndex((entry) => entry.id === targetId);
+    destList.splice(idx >= 0 ? idx : destList.length, 0, source);
+  } else if (position === "after" && targetId) {
+    const idx = destList.findIndex((entry) => entry.id === targetId);
+    destList.splice(idx >= 0 ? idx + 1 : destList.length, 0, source);
+  } else {
+    destList.push(source);
+  }
+  groups.set(destKey, destList);
+  const visit = (parentKey) =>
+    (groups.get(parentKey || "__root__") || []).flatMap((item) => [item.id, ...visit(item.id)]);
+  return visit(null);
+}
+async function moveEntryToLevel(sourceId, nextParentId, targetId = null, position = "inside") {
+  const source = state.items.find((entry) => entry.id === sourceId);
+  if (!source) return;
+  const currentParent = source.parent_id || null;
+  if (nextParentId !== null && !canNestEntryInside(sourceId, nextParentId)) return;
+  const ids = computeMultiLevelIds(sourceId, nextParentId, targetId, position);
+  if (!ids || ids.length !== state.items.length) return;
+  if (nextParentId === currentParent) {
+    const placement = targetId && (position === "before" || position === "after")
+      ? { id: targetId, after: position === "after" }
+      : undefined;
+    await reorder(ids, targetId || sourceId, { movedId: sourceId, placement });
+    return;
+  }
+  const capture = capturePosition(sourceId);
+  await post(`/v1/subjects/${state.active.id}/order`, {
+    item_ids: ids,
+    expected_revision: state.active.order_revision,
+    parent_updates: [{ id: sourceId, parent_id: nextParentId }],
+  });
+  if (nextParentId) {
+    state.collapsedMaterials.delete(nextParentId);
+    state.collapsedEntries.delete(nextParentId);
+  }
+  await reloadActive({ position: capture, feedbackId: sourceId });
+  toast(nextParentId ? "Entry moved to new level." : "Entry moved to top level.");
+}
 document.addEventListener("keydown", (event) => {
   const folderRow = event.target.closest("[data-drag-folder]");
   if (folderRow && canManageFolders() && event.altKey && !event.ctrlKey && !event.metaKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
@@ -1833,19 +2118,28 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const handle = event.target.closest("[data-drag]");
-  if (!handle || !event.altKey || event.ctrlKey || event.metaKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  if (!handle || !event.altKey || event.ctrlKey || event.metaKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
   event.preventDefault();
   const id = handle.dataset.drag;
-  const direction = event.key === "ArrowUp" ? -1 : 1;
   act(async () => {
     if (!(await leaveDraft())) return;
     const item = state.items.find((entry) => entry.id === id);
+    if (!item) return;
     const siblings = siblingsOf(item);
     const index = siblings.findIndex((entry) => entry.id === id);
-    const next = index + direction;
-    if (next < 0 || next >= siblings.length) return;
-    [siblings[index], siblings[next]] = [siblings[next], siblings[index]];
-    await reorder(item.parent_id ? flattenTree(rootsOf(), new Map([[item.parent_id, siblings]])) : flattenTree(siblings), id);
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      const direction = event.key === "ArrowUp" ? -1 : 1;
+      const next = index + direction;
+      if (next < 0 || next >= siblings.length) return;
+      [siblings[index], siblings[next]] = [siblings[next], siblings[index]];
+      await reorder(item.parent_id ? flattenTree(rootsOf(), new Map([[item.parent_id, siblings]])) : flattenTree(siblings), id);
+    } else if (event.key === "ArrowLeft" && item.parent_id) {
+      const parent = state.items.find((entry) => entry.id === item.parent_id);
+      await moveEntryToLevel(id, parent?.parent_id || null, parent?.id || null, "after");
+    } else if (event.key === "ArrowRight" && index > 0) {
+      const prevMaterial = [...siblings.slice(0, index)].reverse().find((s) => s.kind === "material" && canNestEntryInside(id, s.id));
+      if (prevMaterial) await moveEntryToLevel(id, prevMaterial.id, null, "inside");
+    }
   }).then(() => document.querySelector(`[data-drag="${id}"]`)?.focus({preventScroll:true}));
 });
 let dragSession = null;
@@ -1902,7 +2196,7 @@ function updateNavDropPlacement(event) {
   return navDrag.drop;
 }
 function clearDropMarker() {
-  document.querySelectorAll(".drop-before,.drop-after").forEach((group) => group.classList.remove("drop-before","drop-after"));
+  document.querySelectorAll(".drop-before,.drop-after,.drop-inside").forEach((el) => el.classList.remove("drop-before","drop-after","drop-inside"));
   if (dragSession) dragSession.placement = null;
 }
 function endDrag() {
@@ -1917,15 +2211,43 @@ function updateDropPlacement(x,y) {
   const element = document.elementFromPoint(x,y);
   const center = $("#center"), bounds = center.getBoundingClientRect();
   if (!element || x<bounds.left || x>bounds.right || y<bounds.top || y>bounds.bottom) { clearDropMarker(); return null; }
+  const sourceDesc = new Set(descendantsOf(source.id).map((d) => d.id));
+  sourceDesc.add(source.id);
+
+  // Drop on an "+ Add ..." slot places at the end of that material (or root level).
+  const addSlot = element.closest("[data-add-parent]");
+  if (addSlot) {
+    const slotParent = addSlot.dataset.addParent || null;
+    if (slotParent && (sourceDesc.has(slotParent) || !canNestEntryInside(source.id, slotParent))) {
+      clearDropMarker();
+      return null;
+    }
+    const previous = dragSession.placement;
+    const key = `slot:${slotParent || "root"}`;
+    if (previous?.key !== key) {
+      clearDropMarker();
+      const siblings = slotParent ? childrenOf(slotParent).filter((i) => i.id !== source.id) : rootsOf().filter((i) => i.id !== source.id);
+      const last = siblings.at(-1);
+      if (last && groupFor(last.id)) groupFor(last.id).classList.add("drop-after");
+      else addSlot.classList.add("drop-inside");
+      dragSession.placement = {
+        key,
+        id: last?.id || slotParent,
+        parentId: slotParent,
+        position: last ? "after" : "inside",
+        after: Boolean(last),
+      };
+    }
+    return dragSession.placement;
+  }
+
   let group = element.closest("[data-group]");
-  while (group) {
-    const item = state.items.find((entry) => entry.id === group.dataset.group);
-    if ((item?.parent_id || null) === (source.parent_id || null)) break;
-    group = group.parentElement.closest("[data-group]");
+  while (group && sourceDesc.has(group.dataset.group)) {
+    group = group.parentElement?.closest("[data-group]");
   }
   if (!group) {
-    const container = groupFor(source.id).parentElement;
-    if (container.contains(element)) {
+    const container = groupFor(source.id)?.parentElement;
+    if (container && container.contains(element)) {
       let nearest = Infinity;
       for (const item of siblingsOf(source)) {
         const candidate = groupFor(item.id);
@@ -1936,15 +2258,59 @@ function updateDropPlacement(x,y) {
       }
     }
   }
-  if (!group || group.dataset.group===source.id) { clearDropMarker(); return null; }
-  const rect = group.getBoundingClientRect(), midpoint = rect.top+rect.height/2;
+  if (!group || sourceDesc.has(group.dataset.group)) { clearDropMarker(); return null; }
+  const targetItem = state.items.find((entry) => entry.id === group.dataset.group);
+  if (!targetItem) { clearDropMarker(); return null; }
+
+  const cardEl = group.querySelector(":scope > [data-item]") || group;
+  const cardRect = cardEl.getBoundingClientRect();
+  const groupRect = group.getBoundingClientRect();
+  const canNest = targetItem.kind === "material" && canNestEntryInside(source.id, targetItem.id);
+  const canAdoptTargetParent = !targetItem.parent_id || canNestEntryInside(source.id, targetItem.parent_id);
+
+  let position = "after";
+  let nextParentId = targetItem.parent_id || null;
   const previous = dragSession.placement;
-  // A small deadband prevents a stationary pointer alternating around the midpoint.
-  const after = previous?.id===group.dataset.group && Math.abs(y-midpoint)<7 ? previous.after : y>=midpoint;
-  if (previous?.id!==group.dataset.group || previous.after!==after) {
+
+  if (canNest && y >= cardRect.top && y <= cardRect.bottom) {
+    const ratio = (y - cardRect.top) / Math.max(1, cardRect.height);
+    if (canAdoptTargetParent && ratio < 0.25) {
+      position = "before";
+      nextParentId = targetItem.parent_id || null;
+    } else if (canAdoptTargetParent && ratio > 0.75) {
+      position = "after";
+      nextParentId = targetItem.parent_id || null;
+    } else {
+      position = "inside";
+      nextParentId = targetItem.id;
+    }
+  } else if (canAdoptTargetParent) {
+    const midpoint = groupRect.top + groupRect.height / 2;
+    const after = previous?.id === targetItem.id && previous.position !== "inside" && Math.abs(y - midpoint) < 7
+      ? previous.after
+      : y >= midpoint;
+    position = after ? "after" : "before";
+    nextParentId = targetItem.parent_id || null;
+  } else if (canNest) {
+    position = "inside";
+    nextParentId = targetItem.id;
+  } else {
     clearDropMarker();
-    group.classList.add(after ? "drop-after" : "drop-before");
-    dragSession.placement = {id:group.dataset.group,after};
+    return null;
+  }
+
+  const key = `${targetItem.id}:${position}:${nextParentId || "root"}`;
+  if (previous?.key !== key) {
+    clearDropMarker();
+    if (position === "inside") cardEl.classList.add("drop-inside");
+    else group.classList.add(position === "after" ? "drop-after" : "drop-before");
+    dragSession.placement = {
+      key,
+      id: targetItem.id,
+      parentId: nextParentId,
+      position,
+      after: position === "after",
+    };
   }
   return dragSession.placement;
 }
@@ -2064,13 +2430,7 @@ document.addEventListener("drop", (event) => {
   endDrag();
   if (!placement) return;
   act(async () => {
-    const source=state.items.find((item) => item.id===sourceId);
-    const target=state.items.find((item) => item.id===placement.id);
-    if (!source || !target || (source.parent_id||null)!==(target.parent_id||null)) return;
-    const siblings=siblingsOf(source).filter((item) => item.id!==sourceId);
-    siblings.splice(siblings.findIndex((item) => item.id===target.id)+Number(placement.after),0,source);
-    const ids=source.parent_id ? flattenTree(rootsOf(),new Map([[source.parent_id,siblings]])) : flattenTree(siblings);
-    await reorder(ids,target.id,{movedId:sourceId,placement});
+    await moveEntryToLevel(sourceId, placement.parentId ?? null, placement.id || null, placement.position || "after");
   });
 });
 window.addEventListener("beforeunload", (event) => {

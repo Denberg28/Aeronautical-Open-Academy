@@ -398,7 +398,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",rich_content:"v1",entry_images:"v1",multi_level_entries:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -487,11 +487,12 @@ test('subject tree groups activities and quizzes, retains root examinations and 
   detail=await view(student.token);const moved=detail.items.find(i=>i.id===quiz);assert.equal(moved.parent_id,second);assert.equal(moved.revision,1);assert.equal(moved.attempt.score,1);assert.equal(moved.completed,true);
   assert.deepEqual(detail.items.map(i=>i.id),[first,activity,second,quiz,exam]);
   assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{item_ids:detail.items.map(i=>i.id),expected_revision:oldRevision}})).status,409);
-  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,400);
+  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,200);
+  detail=await view();assert.equal(detail.items.find(i=>i.id===exam).parent_id,first);
+  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:null,expected_edit_version:2,expected_order_revision:detail.subject.order_revision}})).status,200);
   const other=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Other',description:'Other'}})).body.id;
   assert.equal((await f.call(`/v1/subjects/${other}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Wrong parent',body:'Wrong',parent_id:first}})).status,400);
-  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Nested material',body:'Subsection',parent_id:first}})).status,400);
-  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'examination',title:'Nested examination',body:'Wrong',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Non-material parent',body:'Wrong',parent_id:activity}})).status,400);
   assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:student.token,body:{kind:'activity',title:'Forbidden',body:'Wrong',parent_id:first}})).status,404);
  }finally{await f.close();}
 });
@@ -520,13 +521,18 @@ test('draft and archived material groups hide children from students, direct acc
  }finally{await f.close();}
 });
 
-test('material creation rejects nested materials while activities and quizzes remain available',async()=>{
+test('multi-level tree supports nested entries under materials up to 4 levels while rejecting non-material parents',async()=>{
  const f=await fixture({materials:null});try{
   const teacher=await f.account('simple-teacher@example.test','instructor');
-  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Simple tree',description:'Materials with activities and quizzes'}})).body.id;
-  const root=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Lesson',body:'References',published:true}})).body.id;
-  for(const kind of ['material','examination'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Invalid child',body:'References',parent_id:root}})).status,400);
-  for(const kind of ['activity','quiz'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Practice',body:'Instructions',parent_id:root,...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}})).status,201);
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Multi-level tree',description:'Nested materials, activities, quizzes and exams'}})).body.id;
+  const l1=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 1',body:'References',published:true}})).body.id;
+  const l2=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 2',body:'Sub-lesson',parent_id:l1,published:true}})).body.id;
+  const l3=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 3',body:'Topic',parent_id:l2,published:true}})).body.id;
+  const l4=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 4',body:'Deepest',parent_id:l3,published:true}})).body.id;
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'activity',title:'Too deep',body:'Level 5 rejected',parent_id:l4}})).status,400);
+  const actId=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'activity',title:'Practice',body:'Instructions',parent_id:l2}})).body.id;
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'quiz',title:'Invalid under activity',body:'No',parent_id:actId,options:['A','B'],correct_index:0}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'quiz',title:'Check',body:'Instructions',parent_id:l2,options:['A','B'],correct_index:0}})).status,201);
  }finally{await f.close();}
 });
 

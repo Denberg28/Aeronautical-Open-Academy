@@ -22,7 +22,7 @@ try{
  const lesson=original.items.find(item=>item.title.startsWith('Prelim - Lesson 1'));
  async function author(kind,title,parent=''){
   await action('add',`[data-parent="${parent}"]`);if(!parent)await page.locator('#entry-kind').selectOption(kind);
-  await page.locator('#composer textarea[name=text]').fill(title+'\nChoose one answer.');await page.locator('#response-mode').selectOption('choice');
+  await page.locator('#composer input[name=title]').fill(title);await page.locator('#rich-editor').fill('Choose one answer.');await page.locator('#response-mode').selectOption('choice');
   await page.locator('[data-question-prompt]').fill('Which option is B?');await page.locator('[data-question-option="0"]').fill('A');await page.locator('[data-question-option="1"]').fill('B');await page.locator('input[name="key-0"][value="1"]').check();
   await page.locator('#composer button[type=submit]').click();await idle();assert.equal(await page.locator('#composer').count(),0);
  }

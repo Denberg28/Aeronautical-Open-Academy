@@ -74,11 +74,8 @@ try {
     "Introduction to Aeronautics",
   );
   await action("add");
-  await page
-    .locator("#composer textarea[name=text]")
-    .fill(
-      "Lesson 02 — Aircraft structure\nA reference for our next discussion.",
-    );
+  await page.locator("#composer input[name=title]").fill("Lesson 02 — Aircraft structure");
+  await page.locator("#rich-editor").fill("A reference for our next discussion.");
   await action("attach");
   await page.locator("#composer input[name=link]").fill("ftp://www.faa.gov/");
   await page.locator("#composer button[type=submit]").click();
@@ -86,8 +83,12 @@ try {
     () => !document.body.classList.contains("working"),
   );
   assert.equal(
-    await page.locator("#composer textarea").inputValue(),
-    "Lesson 02 — Aircraft structure\nA reference for our next discussion.",
+    await page.locator("#composer input[name=title]").inputValue(),
+    "Lesson 02 — Aircraft structure",
+  );
+  assert.match(
+    await page.locator("#rich-editor").textContent(),
+    /A reference for our next discussion\./,
   );
   await page.locator("#composer input[name=link]").fill("https://www.faa.gov/");
   const materials = [
@@ -140,9 +141,8 @@ try {
   await newCard.locator("[data-action=edit]").click();
   assert.equal(await page.locator("#composer input[name=link]").count(), 7);
   assert.deepEqual(await page.locator("#composer input[name=link]").evaluateAll((inputs) => inputs.slice(1).map((input) => input.value)), materials.map(([url]) => url));
-  await page
-    .locator("#composer textarea")
-    .fill("Lesson 02 — Aircraft structures\nUpdated notes for class.");
+  await page.locator("#composer input[name=title]").fill("Lesson 02 — Aircraft structures");
+  await page.locator("#rich-editor").fill("Updated notes for class.");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -157,7 +157,7 @@ try {
   await newCard.locator("[data-drag]").press("Alt+ArrowUp");
   await page.waitForFunction(() => !state.busy);
   await action("add");
-  await page.locator("#composer textarea").fill("Keep this draft");
+  await page.locator("#composer input[name=title]").fill("Keep this draft");
   console.log("Cancel quit check");
   // A simulated cancelled close must leave the local service alive.
   await application.evaluate(({ app, BrowserWindow }) => {
@@ -178,7 +178,7 @@ try {
   await page.locator("#signin[open]").waitFor();
   await page.waitForFunction(() => !document.body.classList.contains("working"));
   await login("instructor");
-  assert.equal(await page.locator("#composer textarea").inputValue(), "Keep this draft");
+  assert.equal(await page.locator("#composer input[name=title]").inputValue(), "Keep this draft");
   // Navigation asks before discarding and keeps the text when cancelled.
   await page.locator(".sidebar [data-action=tasks]").click();
   await page.locator("#confirm[open]").waitFor();
@@ -187,7 +187,7 @@ try {
     () => !document.body.classList.contains("working"),
   );
   assert.equal(
-    await page.locator("#composer textarea").inputValue(),
+    await page.locator("#composer input[name=title]").inputValue(),
     "Keep this draft",
   );
   await page.locator("[data-action=cancel-compose]").click();
@@ -196,7 +196,7 @@ try {
     () => !document.body.classList.contains("working"),
   );
   await action("add");
-  await page.locator("#composer textarea").fill("Saved despite refresh failure");
+  await page.locator("#composer input[name=title]").fill("Saved despite refresh failure");
   await page.evaluate(() => {
     window.academyOriginalReload = reloadActive;
     reloadActive = async () => { throw new Error("Synthetic refresh outage"); };
@@ -210,7 +210,8 @@ try {
   assert.equal(await page.getByRole("heading", { name: "Saved despite refresh failure", exact: true }).count(), 1);
   await action("add");
   await page.selectOption("#entry-kind", "examination");
-  await page.locator("#composer textarea").fill("Midterm examination\nExplain the four forces.");
+  await page.locator("#composer input[name=title]").fill("Midterm examination");
+  await page.locator("#rich-editor").fill("Explain the four forces.");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(() => !state.busy);
   const examGroup = page.locator("[data-group]").filter({ has: page.getByRole("heading", {name:"Midterm examination",exact:true}) });
@@ -238,7 +239,8 @@ try {
   assert.equal(await page.locator('[data-question-editor]').count(),3);
   assert.equal(await firstQuestion.locator('[data-question-prompt]').inputValue(),prompts[0]);
   assert.equal(await firstQuestion.locator('input[type=radio][value="1"]').isChecked(),true);
-  await page.locator('#composer textarea[name=text]').fill('Practice quiz\nThree multiple-choice questions.');
+  await page.locator('#composer input[name=title]').fill('Practice quiz');
+  await page.locator('#rich-editor').fill('Three multiple-choice questions.');
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -296,7 +298,7 @@ try {
   const quizCard = page.locator(`[data-item="${quizId}"]`);
   // Keep the 12,000-character migration fixture, but use adjacent compact cards for pointer drags.
   await action('add',`[data-parent="${materialId}"]`);
-  await page.locator('#composer textarea[name=text]').fill('Short drag activity');
+  await page.locator('#composer input[name=title]').fill('Short drag activity');
   await page.locator('#composer button[type=submit]').click();
   await page.waitForFunction(() => !state.busy);
   const dragCard = childRegion.locator('[data-item]').filter({has:page.getByRole('heading',{name:'Short drag activity',exact:true})});
@@ -318,12 +320,12 @@ try {
   await page.waitForFunction(() => !state.busy);
   // Collapsing another section never rebuilds or clears the active draft.
   await quizCard.locator('[data-action=edit]').click();
-  await page.locator('#composer textarea[name=text]').fill('Retain this nested draft');
+  await page.locator('#composer input[name=title]').fill('Retain this nested draft');
   assert.equal(await minimize.isDisabled(),true);
   // Pick by ID rather than relying on section order.
   const anotherId = await page.evaluate((id) => state.items.find((i) => i.kind==='material' && i.id!==id).id,materialId);
   await action('toggle-material',`[data-id="${anotherId}"]`);
-  assert.equal(await page.locator('#composer textarea[name=text]').inputValue(),'Retain this nested draft');
+  assert.equal(await page.locator('#composer input[name=title]').inputValue(),'Retain this nested draft');
   await page.locator('[data-action=cancel-compose]').click();
   await page.locator('#confirm-yes').click();
   await page.waitForFunction(() => !state.busy);
@@ -333,7 +335,7 @@ try {
   assert.equal(await page.locator('[data-action=add][data-parent]:not([data-parent=""])').count(),0);
   await page.evaluate(() => {state.treeSupported=true;renderSubject();});
   await action("add");
-  await page.locator("#composer textarea").fill("Unpublished sample");
+  await page.locator("#composer input[name=title]").fill("Unpublished sample");
   await page.locator("#composer [name=published]").uncheck();
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
@@ -471,12 +473,16 @@ try {
   await page
     .locator("#new-account [name=password]")
     .fill("A temporary test passphrase!");
+  await page
+    .locator("#new-account [name=confirm_password]")
+    .fill("A temporary test passphrase!");
   await submit("#new-account");
   await page.getByText("new@academy.test", { exact: true }).waitFor();
   // HTML in user text is rendered as text, never executed.
   await action("subject");
   await action("add");
-  await page.locator("#composer textarea").fill("<img src=x onerror=alert(1)>");
+  await page.locator("#composer input[name=title]").fill("<img src=x onerror=alert(1)>");
+  await page.locator("#rich-editor").fill("<img src=x onerror=alert(1)>");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),

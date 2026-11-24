@@ -9,7 +9,7 @@ export function openDatabase(path){
   }
   const db=new DatabaseSync(path);
   const version=db.prepare('PRAGMA user_version').get().user_version;
-  if(version>14){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
+  if(version>15){db.close();throw new Error('Database version is newer than this server. Restore a compatible server; do not downgrade data silently.');}
   if(version>=6&&!db.prepare('PRAGMA table_info(items)').all().some(column=>column.name==='parent_id')){db.close();throw new Error('This is not a PC backend database. Use its matching server and a validated migration.');}
   db.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   // Additive, transactional v1 -> v2 migration. Existing identities, files and attempts survive.
@@ -191,6 +191,38 @@ export function openDatabase(path){
     ${hasFolder?'':'ALTER TABLE subjects ADD COLUMN folder_id TEXT REFERENCES subject_folders(id);'}
     CREATE INDEX IF NOT EXISTS subjects_folder ON subjects(folder_id,title);
     PRAGMA user_version=14; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
+  // Rich content entries, pasted images & multi-level entry tree — schema 15.
+  if(version<15){try{
+    const cols=db.prepare('PRAGMA table_info(items)').all().map(col=>col.name);
+    db.exec(`BEGIN IMMEDIATE;
+    ${cols.includes('body_html')?'':'ALTER TABLE items ADD COLUMN body_html TEXT;'}
+    ${cols.includes('paragraph_spacing')?'':"ALTER TABLE items ADD COLUMN paragraph_spacing TEXT NOT NULL DEFAULT 'normal' CHECK(paragraph_spacing IN ('compact','normal','relaxed','loose'));"}
+    CREATE TABLE IF NOT EXISTS item_images (
+      id TEXT PRIMARY KEY,
+      subject_id TEXT NOT NULL REFERENCES subjects(id),
+      item_id TEXT REFERENCES items(id),
+      owner_id TEXT NOT NULL REFERENCES accounts(id),
+      mime_type TEXT NOT NULL CHECK(mime_type IN ('image/png','image/jpeg','image/webp','image/gif')),
+      sha256 TEXT NOT NULL,
+      bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 5242880),
+      data BLOB NOT NULL,
+      created_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS item_images_item ON item_images(item_id,created_at);
+    CREATE INDEX IF NOT EXISTS item_images_subject ON item_images(subject_id,created_at);
+    DROP TRIGGER IF EXISTS items_tree_insert;
+    DROP TRIGGER IF EXISTS items_tree_update;
+    CREATE TRIGGER items_tree_insert BEFORE INSERT ON items WHEN NEW.parent_id IS NOT NULL
+    BEGIN
+      SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.id=NEW.parent_id
+        OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0);
+    END;
+    CREATE TRIGGER items_tree_update BEFORE UPDATE OF parent_id,subject_id,kind,assessment_type ON items WHEN NEW.parent_id IS NOT NULL
+    BEGIN
+      SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.id=NEW.parent_id
+        OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0);
+    END;
+    PRAGMA user_version=15; COMMIT;`);}catch(error){if(db.isTransaction)db.exec('ROLLBACK;');db.close();throw error;}}
   if(db.prepare('PRAGMA quick_check').all().some(row=>row.quick_check!=='ok')||db.prepare('PRAGMA foreign_key_check').all().length){db.close();throw new Error('Database integrity check failed. Restore a verified backup.');}
   db.exec('PRAGMA busy_timeout=5000;');
 
