@@ -130,12 +130,7 @@ try {
   assert.equal(await dlg.locator('img, script').count(), 0);
   await dlg.locator('[data-presenter="close"]').first().click();
 
-  // 4. Student sees ZERO Play buttons.
-  await logout();
-  await loginDemo('student');
-  assert.equal(await page.locator('[data-action="play-item"]').count(), 0);
-
-  // 5. Read-only instructor can play slides (letter options only) but cannot reveal answer key at end.
+  // 4. Read-only instructor can play slides (letter options only) but cannot reveal answer key at end.
   await logout();
   await loginDemo('admin');
   await page.evaluate(async () => {
@@ -184,7 +179,7 @@ try {
   await dlg.locator('#presenter-confirm [data-presenter="close"]').click();
 
   assert.deepEqual(errors, []);
-  console.log('PASS: fullscreen Play presenter on quiz/activity/examination, Next/Previous arrow navigation, letter-only options, end-of-item answer-key confirmation, XSS sanitization, and student/read-only isolation.');
+  console.log('PASS: fullscreen Play presenter on quiz/activity/examination, Next/Previous arrow navigation, letter-only options, end-of-item answer-key confirmation, XSS sanitization, and read-only instructor isolation.');
 } finally {
   if (application) {
     const pages = application.windows();

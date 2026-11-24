@@ -47,9 +47,9 @@ try{
  await app.close();app=null;await launch();page.on('pageerror',error=>errors.push(error.message));await login('instructor');
  assert.equal(await page.evaluate(()=>state.subjects.length),1);
  assert.equal(await page.evaluate(()=>state.active.id),fresh);
- await action('logout');await login('student');assert.equal(await page.locator('[data-action=delete-subject]').count(),0);
+ await action('logout');assert.equal(await page.locator('[data-demo=student]').count(),0);
  assert.deepEqual(errors,[]);
- console.log('PASS: subject deletion confirmation/cancel; failure retains draft; successful removal updates navigation; final-subject empty state/new creation; restart persistence; student has no delete control.');
+ console.log('PASS: subject deletion confirmation/cancel; failure retains draft; successful removal updates navigation; final-subject empty state/new creation; restart persistence; student role absent.');
 }finally{
  if(page)await page.evaluate(()=>state.dirty=false).catch(()=>{});
  if(app)await app.close();await rm(directory,{recursive:true,force:true});

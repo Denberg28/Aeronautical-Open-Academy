@@ -178,23 +178,6 @@ p {
   gap: 8px;
 }
 
-.reading-entry {
-  margin-top: 12px;
-}
-
-.reading-entry > summary {
-  color: var(--navy);
-  cursor: pointer;
-  padding: 6px 0;
-  font-size: var(--font-base);
-  font-weight: 600;
-  line-height: var(--ui-leading);
-}
-
-.reading-entry[open] .reading-copy {
-  margin: 12px 0 18px;
-}
-
 /* UI — Controls, buttons, badges, and layout helpers
    Edit button padding and focus outline here for all interactive controls. */
 button {
@@ -1132,6 +1115,14 @@ input[type="radio"] {
   padding: 18px 32px;
 }
 
+.hero-title-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
 .subject-context h1 {
   font-size: 22px;
   letter-spacing: -0.01em;
@@ -1156,27 +1147,6 @@ input[type="radio"] {
   margin-top: 6px;
   font-size: var(--font-sm);
   color: var(--muted);
-}
-
-.subject-progress {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-top: 12px;
-  font-size: var(--font-sm);
-  color: var(--muted);
-}
-
-.subject-progress progress {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  height: 8px;
-}
-
-.subject-progress span {
-  white-space: nowrap;
-  font-weight: 500;
 }
 
 progress {
@@ -1519,25 +1489,6 @@ progress::-webkit-progress-value {
   cursor: default;
 }
 
-.material-tools {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  justify-content: flex-start;
-  align-items: center;
-}
-
-.material-tools button {
-  font-size: var(--font-sm);
-  padding: 7px 12px;
-}
-
-.material-tools button svg {
-  width: 15px;
-  height: 15px;
-}
-
 .pdf-trigger {
   margin-bottom: 12px;
   font-size: var(--font-sm);
@@ -1836,7 +1787,6 @@ progress::-webkit-progress-value {
 }
 
 .question-editor,
-.quiz-attempt,
 .quiz-review {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -1847,7 +1797,6 @@ progress::-webkit-progress-value {
 }
 
 .question-editor > summary,
-.quiz-attempt > summary,
 .quiz-review > summary {
   cursor: pointer;
   font-size: var(--font-base);
@@ -1857,7 +1806,6 @@ progress::-webkit-progress-value {
 }
 
 .question-editor[open] > summary,
-.quiz-attempt[open] > summary,
 .quiz-review[open] > summary {
   margin-bottom: 12px;
 }
@@ -1919,74 +1867,6 @@ progress::-webkit-progress-value {
 
 .quiz-question p:last-child {
   margin-bottom: 0;
-}
-
-.quiz-intro {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.quiz-intro p {
-  margin: 0;
-}
-
-.result {
-  margin-top: 12px;
-  background: #edf6f0;
-  border: 1px solid #d5e8dc;
-  border-radius: 8px;
-  padding: 12px 14px;
-  font-size: var(--font-base);
-  line-height: var(--ui-leading);
-  color: #2b5f44;
-}
-
-.result strong,
-.result span {
-  display: block;
-}
-
-.result strong {
-  margin-bottom: 2px;
-}
-
-.result details {
-  margin-top: 10px;
-}
-
-.result summary {
-  cursor: pointer;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--navy);
-}
-
-.result details[open] .reading-copy {
-  margin-top: 8px;
-  font-size: 15px;
-}
-
-.grade-status {
-  color: var(--muted);
-}
-
-.work-instructions {
-  margin: 12px 0;
-}
-
-.work-instructions summary {
-  cursor: pointer;
-  color: var(--blue);
-  font-size: var(--font-sm);
-  font-weight: 600;
-}
-
-.work-instructions[open] .reading-copy {
-  margin-top: 8px;
-  font-size: 15px;
 }
 
 /* UI — Right sidebar: announcements, tasks, and summary progress
@@ -2117,14 +1997,6 @@ progress::-webkit-progress-value {
   color: var(--navy);
 }
 
-.progress-track {
-  height: 6px;
-  background: #dde5f0;
-  border-radius: 999px;
-  overflow: hidden;
-  margin: 12px 0 10px;
-}
-
 .progress-box p {
   font-size: var(--font-xs);
   line-height: var(--ui-leading);
@@ -2132,7 +2004,7 @@ progress::-webkit-progress-value {
   margin: 8px 0 0;
 }
 
-/* UI — Subject cards, roster/account tables, and enrollment QR */
+/* UI — Subject cards and admin tables */
 .course-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -2170,10 +2042,6 @@ progress::-webkit-progress-value {
   overflow-wrap: anywhere;
 }
 
-.course-card progress {
-  margin-top: 4px;
-}
-
 .table-scroll {
   overflow: auto;
   border: 1px solid var(--line);
@@ -2208,22 +2076,6 @@ progress::-webkit-progress-value {
   color: var(--subtle);
   font-weight: 700;
   background: #fafbfd;
-}
-
-.subject-qr {
-  margin-top: 18px;
-}
-
-.subject-qr img {
-  display: block;
-  width: 260px;
-  max-width: 100%;
-  height: auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
-  margin-bottom: 10px;
 }
 
 /* UI — Dialogs, sign-in modal, toast, PDF reader, and scheduling modal */

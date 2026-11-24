@@ -60,14 +60,17 @@ try {
   assert.equal(await page.locator('#org-hint').isVisible(), false);
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '01-signin-renamed.png') });
 
-  // 2. Admin creates a co-instructor (verifying role-aware Student ID hide & password toggle) and grants read_only access.
+  // 2. Admin creates a co-instructor (verifying only Instructor/Admin roles exist, zero Student ID field, and password toggle) and grants read_only access.
   await loginDemo('admin');
   assert.match(await page.locator('.sidebar-foot').textContent(), /Aeronautical Academy Repository/);
+  assert.equal(await page.locator('[data-action="learners"], [data-action="eligibility"], [data-action="results"], [data-action="discover"]').count(), 0);
   await action('accounts');
   await action('new-account');
-  assert.equal(await page.locator('#student-id-field').isVisible(), true);
-  await page.locator('#new-account select[name=role]').selectOption('instructor');
-  assert.equal(await page.locator('#student-id-field').isVisible(), false);
+  assert.equal(await page.locator('#student-id-field').count(), 0);
+  assert.deepEqual(
+    await page.locator('#new-account select[name=role] option').evaluateAll((opts) => opts.map((o) => o.value)),
+    ['instructor', 'admin'],
+  );
   await page.locator('#new-account [data-action="toggle-field-password"]').click();
   assert.equal(await page.locator('#new-account [name=password]').getAttribute('type'), 'text');
   await page.locator('#new-account [data-action="toggle-field-password"]').click();
@@ -118,13 +121,6 @@ try {
   assert.equal(await page.locator('[data-action="schedule"]').count(), 0);
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '03-instructor-readonly.png') });
 
-  await action('learners');
-  assert.equal(await page.locator('[data-action="export"]').count(), 0);
-  assert.match(await page.locator('#center').textContent(), /Read-only access/);
-  await action('eligibility');
-  assert.equal(await page.locator('#eligibility [name=all]').isDisabled(), true);
-  assert.equal(await page.locator('[data-action="generate-qr"]').count(), 0);
-
   // 5. Admin promotes to Editor, verifies edit controls appear (without subject delete for non-owner), then suspends & verifies removal.
   await action('logout');
   await loginDemo('admin');
@@ -161,19 +157,16 @@ try {
   await idle();
   assert.match(await row.textContent(), /Active · Editor/);
 
-  // 6. Verify student default reader role & zero download/edit controls.
+  // 6. Verify login dialog exposes only Admin & Instructor demo buttons (zero student role).
   await action('logout');
-  await loginDemo('student');
-  assert.match(await page.locator('.account-role').textContent(), /Student · Reader/);
-  assert.equal(await page.locator('[data-action="export"]').count(), 0);
-  assert.equal(await page.locator('[data-action="add"]').count(), 0);
-  assert.equal(await page.locator('[data-action="edit-subject"]').count(), 0);
-  if (shotsDir) await page.screenshot({ path: join(shotsDir, '04-student-reader.png') });
-  await action('settings');
-  assert.match(await page.locator('#center').textContent(), /Reader \(downloads disabled\)/);
+  assert.equal(await page.locator('[data-demo="student"]').count(), 0);
+  assert.deepEqual(
+    await page.locator('[data-demo]').evaluateAll((els) => els.map((e) => e.dataset.demo)),
+    ['admin', 'instructor'],
+  );
 
   assert.deepEqual(errors, []);
-  console.log('PASS: app rename, login/registration workflow, forced password rotation, instructor read-only/editor/suspend/activate access, and student reader/no-download default.');
+  console.log('PASS: app rename, admin/instructor-only login/registration workflow, forced password rotation, and instructor read-only/editor/suspend/activate access.');
 } finally {
   if (application) await application.close();
   await rm(directory, { recursive: true, force: true });

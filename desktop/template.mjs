@@ -27,8 +27,6 @@ export async function installPracticeTemplate(db) {
     };
     add(template.overview);
     for(const period of template.periods){let material=null;for(const entry of period.entries){const id=add(entry,entry.kind==='material'||entry.kind==='examination'?null:material);if(entry.kind==='material')material=id;}}
-    const student=db.prepare("SELECT id FROM accounts WHERE email='student@academy.test' AND role='student' AND status='active'").get();
-    if(student&&!db.prepare('SELECT 1 FROM enrolment_blocks WHERE subject_id=? AND student_id=?').get(subjectId,student.id))db.prepare("INSERT OR IGNORE INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin')").run(subjectId,student.id);
     db.prepare('INSERT INTO desktop_templates VALUES(?,?,?)').run(template.key,subjectId,template.templateVersion);db.exec('COMMIT');return true;
   }catch(error){db.exec('ROLLBACK');throw error;}
 }
