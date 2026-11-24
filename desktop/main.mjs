@@ -8,10 +8,17 @@ import {
   session,
   shell,
 } from "electron";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeFile, readFile, stat } from "node:fs/promises";
+import { writeFile, readFile, stat, rename, unlink, readdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { startLocal, AcademyBridge } from "./bridge.mjs";
+import {
+  buildExportPackage,
+  parseAndValidateImport,
+  importPackage,
+  MAX_PACKAGE_BYTES,
+} from "./transfer.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 protocol.registerSchemesAsPrivileged([
@@ -129,11 +136,15 @@ async function boot() {
             return { ok: false, error: e.message, status: e.status };
           }
         });
+      const pendingImports = new Map();
       register("academy:login", async (data) => ({...await bridge.login(data), version:app.getVersion()}));
       register("academy:request", (path, options) =>
         bridge.request(path, options),
       );
-      register("academy:logout", () => bridge.logout());
+      register("academy:logout", async () => {
+        pendingImports.clear();
+        return bridge.logout();
+      });
       register("academy:sync", () => bridge.sync());
       register("academy:read-material", (id, revision) => bridge.readMaterial(id, revision));
       register("academy:upload-material", async (id, version) => {
@@ -164,6 +175,101 @@ async function boot() {
         return bridge.uploadImage(subjectId, await readFile(selected.filePaths[0]));
       });
       register("academy:read-image", (params) => bridge.readImage(params || {}));
+      register("academy:export-package", async (options = {}) => {
+        const scope = options?.scope === "repository" ? "repository" : "subject";
+        const subjectId = typeof options?.subjectId === "string" ? options.subjectId : null;
+        const pkg = await buildExportPackage(bridge, {
+          scope,
+          subjectId,
+          appVersion: app.getVersion(),
+        });
+        let targetPath;
+        if (automated) {
+          targetPath = join(process.env.ACADEMY_TEST_DATA, pkg.filename);
+        } else {
+          const saved = await dialog.showSaveDialog(window, {
+            title: scope === "repository" ? "Export repository backup" : "Export subject package",
+            defaultPath: join(app.getPath("documents"), pkg.filename),
+            filters: [{ name: "Aeronautical Academy Export", extensions: ["aoa.json", "json"] }],
+          });
+          if (saved.canceled || !saved.filePath) return { canceled: true };
+          targetPath = saved.filePath;
+        }
+        const tempPath = `${targetPath}.tmp-${process.pid}-${randomUUID().slice(0, 8)}`;
+        try {
+          await writeFile(tempPath, pkg.json, { encoding: "utf8", mode: 0o600 });
+          await rename(tempPath, targetPath);
+        } catch (err) {
+          await unlink(tempPath).catch(() => {});
+          throw err;
+        }
+        return {
+          canceled: false,
+          filename: basename(targetPath),
+          summary: pkg.summary,
+        };
+      });
+      register("academy:preview-import", async () => {
+        if (!bridge.account || !["admin", "instructor"].includes(bridge.account.role)) {
+          const err = new Error("Administrator or instructor access required.");
+          err.status = 403;
+          throw err;
+        }
+        let filePath;
+        if (automated) {
+          if (process.env.ACADEMY_TEST_IMPORT_FILE) {
+            filePath = process.env.ACADEMY_TEST_IMPORT_FILE;
+          } else {
+            const entries = (await readdir(process.env.ACADEMY_TEST_DATA)).filter((name) =>
+              name.endsWith(".aoa.json"),
+            );
+            if (!entries.length) throw new Error("No export package found for automated import.");
+            const stats = await Promise.all(
+              entries.map(async (name) => ({
+                path: join(process.env.ACADEMY_TEST_DATA, name),
+                mtime: (await stat(join(process.env.ACADEMY_TEST_DATA, name))).mtimeMs,
+              })),
+            );
+            stats.sort((a, b) => b.mtime - a.mtime);
+            filePath = stats[0].path;
+          }
+        } else {
+          const selected = await dialog.showOpenDialog(window, {
+            title: "Import subject or repository package",
+            properties: ["openFile"],
+            filters: [{ name: "Aeronautical Academy Export", extensions: ["aoa.json", "json"] }],
+          });
+          if (selected.canceled || !selected.filePaths.length) return { canceled: true };
+          filePath = selected.filePaths[0];
+        }
+        const info = await stat(filePath);
+        if (info.size > MAX_PACKAGE_BYTES) {
+          throw new Error("Choose an export file up to 50 MB.");
+        }
+        const raw = await readFile(filePath);
+        const { payload, summary } = parseAndValidateImport(raw, basename(filePath));
+        while (pendingImports.size >= 5) {
+          const oldest = pendingImports.keys().next().value;
+          pendingImports.delete(oldest);
+        }
+        const importId = randomUUID();
+        pendingImports.set(importId, payload);
+        return { canceled: false, importId, summary };
+      });
+      register("academy:commit-import", async (importId) => {
+        if (typeof importId !== "string" || !pendingImports.has(importId)) {
+          const err = new Error("Import session expired. Select the export file again.");
+          err.status = 400;
+          throw err;
+        }
+        const payload = pendingImports.get(importId);
+        pendingImports.delete(importId);
+        return importPackage(bridge, payload);
+      });
+      register("academy:cancel-import", (importId) => {
+        if (typeof importId === "string") pendingImports.delete(importId);
+        return { cleared: true };
+      });
       register("academy:link", (data) => bridge.openLink(data));
       register("academy:inspect-link", (url) => bridge.inspectLink(url));
       await window.loadURL("academy://app/");

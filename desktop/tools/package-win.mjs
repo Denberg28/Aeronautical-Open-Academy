@@ -29,6 +29,7 @@ for (const path of [
   "preload.cjs",
   "bridge.mjs",
   "transport.mjs",
+  "transfer.mjs",
   "template.mjs",
   "assets",
   "materials.mjs",
