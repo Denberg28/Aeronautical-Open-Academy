@@ -8,6 +8,7 @@ import { DatabaseSync, backup } from "node:sqlite";
 import { installPracticeTemplate } from "./template.mjs";
 import { createAcademy } from "../server/src/server.mjs";
 import { hashPassword } from "../server/src/security.mjs";
+import { detectImageMime, MAX_IMAGE_BYTES } from "../server/src/richtext.mjs";
 import { externalUrl } from "../server/src/links.mjs";
 import { materialPresentation, describeLink } from "./materials.mjs";
 import { enrollmentQr } from "./enrollment.mjs";
@@ -16,10 +17,10 @@ const demoPassword = (role) => `${role}-local-demonstration-only`;
 const roles = ["admin", "instructor", "student"];
 export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.11.sqlite");
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.12.sqlite");
   if(existsSync(database)&&!existsSync(snapshot)){
     const previous=new DatabaseSync(database,{readOnly:true});
-    try{if(previous.prepare('PRAGMA user_version').get().user_version<14)await backup(previous,snapshot);}finally{previous.close();}
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<15)await backup(previous,snapshot);}finally{previous.close();}
   }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),
@@ -175,7 +176,7 @@ function validateRequest(path, options) {
     throw new Error("Invalid request method.");
   if (
     options.body !== undefined &&
-    Buffer.byteLength(JSON.stringify(options.body)) > 65536
+    Buffer.byteLength(JSON.stringify(options.body)) > 131072
   )
     throw new Error("This entry is too long.");
   if (options.key && !/^[a-f0-9-]{36}$/.test(options.key))
@@ -269,10 +270,31 @@ export class AcademyBridge {
     if (
       path.startsWith("/v1/auth/login") ||
       path.split("?")[0].endsWith("/export") ||
-      path.split("?")[0].endsWith("/content")
+      path.split("?")[0].endsWith("/content") ||
+      path.split("?")[0].includes("/images")
     )
-      throw new Error("Use the dedicated sign-in or export action.");
-    const result = await this.fetch(path, options);
+      throw new Error("Use the dedicated sign-in, image, or export action.");
+    let opts = options;
+    if (
+      path === "/v1/auth/password" &&
+      this.mode === "local" &&
+      options.body &&
+      typeof options.body.current_password === "string" &&
+      this.account?.email
+    ) {
+      const alias = this.account.email.replace(/@academy\.test$/i, "").toLowerCase();
+      if (
+        roles.includes(alias) &&
+        this.account.email.toLowerCase() === `${alias}@academy.test` &&
+        options.body.current_password === alias
+      ) {
+        opts = {
+          ...options,
+          body: { ...options.body, current_password: demoPassword(alias) },
+        };
+      }
+    }
+    const result = await this.fetch(path, opts);
     if (["/v1/auth/password","/v1/auth/logout-all"].includes(path)) {
       this.token = "";
       this.account = null;
@@ -312,6 +334,48 @@ export class AcademyBridge {
     const result=JSON.parse((await responseBytes(response,65536)).toString('utf8'));
     if(!response.ok){const error=new Error(result.error||'Upload failed.');error.status=response.status;if(response.status===401){this.token='';this.account=null;}throw error;}
     return result;
+  }
+  async uploadImage(subjectId, bytes) {
+    if(!this.token){const error=new Error('Sign in to continue.');error.status=401;throw error;}
+    if(!/^[a-f0-9-]{36}$/.test(subjectId))throw new Error('Choose a subject.');
+    if(!Buffer.isBuffer(bytes)||bytes.length<12||bytes.length>MAX_IMAGE_BYTES)throw new Error('Paste or choose an image up to 5 MB.');
+    const mime=detectImageMime(bytes);
+    if(!mime)throw new Error('Unsupported image format. Use PNG, JPEG, WebP, or GIF.');
+    const identity=this.origin+'|'+this.token;
+    const response=await this.fetcher(this.origin+`/v1/subjects/${subjectId}/images`,{
+      method:'POST',redirect:'error',signal:AbortSignal.timeout(60000),body:bytes,
+      headers:{Authorization:'Bearer '+this.token,'Content-Type':mime,
+        ...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})}});
+    if(identity!==this.origin+'|'+this.token){const error=new Error('The session changed. Sign in again.');error.status=401;throw error;}
+    const result=JSON.parse((await responseBytes(response,65536)).toString('utf8'));
+    if(!response.ok){const error=new Error(result.error||'Image upload failed.');error.status=response.status;if(response.status===401){this.token='';this.account=null;}throw error;}
+    return {...result,dataUrl:`data:${mime};base64,${bytes.toString('base64')}`};
+  }
+  async readImage({ itemId, subjectId, imageId }) {
+    if(!this.token){const error=new Error('Sign in to continue.');error.status=401;throw error;}
+    if(!/^[a-f0-9-]{36}$/.test(imageId))throw new Error('Invalid image.');
+    let path;
+    if(itemId&&/^[a-f0-9-]{36}$/.test(itemId))path=`/v1/items/${itemId}/images/${imageId}`;
+    else if(subjectId&&/^[a-f0-9-]{36}$/.test(subjectId))path=`/v1/subjects/${subjectId}/images/${imageId}`;
+    else throw new Error('Choose an entry or subject.');
+    const identity=this.origin+'|'+this.token;
+    const headers={Authorization:'Bearer '+this.token,...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})};
+    let response;
+    try{
+      response=await this.fetcher(this.origin+path,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(30000)});
+    }catch{
+      throw new Error('Could not load pasted image.');
+    }
+    if(identity!==this.origin+'|'+this.token){const error=new Error('The session changed. Sign in again.');error.status=401;throw error;}
+    if(!response.ok){
+      if(response.status===401){this.token='';this.account=null;}
+      const error=new Error('Image unavailable.');error.status=response.status;throw error;
+    }
+    const bytes=await responseBytes(response,MAX_IMAGE_BYTES);
+    const digest=response.headers.get('X-Content-SHA256');
+    const mime=detectImageMime(bytes);
+    if(!mime||!digest||createHash('sha256').update(bytes).digest('hex')!==digest)throw new Error('Image integrity check failed.');
+    return {mime_type:mime,dataUrl:`data:${mime};base64,${bytes.toString('base64')}`};
   }
   inspectLink(raw) {
     const link = describeLink(raw);

@@ -13,6 +13,7 @@ import { workbook } from './xlsx.mjs';
 import { validateQuestions,quizQuestions,publicQuestions,gradeAnswers,MAX_QUIZ_QUESTIONS } from './quizzes.mjs';
 import { openDatabase } from './store.mjs';
 import { ApiError, requireThat, text, email, password, hashPassword, verifyPassword, publicAccount, digest, token, canManage, MAX_FILE_BYTES, studentNumber, accountName } from './security.mjs';
+import { sanitizeRichHtml, extractImageIds, normalizeSpacing, detectImageMime, MAX_IMAGE_BYTES } from './richtext.mjs';
 
 export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock=Date.now,scryptN=131072,sessionMs=8*60*60*1000}={}){
  const db=openDatabase(dbPath),now=()=>clock();
@@ -50,7 +51,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  async function json(req){
   requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send JSON with application/json.');
   let bytes=0;const chunks=[];
-  for await(const chunk of req){bytes+=chunk.length;requireThat(bytes<=65536,413,'Request exceeds 64 KB.');chunks.push(chunk);}
+  for await(const chunk of req){bytes+=chunk.length;requireThat(bytes<=131072,413,'Request exceeds 128 KB.');chunks.push(chunk);}
   try{const value=JSON.parse(Buffer.concat(chunks).toString('utf8'));requireThat(value&&typeof value==='object'&&!Array.isArray(value),400,'Expected a JSON object.');return value;}
   catch(e){if(e instanceof ApiError)throw e;throw new ApiError(400,'Invalid JSON.');}
  }
@@ -181,12 +182,51 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  function descendants(id){
   return all(`WITH RECURSIVE tree AS (SELECT * FROM items WHERE parent_id=? AND archived=0 UNION ALL SELECT i.* FROM items i JOIN tree t ON i.parent_id=t.id WHERE i.archived=0) SELECT * FROM tree`,id);
  }
- function validateParent(a,parentId,subjectId,kind,examination){
+ const MAX_ENTRY_DEPTH=4;
+ function itemTreeMap(subjectId){
+  const rows=all('SELECT id,parent_id,kind,owner_id FROM items WHERE subject_id=? AND archived=0',subjectId);
+  return {rows,byId:new Map(rows.map(r=>[r.id,r]))};
+ }
+ function itemDepth(byId,id){
+  let depth=0,cur=id;const seen=new Set();
+  while(cur){
+   requireThat(!seen.has(cur),400,'Invalid entry hierarchy.');
+   seen.add(cur);
+   const node=byId.get(cur);
+   requireThat(node,400,'Choose a material in this subject.');
+   cur=node.parent_id;depth++;
+  }
+  return depth;
+ }
+ function itemSubtreeHeight(rows,rootId){
+  let max=0;const stack=[[rootId,0]];
+  while(stack.length){
+   const [id,d]=stack.pop();if(d>max)max=d;
+   for(const r of rows)if(r.parent_id===id)stack.push([r.id,d+1]);
+  }
+  return max;
+ }
+ function validateParent(a,parentId,subjectId,kind,examination,movingItemId=null){
   requireThat(parentId===null||typeof parentId==='string',400,'Choose a material in this subject.');
   if(parentId===null)return;
-  requireThat(['activity','quiz'].includes(kind)&&!examination,400,'Only activities and quizzes belong inside a material. Examinations stay at subject level.');
   const parent=itemFor(a,parentId,false);
-  requireThat(parent.subject_id===subjectId&&parent.kind==='material'&&!parent.parent_id,400,'Choose a material in this subject.');
+  requireThat(parent.subject_id===subjectId&&parent.kind==='material',400,'Choose a material in this subject.');
+  const {rows,byId}=itemTreeMap(subjectId);
+  if(movingItemId){
+   requireThat(parentId!==movingItemId,400,'An entry cannot be moved inside itself.');
+   const desc=new Set(descendants(movingItemId).map(r=>r.id));
+   requireThat(!desc.has(parentId),400,'An entry cannot be moved inside one of its own child entries.');
+   requireThat(itemDepth(byId,parentId)+1+itemSubtreeHeight(rows,movingItemId)<=MAX_ENTRY_DEPTH,400,`Entries can nest up to ${MAX_ENTRY_DEPTH} levels deep.`);
+  }else{
+   requireThat(itemDepth(byId,parentId)+1<=MAX_ENTRY_DEPTH,400,`Entries can nest up to ${MAX_ENTRY_DEPTH} levels deep.`);
+  }
+ }
+ function verifyItemImages(a,subjectId,itemId,imageIds){
+  for(const imgId of imageIds){
+   const img=get('SELECT id,subject_id,item_id,owner_id FROM item_images WHERE id=?',imgId);
+   requireThat(img&&img.subject_id===subjectId,400,'Remove missing or invalid pasted images before saving.');
+   requireThat((itemId&&img.item_id===itemId)||(img.item_id===null&&(img.owner_id===a.id||a.role==='admin')),403,'You cannot attach an image uploaded by another user.');
+  }
  }
 
  function itemFor(a,id,write=false){
@@ -200,7 +240,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
  function presentItem(a,item,features=""){
   const editor=a.role==='admin'||(a.role==='instructor'&&instructorAccess(a,item.subject_id).canEdit);
   const manager=editor&&canManage(a,item.owner_id);
-  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,published:!!item.published,offline_allowed:false,can_edit:manager,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
+  const copy={parent_id:item.parent_id,id:item.id,subject_id:item.subject_id,owner_id:item.owner_id,kind:item.kind,title:item.title,body:item.body,body_html:item.body_html??null,paragraph_spacing:item.paragraph_spacing||'normal',published:!!item.published,offline_allowed:false,can_edit:manager,revision:item.revision,edit_version:item.edit_version,material_mode:item.material_mode,has_file:!!item.file_ref};
   if(item.kind==='quiz'){
    copy.questions=publicQuestions(item,manager);
    copy.question_count=copy.questions.length;
@@ -255,8 +295,8 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.11.0'});
-   if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.12.0-rc.1'});
+   if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path)&&!/^\/v1\/subjects\/[a-f0-9-]{36}\/images$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){
     const data=payload;throttle('login-peer:'+String(req.socket.remoteAddress||'local'),100);
@@ -271,7 +311,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     return send(200,{token:raw,account:publicAccount(fresh)});
    }
    const a=authenticate(req);
-   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
+   if(path==='/v1/me'&&method==='GET')return send(200,{account:publicAccount(a),capabilities:{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",rich_content:"v1",entry_images:"v1",multi_level_entries:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:MAX_QUIZ_QUESTIONS,external_links:true,material_upload:!!materials}});
    if(path==='/v1/auth/logout'&&method==='POST'){run('DELETE FROM sessions WHERE token_hash=?',a.token_hash);return send(200,{signed_out:true});}
    if(path==='/v1/auth/logout-all'&&method==='POST'){
     transaction(()=>{run('DELETE FROM sessions WHERE account_id=?',a.id);audit(a.id,'sign-out-all',a.id);});
@@ -314,8 +354,10 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    }
    if((match=path.match(/^\/v1\/admin\/accounts\/([a-f0-9-]{36})\/password$/))&&method==='POST'){
     admin(a);recent(a);const d=payload,target=get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",match[1]);requireThat(target,404,'Account unavailable.');
+    requireThat(d.require_change===undefined||typeof d.require_change==='boolean',400,'Set require_change true or false.');
+    const mustChange=d.require_change===false?0:1;
     const hashed=await hashPassword(d.password,scryptN);const fresh=authenticate(req);admin(fresh);recent(fresh);requireThat(get("SELECT id FROM accounts WHERE id=? AND status<>'deleted'",target.id),404,'Account unavailable.');
-    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?',hashed,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);});return send(200,{reset:true});
+    transaction(()=>{run('UPDATE accounts SET password_hash=?,must_change_password=? WHERE id=?',hashed,mustChange,target.id);run('DELETE FROM sessions WHERE account_id=?',target.id);audit(a.id,'password-reset',target.id);});return send(200,{reset:true,must_change_password:!!mustChange});
    }
    // Admin — Per-subject instructor access control (read_only/editor and active/suspended).
    if((match=path.match(/^\/v1\/admin\/subjects\/([a-f0-9-]{36})\/instructors$/))&&['GET','POST'].includes(method)){
@@ -574,10 +616,71 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/order$/))&&method==='POST'){
     const subject=subjectFor(a,match[1],true),d=payload;
     requireThat(Number.isInteger(d.expected_revision)&&d.expected_revision===subject.order_revision,409,'Entries changed. Refresh before moving them.');
-    const current=all('SELECT id FROM items WHERE subject_id=? AND archived=0',subject.id).map(i=>i.id);
-    requireThat(Array.isArray(d.item_ids)&&d.item_ids.length===current.length&&new Set(d.item_ids).size===current.length&&d.item_ids.every(id=>typeof id==='string'&&current.includes(id)),400,'Move the current entries of this subject only.');
-    transaction(()=>{d.item_ids.forEach((id,index)=>run('UPDATE items SET sort_order=? WHERE id=?',index,id));run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',subject.id);audit(a.id,'item-order',subject.id);});
+    const rows=all('SELECT id,parent_id,kind,owner_id FROM items WHERE subject_id=? AND archived=0',subject.id);
+    const current=rows.map(i=>i.id);
+    const byId=new Map(rows.map(r=>[r.id,r]));
+    requireThat(Array.isArray(d.item_ids)&&d.item_ids.length===current.length&&new Set(d.item_ids).size===current.length&&d.item_ids.every(id=>typeof id==='string'&&byId.has(id)),400,'Move the current entries of this subject only.');
+    const parentUpdates=new Map();
+    if(d.parent_updates!==undefined){
+     requireThat(Array.isArray(d.parent_updates)&&d.parent_updates.length<=200,400,'Invalid entry hierarchy updates.');
+     for(const entry of d.parent_updates){
+      requireThat(entry&&typeof entry==='object'&&typeof entry.id==='string'&&byId.has(entry.id),400,'Move the current entries of this subject only.');
+      const nextParent=entry.parent_id==null||entry.parent_id===''?null:String(entry.parent_id);
+      if(nextParent!==null){
+       const parentNode=byId.get(nextParent);
+       requireThat(parentNode&&parentNode.kind==='material',400,'Choose a material in this subject.');
+      }
+      const existing=byId.get(entry.id);
+      if((existing.parent_id??null)!==nextParent){
+       requireThat(canManage(a,existing.owner_id),403,'Only the creator or an administrator can move this entry to another level.');
+       parentUpdates.set(entry.id,nextParent);
+      }
+     }
+     if(parentUpdates.size){
+      const proposed=new Map(rows.map(r=>[r.id,{...r,parent_id:parentUpdates.has(r.id)?parentUpdates.get(r.id):(r.parent_id??null)}]));
+      for(const node of proposed.values()){
+       requireThat(itemDepth(proposed,node.id)<=MAX_ENTRY_DEPTH,400,`Entries can nest up to ${MAX_ENTRY_DEPTH} levels deep.`);
+      }
+     }
+    }
+    transaction(()=>{
+     for(const [id,parentId] of parentUpdates.entries())run('UPDATE items SET parent_id=?,edit_version=edit_version+1 WHERE id=?',parentId,id);
+     d.item_ids.forEach((id,index)=>run('UPDATE items SET sort_order=? WHERE id=?',index,id));
+     run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',subject.id);
+     audit(a.id,'item-order',subject.id);
+    });
     return send(200,{saved:true,revision:subject.order_revision+1});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/images$/))&&method==='POST'){
+    const subject=subjectFor(a,match[1],true);
+    requireThat(Number(req.headers['content-length']||0)<=MAX_IMAGE_BYTES,413,'Image exceeds 5 MB.');
+    let bytesLen=0;const chunks=[];
+    for await(const chunk of req){bytesLen+=chunk.length;requireThat(bytesLen<=MAX_IMAGE_BYTES,413,'Image exceeds 5 MB.');chunks.push(chunk);}
+    const data=Buffer.concat(chunks);
+    const mime=detectImageMime(data);
+    requireThat(mime,400,'Paste or choose a PNG, JPEG, WebP, or GIF image up to 5 MB.');
+    const fresh=authenticate(req);subjectFor(fresh,subject.id,true);
+    const id=randomUUID(),hash=digest(data),ts=now();
+    transaction(()=>{
+     run('DELETE FROM item_images WHERE item_id IS NULL AND created_at<?',ts-24*60*60*1000);
+     run('INSERT INTO item_images(id,subject_id,item_id,owner_id,mime_type,sha256,bytes,data,created_at) VALUES(?,?,NULL,?,?,?,?,?,?)',id,subject.id,fresh.id,mime,hash,data.length,data,ts);
+     audit(fresh.id,'image-upload',id);
+    });
+    return send(201,{image:{id,mime_type:mime,sha256:hash,bytes:data.length}});
+   }
+   if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/images\/([a-f0-9-]{36})$/))&&method==='GET'){
+    const subject=subjectFor(a,match[1],true);
+    const img=get('SELECT id,subject_id,item_id,owner_id,mime_type,sha256,bytes,data FROM item_images WHERE id=? AND subject_id=?',match[2],subject.id);
+    requireThat(img&&(img.item_id!==null||img.owner_id===a.id||a.role==='admin'),404,'Image unavailable.');
+    res.writeHead(200,{'Content-Type':img.mime_type,'Content-Length':String(img.bytes),'Content-Disposition':'inline','X-Content-SHA256':img.sha256,'X-Download-Options':'noopen','X-Robots-Tag':'noindex, nofollow'});
+    res.end(Buffer.from(img.data));return;
+   }
+   if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})\/images\/([a-f0-9-]{36})$/))&&method==='GET'){
+    const item=itemFor(a,match[1]);
+    const img=get('SELECT id,mime_type,sha256,bytes,data FROM item_images WHERE id=? AND item_id=? AND subject_id=?',match[2],item.id,item.subject_id);
+    requireThat(img,404,'Image unavailable.');
+    res.writeHead(200,{'Content-Type':img.mime_type,'Content-Length':String(img.bytes),'Content-Disposition':'inline','X-Content-SHA256':img.sha256,'X-Download-Options':'noopen','X-Robots-Tag':'noindex, nofollow'});
+    res.end(Buffer.from(img.data));return;
    }
    if((match=path.match(/^\/v1\/subjects\/([a-f0-9-]{36})\/items$/))&&method==='POST'){
     subjectFor(a,match[1],true);requireThat(get('SELECT count(*) n FROM items WHERE subject_id=? AND archived=0',match[1]).n<200,409,'A subject can contain at most 200 current items.');const d=payload;const examination=d.kind==='examination';if(examination)d.kind='activity';requireThat(['material','activity','quiz'].includes(d.kind),400,'Choose material, activity, or quiz.');
@@ -598,7 +701,17 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(!('external_url'in d)&&!('link_type'in d),400,'Paste web links directly into material text.');
     requireThat(d.kind!=='material'||mode!=='text'||d.offline_allowed!==true,400,'External offline access is managed by the host platform.');
     const parentId=d.parent_id??null;validateParent(a,parentId,match[1],d.kind,examination);
-    const id=randomUUID();transaction(()=>{run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type,parent_id,questions_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard',parentId,questions);run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);audit(a.id,'item-create',id);});return send(201,{id});
+    const bodyHtml=sanitizeRichHtml(d.body_html);
+    const paragraphSpacing=normalizeSpacing(d.paragraph_spacing);
+    const imageIds=extractImageIds(bodyHtml);
+    verifyItemImages(a,match[1],null,imageIds);
+    const id=randomUUID();transaction(()=>{
+     run('INSERT INTO items(id,subject_id,owner_id,kind,title,body,body_html,paragraph_spacing,published,offline_allowed,options_json,correct_index,created_at,material_mode,assessment_type,parent_id,questions_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',id,match[1],a.id,d.kind,text(d.title,'title',160),text(d.body,'instructions',12000),bodyHtml,paragraphSpacing,d.published===true?1:0,d.offline_allowed===true?1:0,options,answer,now(),d.kind==='material'?mode:'file',examination?'examination':'standard',parentId,questions);
+     for(const imgId of imageIds)run('UPDATE item_images SET item_id=? WHERE id=?',id,imgId);
+     run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=? AND id<>?) WHERE id=?',match[1],id,id);
+     run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',match[1]);
+     audit(a.id,'item-create',id);
+    });return send(201,{id});
    }
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&method==='GET')return send(200,{item:presentItem(a,itemFor(a,match[1]),String(req.headers['x-academy-features']||''))});
    if((match=path.match(/^\/v1\/items\/([a-f0-9-]{36})$/))&&['PATCH','POST'].includes(method)){
@@ -608,15 +721,18 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
     requireThat(!('owner_id'in d)&&!('subject_id'in d)&&!('correct_index'in d)&&!('questions'in d)&&!('options'in d)&&!('kind'in d)&&!('assessment_type'in d),400,'Create a new item when changing ownership, subject, or quiz answers.');
     const title=d.title===undefined?item.title:text(d.title,'title',160),body=d.body===undefined?item.body:text(d.body,'instructions',12000);
     requireThat(!('material_mode'in d)&&!('external_url'in d)&&!('link_type'in d),400,'Paste links into text. Create a new item when changing material mode.');
-    const changed=title!==item.title||body!==item.body;
-    const parentId='parent_id' in d?d.parent_id:item.parent_id;
+    const hasRich='body_html' in d;
+    const bodyHtml=hasRich?sanitizeRichHtml(d.body_html):(item.body_html??null);
+    const paragraphSpacing='paragraph_spacing' in d?normalizeSpacing(d.paragraph_spacing):(item.paragraph_spacing||'normal');
+    const imageIds=hasRich?extractImageIds(bodyHtml):null;
+    if(imageIds)verifyItemImages(a,item.subject_id,item.id,imageIds);
+    const changed=title!==item.title||body!==item.body||(hasRich&&bodyHtml!==(item.body_html??null));
+    const parentId='parent_id' in d?(d.parent_id==null||d.parent_id===''?null:d.parent_id):item.parent_id;
     const moving=parentId!==item.parent_id;
     if(moving){
      requireThat(Number.isInteger(d.expected_edit_version)&&d.expected_edit_version===item.edit_version,409,'This entry changed. Refresh before moving it.');
      requireThat(Number.isInteger(d.expected_order_revision)&&d.expected_order_revision===subjectFor(a,item.subject_id,true).order_revision,409,'The subject tree changed. Refresh before moving it.');
-     requireThat(['activity','quiz'].includes(item.kind)&&item.assessment_type!=='examination',400,'Only activities and quizzes can move into a material.');
-     requireThat(parentId!==null,400,'Choose a material for this activity or quiz.');
-     validateParent(a,parentId,item.subject_id,item.kind,false);
+     validateParent(a,parentId,item.subject_id,item.kind,item.assessment_type==='examination',item.id);
     }
     const children=item.kind==='material'&&d.archived===true?descendants(item.id):[];
     if(children.length){
@@ -625,7 +741,14 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
      requireThat(children.every(child=>canManage(a,child.owner_id)),403,'An administrator must remove entries created by another owner.');
     }
     transaction(()=>{
-     run('UPDATE items SET title=?,body=?,published=?,archived=?,parent_id=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,parentId,changed?1:0,item.id);
+     run('UPDATE items SET title=?,body=?,body_html=?,paragraph_spacing=?,published=?,archived=?,parent_id=?,revision=revision+?,edit_version=edit_version+1 WHERE id=?',title,body,bodyHtml,paragraphSpacing,d.published===undefined?item.published:d.published===true?1:0,d.archived===true?1:0,parentId,changed?1:0,item.id);
+     if(imageIds){
+      for(const imgId of imageIds)run('UPDATE item_images SET item_id=? WHERE id=?',item.id,imgId);
+      const keep=new Set(imageIds);
+      for(const existingImg of all('SELECT id FROM item_images WHERE item_id=?',item.id)){
+       if(!keep.has(existingImg.id))run('DELETE FROM item_images WHERE id=?',existingImg.id);
+      }
+     }
      if(moving)run('UPDATE items SET sort_order=(SELECT COALESCE(MAX(sort_order),-1)+1 FROM items WHERE subject_id=?) WHERE id=?',item.subject_id,item.id);
      for(const child of children)run('UPDATE items SET archived=1,edit_version=edit_version+1 WHERE id=?',child.id);
      if(d.archived===true||moving)run('UPDATE subjects SET order_revision=order_revision+1 WHERE id=?',item.subject_id);

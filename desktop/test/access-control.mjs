@@ -78,6 +78,7 @@ try {
   await page.locator('#new-account [name=name]').fill('Co-Instructor');
   await page.locator('#new-account [name=email]').fill('coinst@academy.test');
   await page.locator('#new-account [name=password]').fill(tempPass);
+  await page.locator('#new-account [name=confirm_password]').fill(tempPass);
   await submit('#new-account');
   await page.getByText('coinst@academy.test', { exact: true }).waitFor();
 

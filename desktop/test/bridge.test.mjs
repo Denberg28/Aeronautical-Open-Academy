@@ -100,6 +100,52 @@ test("desktop local workflow: permissions, link reauthorization, persistence, su
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("bridge supports local account password update and authenticated pasted image roundtrip", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "academy-bridge-v15-"));
+  const local = await startLocal(directory, { legacyFixture: true });
+  const bridge = new AcademyBridge(local);
+  const tinyPng = Buffer.from(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082",
+    "hex",
+  );
+  try {
+    await bridge.login({ username: "instructor", password: "instructor" });
+    const subject = (await bridge.request("/v1/subjects")).subjects[0];
+    // Reject non-image bytes; accept valid PNG and bind to a rich entry.
+    await assert.rejects(bridge.uploadImage(subject.id, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>')), /Unsupported image/);
+    const uploaded = await bridge.uploadImage(subject.id, tinyPng);
+    assert.ok(uploaded.dataUrl.startsWith("data:image/png;base64,"));
+    const created = await bridge.request(`/v1/subjects/${subject.id}/items`, {
+      method: "POST",
+      body: {
+        kind: "material",
+        material_mode: "text",
+        title: "Diagram note",
+        body: "Diagram note\n[Image: Diagram]",
+        body_html: `<p data-indent="1"><strong>Diagram</strong></p><figure data-img="${uploaded.image.id}"><img data-img="${uploaded.image.id}" alt="Diagram"></figure>`,
+        paragraph_spacing: "relaxed",
+        published: true,
+      },
+    });
+    const read = await bridge.readImage({ itemId: created.id, imageId: uploaded.image.id });
+    assert.equal(read.dataUrl, uploaded.dataUrl);
+
+    // Local demo account can update its password using its sign-in alias password.
+    const nextPass = "My Updated Local Instructor Password 2026!";
+    await bridge.request("/v1/auth/password", {
+      method: "POST",
+      body: { current_password: "instructor", new_password: nextPass },
+    });
+    await assert.rejects(bridge.login({ username: "instructor", password: "instructor" }));
+    const loggedIn = await bridge.login({ username: "instructor", password: nextPass });
+    assert.equal(loggedIn.account.role, "instructor");
+  } finally {
+    await bridge.logout();
+    await local.academy.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 test("organization sign-in never maps demo credentials or forwards the local access key", async () => {
   const seen = [];
   const bridge = new AcademyBridge(
