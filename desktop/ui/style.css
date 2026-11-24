@@ -507,6 +507,14 @@ input[type="radio"] {
   grid-template-rows: 72px minmax(0, 1fr);
 }
 
+#app.sidebar-expanded {
+  grid-template-columns: min(360px, 34vw) minmax(0, 1fr) 300px;
+}
+
+#app.sidebar-collapsed {
+  grid-template-columns: 58px minmax(0, 1fr) 300px;
+}
+
 #app[hidden] {
   display: none;
 }
@@ -521,16 +529,89 @@ input[type="radio"] {
   overflow: auto;
 }
 
+.sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 6px;
+  margin-bottom: 24px;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 28px;
+  margin-bottom: 0;
+  min-width: 0;
   font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.4;
   color: var(--navy);
+}
+
+.brand-text {
+  min-width: 0;
+}
+
+.sidebar-width-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-arrow-btn {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #f8fafd;
+  color: var(--navy);
+}
+
+.sidebar-arrow-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sidebar-arrow-btn:hover:not(:disabled) {
+  background: #edf3fb;
+  border-color: var(--line-strong);
+  color: var(--navy);
+}
+
+#app.sidebar-collapsed .sidebar {
+  padding: 18px 8px;
+  align-items: center;
+  overflow: hidden;
+}
+
+#app.sidebar-collapsed .sidebar-head {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+#app.sidebar-collapsed .brand-text,
+#app.sidebar-collapsed .sidebar details,
+#app.sidebar-collapsed .sidebar-foot {
+  display: none;
+}
+
+#app.sidebar-collapsed .sidebar-width-controls {
+  margin-left: 0;
+}
+
+#app.sidebar-collapsed .sidebar-arrow-btn {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
 }
 
 .brand-mark {
@@ -2325,6 +2406,12 @@ dialog h1 {
   #app {
     grid-template-columns: 204px minmax(0, 1fr) 256px;
   }
+  #app.sidebar-expanded {
+    grid-template-columns: min(300px, 32vw) minmax(0, 1fr) 256px;
+  }
+  #app.sidebar-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr) 256px;
+  }
   .sidebar {
     padding: 20px 12px;
   }
@@ -2356,6 +2443,12 @@ dialog h1 {
     min-height: 0;
     grid-template-rows: 68px minmax(0, 1fr);
   }
+  #app.sidebar-expanded {
+    grid-template-columns: min(280px, 38vw) minmax(0, 1fr);
+  }
+  #app.sidebar-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
   .sidebar {
     grid-row: 1 / 3;
   }
@@ -2375,9 +2468,19 @@ dialog h1 {
 }
 
 @media (max-width: 650px) {
-  #app {
+  #app,
+  #app.sidebar-expanded,
+  #app.sidebar-collapsed {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .sidebar-width-controls {
+    display: none;
+  }
+  #app.sidebar-collapsed .brand-text,
+  #app.sidebar-collapsed .sidebar details,
+  #app.sidebar-collapsed .sidebar-foot {
+    display: block;
   }
   .sidebar {
     grid-column: 1;
@@ -2388,8 +2491,11 @@ dialog h1 {
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
-  .sidebar .brand {
+  .sidebar .sidebar-head {
     margin-bottom: 10px;
+  }
+  .sidebar .brand {
+    margin-bottom: 0;
   }
   .sidebar-foot {
     padding: 10px 0 0;
@@ -2867,6 +2973,12 @@ dialog.presenter-dialog::backdrop {
 .rich-editor:focus {
   outline: 2px solid var(--blue);
   outline-offset: -1px;
+}
+
+.rich-editor.drop-file-over {
+  outline: 2px dashed var(--gold);
+  outline-offset: -2px;
+  background: #fffdf5;
 }
 
 .rich-editor:empty::before {

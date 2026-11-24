@@ -84,8 +84,14 @@ function parseAttributes(raw) {
 export function sanitizeRichHtml(raw) {
   if (raw === undefined || raw === null || raw === '') return null;
   requireThat(typeof raw === 'string' && raw.length <= MAX_RICH_HTML_BYTES, 400, 'Formatted entry content is too large.');
-  // Strip HTML comments before tokenizing.
-  const input = raw.replace(/<!--[\s\S]*?-->/g, '');
+  // Strip null bytes and nested/unclosed HTML comments before tokenizing.
+  let input = raw.replace(/\0/g, '');
+  let prev;
+  do {
+    prev = input;
+    input = input.replace(/<!--[\s\S]*?-->/g, '');
+  } while (input !== prev);
+  input = input.replace(/<!--[\s\S]*$/, '');
   const out = [];
   const openStack = [];
   let skipTag = null;

@@ -536,16 +536,17 @@ window.academyEditor = (() => {
     editorEl.addEventListener("paste", (event) => {
       const dt = event.clipboardData;
       if (!dt) return;
+      const html = dt.getData("text/html");
+      const plain = dt.getData("text/plain");
       const imageFile =
         [...(dt.files || [])].find((f) => IMAGE_MIMES.has(f.type)) ||
         [...(dt.items || [])].find((item) => item.kind === "file" && IMAGE_MIMES.has(item.type))?.getAsFile();
-      if (imageFile) {
+      // Prefer image upload for snips/image copies (no text payload), while keeping formatted HTML when Word/Excel copies text/tables alongside an auxiliary bitmap.
+      if (imageFile && !plain.trim()) {
         event.preventDefault();
         uploadBlob(imageFile, imageFile.name || "Pasted snip").catch((err) => onError?.(err));
         return;
       }
-      const html = dt.getData("text/html");
-      const plain = dt.getData("text/plain");
       if (html) {
         event.preventDefault();
         const clean = sanitizeHtmlFragment(html, { keepEditorControls: true });
@@ -575,7 +576,19 @@ window.academyEditor = (() => {
       }
     });
 
+    editorEl.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer?.types?.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      editorEl.classList.add("drop-file-over");
+    });
+
+    editorEl.addEventListener("dragleave", () => {
+      editorEl.classList.remove("drop-file-over");
+    });
+
     editorEl.addEventListener("drop", (event) => {
+      editorEl.classList.remove("drop-file-over");
       const files = [...(event.dataTransfer?.files || [])].filter((f) => IMAGE_MIMES.has(f.type));
       if (!files.length) return;
       event.preventDefault();

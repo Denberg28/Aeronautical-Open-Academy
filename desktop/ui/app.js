@@ -53,6 +53,8 @@ const icons = {
   play: "M6 4l14 8-14 8z",
   image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M8.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 16l-5-5-4 4-2-2-5 5",
   minimize: "M6 12h12",
+  arrowLeft: "M15 6l-6 6 6 6",
+  arrowRight: "M9 6l6 6-6 6",
   settings:
     "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
 };
@@ -63,6 +65,7 @@ const button = (text, action, extra = "", cls = "") =>
 const state = {
   account: null,
   version: "",
+  sidebarState: "normal",
   collapsedMaterials: new Set(),
   collapsedEntries: new Set(),
   collapsedFolders: new Set(),
@@ -127,7 +130,7 @@ async function act(fn) {
       await window.academyReader.close();
       // Recovery — Lock a dirty form behind sign-in; discard other private views.
       // Resume below rechecks subject access before revealing the retained editor.
-      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;state.collapsedEntries.clear();$("#app").replaceChildren();}
+      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;state.collapsedEntries.clear();state.collapsedFolders.clear();state.sidebarState="normal";$("#app").classList.remove("sidebar-collapsed","sidebar-expanded");$("#app").replaceChildren();}
       showLogin();
     }
   } finally {
@@ -298,12 +301,42 @@ function syncSubjectNav() {
   const host = $("#subject-nav");
   if (host) host.innerHTML = renderSubjectNav();
 }
+function syncSidebarState() {
+  const app = $("#app");
+  if (!app) return;
+  app.classList.toggle("sidebar-collapsed", state.sidebarState === "collapsed");
+  app.classList.toggle("sidebar-expanded", state.sidebarState === "expanded");
+  const narrowBtn = app.querySelector('[data-action="sidebar-narrow"]');
+  const widenBtn = app.querySelector('[data-action="sidebar-widen"]');
+  if (narrowBtn) {
+    const isCollapsed = state.sidebarState === "collapsed";
+    const isExpanded = state.sidebarState === "expanded";
+    narrowBtn.hidden = isCollapsed;
+    narrowBtn.disabled = isCollapsed;
+    const label = isExpanded ? "Restore left column width" : "Collapse left column";
+    narrowBtn.title = `${label} (Alt+[)`;
+    narrowBtn.setAttribute("aria-label", label);
+  }
+  if (widenBtn) {
+    const isExpanded = state.sidebarState === "expanded";
+    const isCollapsed = state.sidebarState === "collapsed";
+    widenBtn.disabled = isExpanded;
+    const label = isCollapsed
+      ? "Expand left column"
+      : isExpanded
+        ? "Left column expanded"
+        : "Expand left column wider";
+    widenBtn.title = isExpanded ? label : `${label} (Alt+])`;
+    widenBtn.setAttribute("aria-label", label);
+    widenBtn.setAttribute("aria-expanded", String(isExpanded));
+  }
+}
 function shell() {
   const a = state.account;
   const pendingPassword = Boolean(a.must_change_password);
   const roleLabel = a.role === "student" ? "Student · Reader" : a.role;
   $("#app").innerHTML =
-    `<aside class="sidebar"><div class="brand"><span class="brand-mark">A</span><span>AERONAUTICAL<br>ACADEMY REPOSITORY</span></div>${
+    `<aside class="sidebar" id="sidebar" aria-label="Workspace navigation"><div class="sidebar-head"><div class="brand"><span class="brand-mark">A</span><span class="brand-text">AERONAUTICAL<br>ACADEMY REPOSITORY</span></div><div class="sidebar-width-controls" role="group" aria-label="Left column width">${button(icon("arrowLeft"), "sidebar-narrow", 'title="Collapse left column (Alt+[)" aria-label="Collapse left column"', "quiet sidebar-arrow-btn")}${button(icon("arrowRight"), "sidebar-widen", 'title="Expand left column wider (Alt+])" aria-label="Expand left column wider" aria-expanded="false"', "quiet sidebar-arrow-btn")}</div></div>${
       pendingPassword
         ? `<details open><summary>SECURITY</summary>${nav("Settings", "settings", "settings", true)}</details>`
         : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view), canManageFolders() ? 'data-folder-drop="root"' : "")}<div id="subject-nav">${renderSubjectNav()}</div>${nav("Tasks", "tasks", "tasks", state.view === "tasks")}${!manage() ? nav("My results", "results", "chart", state.view === "results") + nav("Find a subject", "discover", "search", state.view === "discover") : ""}</details>${manage() ? `<details open><summary>TEACHING</summary>${nav("Students & progress", "learners", "users", ["learners", "learner"].includes(state.view))}${nav("Enrollment", "eligibility", "check", state.view === "eligibility")}</details>` : ""}${a.role === "admin" ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
@@ -319,6 +352,7 @@ function shell() {
       "beforeend",
       nav("Announcements", "announcements", "bell", state.view === "announcements"),
     );
+  syncSidebarState();
   $("#app").hidden = false;
   renderRight();
 }
@@ -348,6 +382,7 @@ async function loadSubject(id) {
   state.dirty = false;
 }
 async function start() {
+  state.sidebarState = "normal";
   state.collapsedMaterials.clear();
   state.collapsedEntries.clear();
   state.collapsedFolders.clear();
@@ -490,8 +525,9 @@ function syncMaterialSections() {
   const allBtn = document.querySelector('[data-action="toggle-all-entries"]');
   if (allBtn && state.items.length) {
     const allMin = state.items.every((item) => state.collapsedEntries.has(item.id));
+    allBtn.disabled = Boolean(state.search);
     allBtn.textContent = allMin ? "Expand all" : "Minimize all";
-    allBtn.title = allMin ? "Expand all subject entries" : "Minimize all subject entries";
+    allBtn.title = state.search ? "Clear search to minimize" : allMin ? "Expand all subject entries" : "Minimize all subject entries";
   }
 }
 function treeMarkup(items = rootsOf(), prefix = "") {
@@ -955,7 +991,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("A calmer way to learn", "Everything stays in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Subject access and accounts</h3><p>Administrators create instructor, student, and administrator accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Users can update their own password under Settings. Under Administration → Subject access, administrators assign instructors to any subject as Read only or Editor and can suspend or activate access per subject. Students default to reader access on enrolled subjects with no download capability.</p><h3>Rich subject content &amp; pasted images</h3><p>Choose a subject where you have editor access and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Activities, quizzes and examinations</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key. In Students &amp; progress, open View work to rate written submissions out of 100 and Export Excel for dated quiz scores and summaries.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time. Protected PDFs and pasted images render in-app with student downloads disabled.</p></div>`;
+    `<div class="inline-form help-card"><h3>Navigation &amp; left column width</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore its standard width, or collapse it to a compact rail while keeping your current editor and scroll position intact.</p><h3>Subject access and accounts</h3><p>Administrators create instructor, student, and administrator accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Users can update their own password under Settings. Under Administration → Subject access, administrators assign instructors to any subject as Read only or Editor and can suspend or activate access per subject. Students default to reader access on enrolled subjects with no download capability.</p><h3>Rich subject content &amp; pasted images</h3><p>Choose a subject where you have editor access and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Activities, quizzes and examinations</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key. In Students &amp; progress, open View work to rate written submissions out of 100 and Export Excel for dated quiz scores and summaries.</p><h3>Current desktop scope and limitations</h3><p>The local test workspace stays on this PC. Organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time. Protected PDFs and pasted images render in-app with student downloads disabled.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1138,6 +1174,16 @@ document.addEventListener("click", (event) => {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const { action, id } = target.dataset;
+  if (action === "sidebar-widen") {
+    state.sidebarState = state.sidebarState === "collapsed" ? "normal" : "expanded";
+    syncSidebarState();
+    return;
+  }
+  if (action === "sidebar-narrow") {
+    state.sidebarState = state.sidebarState === "expanded" ? "normal" : "collapsed";
+    syncSidebarState();
+    return;
+  }
   if (action === "toggle-material") {
     if (state.collapsedMaterials.has(id)) state.collapsedMaterials.delete(id);
     else state.collapsedMaterials.add(id);
@@ -1302,8 +1348,8 @@ document.addEventListener("click", (event) => {
     if (action === "logout-all") {
       if(!(await leaveDraft()))return;
       await post("/v1/auth/logout-all",{});
-      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
-      window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
+      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.sidebarState="normal";state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;state.activeLearnerId=null;resumeWorkspace=null;
+      window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();$("#app").classList.remove("sidebar-collapsed","sidebar-expanded");$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
       if (!(await leaveDraft())) return;
@@ -1312,6 +1358,7 @@ document.addEventListener("click", (event) => {
       window.academyPresenter?.close();
       window.academyEditor?.clearImageCache();
       await window.academyReader.close();
+      state.sidebarState = "normal";
       state.collapsedFolders.clear();
       state.collapsedEntries.clear();
       Object.assign(state, {
@@ -1324,6 +1371,7 @@ document.addEventListener("click", (event) => {
         folderForm: null,
         announcements: [],
       });
+      $("#app").classList.remove("sidebar-collapsed", "sidebar-expanded");
       $("#app").innerHTML = "";
       showLogin();
       return;
@@ -1454,6 +1502,7 @@ document.addEventListener("click", (event) => {
       state.subjects = state.subjects.filter((item) => item.id !== subject.id);
       Object.assign(state,{active:null,items:[],summary:null,allItems:[],compose:null,dirty:false,search:""});
       state.collapsedMaterials.clear();
+      state.collapsedEntries.clear();
       await navigate("subjects");
       toast("Subject deleted.");
       return;
@@ -1517,7 +1566,11 @@ document.addEventListener("click", (event) => {
     if (action === "task-item") {
       if (!(await leaveDraft())) return;
       const item = state.items.find((i) => i.id === id);
-      for (const parent of ancestorsOf(item)) state.collapsedMaterials.delete(parent.id);
+      if (item) state.collapsedEntries.delete(item.id);
+      for (const parent of ancestorsOf(item)) {
+        state.collapsedMaterials.delete(parent.id);
+        state.collapsedEntries.delete(parent.id);
+      }
       state.view = "subject";
       shell();
       renderSubject();
@@ -2005,8 +2058,11 @@ document.addEventListener("change", (event) => {
     renderComposer();
     const restored = $("#composer");
     if ($("#rich-editor") && richHtml) {
-      $("#rich-editor").innerHTML = richHtml;
+      $("#rich-editor").innerHTML = window.academyEditor
+        ? window.academyEditor.sanitizeHtmlFragment(richHtml, { keepEditorControls: true })
+        : "";
       $("#rich-editor").dataset.spacing = paragraphSpacing;
+      window.academyEditor?.hydrateImages($("#rich-editor"), desktopApi.readImage, { subjectId: state.active?.id || "" });
     }
     for (const field of [...Object.values(fields).filter((field) => field.name && field.name !== "correct"), ...(fields.links || [])]) {
       if (field.name === "link" && $("#link-fields")) $("#link-fields").insertAdjacentHTML("beforeend", linkField(field.value));
@@ -2088,6 +2144,21 @@ async function moveEntryToLevel(sourceId, nextParentId, targetId = null, positio
   toast(nextParentId ? "Entry moved to new level." : "Entry moved to top level.");
 }
 document.addEventListener("keydown", (event) => {
+  if (
+    state.account &&
+    !$("#app")?.hidden &&
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    (event.key === "[" || event.key === "]") &&
+    !event.target.closest("input, textarea, select, [contenteditable='true']")
+  ) {
+    event.preventDefault();
+    if (event.key === "]") state.sidebarState = state.sidebarState === "collapsed" ? "normal" : "expanded";
+    else state.sidebarState = state.sidebarState === "expanded" ? "normal" : "collapsed";
+    syncSidebarState();
+    return;
+  }
   const folderRow = event.target.closest("[data-drag-folder]");
   if (folderRow && canManageFolders() && event.altKey && !event.ctrlKey && !event.metaKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
     event.preventDefault();
