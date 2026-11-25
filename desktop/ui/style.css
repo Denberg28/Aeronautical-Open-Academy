@@ -546,6 +546,18 @@ input[type="radio"] {
   grid-template-columns: 58px minmax(0, 1fr) 300px;
 }
 
+#app.rightbar-collapsed {
+  grid-template-columns: 236px minmax(0, 1fr) 44px;
+}
+
+#app.sidebar-expanded.rightbar-collapsed {
+  grid-template-columns: min(360px, 34vw) minmax(0, 1fr) 44px;
+}
+
+#app.sidebar-collapsed.rightbar-collapsed {
+  grid-template-columns: 58px minmax(0, 1fr) 44px;
+}
+
 #app[hidden] {
   display: none;
 }
@@ -1910,7 +1922,45 @@ input[type="radio"] {
   background: #fafbfc;
   border-left: 1px solid var(--line);
   overflow: auto;
-  padding: 24px 20px;
+  padding: 18px 20px 24px;
+}
+
+.rightbar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rightbar-title {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#app.rightbar-collapsed .rightbar {
+  padding: 16px 5px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#app.rightbar-collapsed .rightbar-head {
+  margin-bottom: 0;
+  justify-content: center;
+}
+
+#app.rightbar-collapsed .rightbar-title,
+#app.rightbar-collapsed .rightbar-body {
+  display: none;
+}
+
+#app.rightbar-collapsed .rightbar-arrow-btn {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
 }
 
 .rightbar h2 {
@@ -2158,8 +2208,8 @@ dialog h1 {
 }
 
 #signin {
-  width: min(470px, calc(100vw - 32px));
-  padding: 32px 36px;
+  width: min(416px, calc(100vw - 32px));
+  padding: 28px 32px;
 }
 
 #signin .login-brand {
@@ -2170,39 +2220,39 @@ dialog h1 {
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.4;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
-#signin .eyebrow {
-  color: #8f722e;
+#signin h1 {
+  font-size: 22px;
+  margin: 0 0 6px;
 }
 
-#signin p.muted {
-  font-size: var(--font-base);
+#signin #login-error {
+  min-height: 6px;
+  margin: 10px 0 12px;
+  font-size: var(--font-sm);
 }
 
-#signin .small.muted {
-  font-size: var(--font-xs);
+#signin #login-error:empty {
+  margin: 14px 0 0;
+  min-height: 0;
 }
 
 .demo-roles {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .demo-roles button {
+  flex: 1;
   font-size: var(--font-sm);
   padding: 7px 14px;
 }
 
-.demo-roles + p {
-  margin: 12px 0 0;
-}
-
 #demo-hint {
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
 }
 
@@ -2320,6 +2370,15 @@ dialog h1 {
   #app.sidebar-collapsed {
     grid-template-columns: 56px minmax(0, 1fr) 256px;
   }
+  #app.rightbar-collapsed {
+    grid-template-columns: 204px minmax(0, 1fr) 44px;
+  }
+  #app.sidebar-expanded.rightbar-collapsed {
+    grid-template-columns: min(300px, 32vw) minmax(0, 1fr) 44px;
+  }
+  #app.sidebar-collapsed.rightbar-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr) 44px;
+  }
   .sidebar {
     padding: 20px 12px;
   }
@@ -2330,7 +2389,7 @@ dialog h1 {
     padding: 16px 24px;
   }
   .rightbar {
-    padding: 22px 16px;
+    padding: 18px 16px 22px;
   }
   .topbar {
     padding: 0 24px;
@@ -2345,16 +2404,19 @@ dialog h1 {
 }
 
 @media (max-width: 1000px) {
-  #app {
+  #app,
+  #app.rightbar-collapsed {
     grid-template-columns: 196px minmax(0, 1fr);
     height: 100vh;
     min-height: 0;
     grid-template-rows: 68px minmax(0, 1fr);
   }
-  #app.sidebar-expanded {
+  #app.sidebar-expanded,
+  #app.sidebar-expanded.rightbar-collapsed {
     grid-template-columns: min(280px, 38vw) minmax(0, 1fr);
   }
-  #app.sidebar-collapsed {
+  #app.sidebar-collapsed,
+  #app.sidebar-collapsed.rightbar-collapsed {
     grid-template-columns: 56px minmax(0, 1fr);
   }
   .sidebar {
@@ -2366,7 +2428,8 @@ dialog h1 {
   .topbar .breadcrumbs {
     display: none;
   }
-  .rightbar {
+  .rightbar,
+  .rightbar-top-toggle {
     display: none;
   }
   .center-pane {
@@ -2378,7 +2441,10 @@ dialog h1 {
 @media (max-width: 650px) {
   #app,
   #app.sidebar-expanded,
-  #app.sidebar-collapsed {
+  #app.sidebar-collapsed,
+  #app.rightbar-collapsed,
+  #app.sidebar-expanded.rightbar-collapsed,
+  #app.sidebar-collapsed.rightbar-collapsed {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr);
   }

@@ -53,6 +53,7 @@ const icons = {
   import: "M12 15V3 M7 10l5 5 5-5 M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4",
   arrowLeft: "M15 6l-6 6 6 6",
   arrowRight: "M9 6l6 6-6 6",
+  panelRight: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M15 5v14",
   settings:
     "M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0",
 };
@@ -64,6 +65,7 @@ const state = {
   account: null,
   version: "",
   sidebarState: "normal",
+  rightbarCollapsed: false,
   collapsedMaterials: new Set(),
   collapsedEntries: new Set(),
   collapsedFolders: new Set(),
@@ -83,6 +85,81 @@ const state = {
   allItems: [],
   accountOffset: 0,
 };
+const PREFS_UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const MAX_SAVED_IDS = 500;
+function workspacePrefsKey() {
+  if (!state.account?.id) return "";
+  const scope = state.mode === "organization" ? state.origin || "org" : "local";
+  return `aoa-ui-prefs-v1:${state.mode || "local"}:${scope}:${state.account.id}`;
+}
+function saveWorkspacePrefs() {
+  const key = workspacePrefsKey();
+  if (!key) return;
+  try {
+    const payload = {
+      sidebarState: ["collapsed", "normal", "expanded"].includes(state.sidebarState)
+        ? state.sidebarState
+        : "normal",
+      rightbarCollapsed: Boolean(state.rightbarCollapsed),
+      collapsedEntries: [...state.collapsedEntries].filter((id) => PREFS_UUID_RE.test(id)).slice(-MAX_SAVED_IDS),
+      collapsedMaterials: [...state.collapsedMaterials].filter((id) => PREFS_UUID_RE.test(id)).slice(-MAX_SAVED_IDS),
+      collapsedFolders: [...state.collapsedFolders].filter((id) => PREFS_UUID_RE.test(id)).slice(-MAX_SAVED_IDS),
+      activeSubjectId: state.active?.id && PREFS_UUID_RE.test(state.active.id) ? state.active.id : null,
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    /* Ignore storage quota or sandbox errors; in-memory state remains active. */
+  }
+}
+function loadWorkspacePrefs() {
+  state.sidebarState = "normal";
+  state.rightbarCollapsed = false;
+  state.collapsedEntries.clear();
+  state.collapsedMaterials.clear();
+  state.collapsedFolders.clear();
+  let preferredSubjectId = null;
+  const key = workspacePrefsKey();
+  if (!key) return preferredSubjectId;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return preferredSubjectId;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return preferredSubjectId;
+    if (["collapsed", "normal", "expanded"].includes(parsed.sidebarState)) {
+      state.sidebarState = parsed.sidebarState;
+    }
+    state.rightbarCollapsed = parsed.rightbarCollapsed === true;
+    if (Array.isArray(parsed.collapsedEntries)) {
+      for (const id of parsed.collapsedEntries.slice(-MAX_SAVED_IDS)) {
+        if (typeof id === "string" && PREFS_UUID_RE.test(id)) state.collapsedEntries.add(id);
+      }
+    }
+    if (Array.isArray(parsed.collapsedMaterials)) {
+      for (const id of parsed.collapsedMaterials.slice(-MAX_SAVED_IDS)) {
+        if (typeof id === "string" && PREFS_UUID_RE.test(id)) state.collapsedMaterials.add(id);
+      }
+    }
+    if (Array.isArray(parsed.collapsedFolders)) {
+      for (const id of parsed.collapsedFolders.slice(-MAX_SAVED_IDS)) {
+        if (typeof id === "string" && PREFS_UUID_RE.test(id)) state.collapsedFolders.add(id);
+      }
+    }
+    if (typeof parsed.activeSubjectId === "string" && PREFS_UUID_RE.test(parsed.activeSubjectId)) {
+      preferredSubjectId = parsed.activeSubjectId;
+    }
+  } catch {
+    /* Malformed storage falls back to default expanded layout safely. */
+  }
+  return preferredSubjectId;
+}
+function clearInMemoryUiState() {
+  state.sidebarState = "normal";
+  state.rightbarCollapsed = false;
+  state.collapsedMaterials.clear();
+  state.collapsedEntries.clear();
+  state.collapsedFolders.clear();
+  $("#app")?.classList.remove("sidebar-collapsed", "sidebar-expanded", "rightbar-collapsed");
+}
 let resumeWorkspace = null;
 let toastTimer,
   loadSequence = 0;
@@ -117,6 +194,7 @@ async function act(fn) {
     toast(error.message, "error");
     if ($("#compose-error")) $("#compose-error").textContent = error.message;
     if (error.status === 401) {
+      saveWorkspacePrefs();
       if (state.account && state.dirty) resumeWorkspace = { id: state.account.id, role: state.account.role, mode: state.mode, origin: state.origin };
       state.account = null;
       window.academyPresenter?.close();
@@ -124,7 +202,7 @@ async function act(fn) {
       await window.academyReader.close();
       // Recovery — Lock a dirty form behind sign-in; discard other private views.
       // Resume below rechecks subject access before revealing the retained editor.
-      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;state.collapsedEntries.clear();state.collapsedFolders.clear();state.sidebarState="normal";$("#app").classList.remove("sidebar-collapsed","sidebar-expanded");$("#app").replaceChildren();}
+      if (!resumeWorkspace) {state.items=[];state.subjects=[];state.active=null;clearInMemoryUiState();$("#app").replaceChildren();}
       showLogin();
     }
   } finally {
@@ -338,6 +416,21 @@ function syncSidebarState() {
     widenBtn.setAttribute("aria-expanded", String(isExpanded));
   }
 }
+function syncRightbarState() {
+  const app = $("#app");
+  if (!app) return;
+  const collapsed = Boolean(state.rightbarCollapsed);
+  app.classList.toggle("rightbar-collapsed", collapsed);
+  const label = collapsed ? "Expand right pane" : "Minimize right pane";
+  app.querySelectorAll('[data-action="rightbar-toggle"]').forEach((btn) => {
+    btn.title = `${label} (Alt+\\)`;
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("aria-expanded", String(!collapsed));
+    if (btn.classList.contains("rightbar-arrow-btn")) {
+      btn.innerHTML = icon(collapsed ? "arrowLeft" : "arrowRight");
+    }
+  });
+}
 function shell() {
   const a = state.account;
   const pendingPassword = Boolean(a.must_change_password);
@@ -353,10 +446,11 @@ function shell() {
         .map((s) => s[0])
         .slice(0, 2)
         .join(""),
-    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(roleLabel)}</div></div></div>${pendingPassword ? "" : button(icon("sync") + "Sync", "sync", 'title="Refresh shared subjects, folders and materials"', "quiet")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Repository workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and drafts"></aside>`;
+    )}</span><div><div class="account-name">${escape(a.name)}</div><div class="account-role">${escape(roleLabel)}</div></div></div>${pendingPassword ? "" : button(icon("sync") + "Sync", "sync", 'title="Refresh shared subjects, folders and materials"', "quiet")}${pendingPassword ? "" : button(icon("panelRight"), "rightbar-toggle", 'title="Minimize right pane (Alt+\\)" aria-label="Minimize right pane" aria-expanded="true"', "quiet rightbar-top-toggle")}${button(icon("logout"), "logout", 'title="Sign out" aria-label="Sign out"', "quiet")}</div></header><div class="center-pane"><div id="subject-context" class="subject-context" hidden></div><main class="center" id="center" aria-label="Repository workspace"></main></div><aside class="rightbar" id="rightbar" aria-label="Announcements and drafts"></aside>`;
   syncSidebarState();
   $("#app").hidden = false;
   renderRight();
+  syncRightbarState();
 }
 async function refreshData() {
   const me=await api("/v1/me");
@@ -381,21 +475,27 @@ async function loadSubject(id) {
   state.formsSupported = data.choice_forms === true || state.capabilities.choice_forms === true;
   state.compose = null;
   state.dirty = false;
+  saveWorkspacePrefs();
 }
 async function start() {
-  state.sidebarState = "normal";
-  state.collapsedMaterials.clear();
-  state.collapsedEntries.clear();
-  state.collapsedFolders.clear();
   state.folderForm = null;
   await refreshData();
+  const preferredSubjectId = loadWorkspacePrefs();
+  const validFolderIds = new Set(state.folders.map((f) => f.id));
+  for (const fid of [...state.collapsedFolders]) {
+    if (!validFolderIds.has(fid)) state.collapsedFolders.delete(fid);
+  }
   state.items = [];
   state.active = null;
   state.accountOffset = 0;
   state.view = "subject";
   state.search = "";
   state.compose = null;
-  if (state.subjects.length) await loadSubject(state.subjects[0].id);
+  const targetSubject =
+    (preferredSubjectId && state.subjects.find((s) => s.id === preferredSubjectId)) ||
+    state.subjects[0] ||
+    null;
+  if (targetSubject) await loadSubject(targetSubject.id);
   else state.active = null;
   shell();
   renderSubject();
@@ -692,17 +792,26 @@ function quizPreview(item) {
   return `<details class="quiz-review"><summary>${questions.length} ${questions.length===1?"question":"questions"} · preview</summary>${questions.map((q,i)=>`<div class="quiz-question"><h4>${i+1}. ${escape(q.prompt)}</h4>${q.options.map((o,j)=>`<p class="small">${j===q.correct_index?"✓ ":""}${escape(o)}</p>`).join("")}</div>`).join("")}<p class="small muted">${note}</p></details>`;
 }
 function renderRight() {
+  const rightbar = $("#rightbar");
+  if (!rightbar) return;
+  const collapsed = Boolean(state.rightbarCollapsed);
+  const toggleBtn = button(
+    icon(collapsed ? "arrowLeft" : "arrowRight"),
+    "rightbar-toggle",
+    `title="${collapsed ? "Expand right pane" : "Minimize right pane"} (Alt+\\)" aria-label="${collapsed ? "Expand right pane" : "Minimize right pane"}" aria-expanded="${String(!collapsed)}"`,
+    "quiet sidebar-arrow-btn rightbar-arrow-btn",
+  );
   if (state.account?.must_change_password) {
-    $("#rightbar").innerHTML =
-      `<section class="progress-box"><div class="eyebrow">ACCOUNT SECURITY</div><p>New and reset accounts must set a private 15–128 character passphrase before opening subjects.</p></section>`;
+    rightbar.innerHTML =
+      `<div class="rightbar-head">${toggleBtn}</div><div class="rightbar-body"><section class="progress-box"><div class="eyebrow">ACCOUNT SECURITY</div><p>New and reset accounts must set a private 15–128 character passphrase before opening subjects.</p></section></div>`;
     return;
   }
   const notices = state.announcements.slice(0, 3);
   const editableSubject = canEditSubject();
   const drafts = editableSubject ? state.items.filter((i) => !i.published) : [];
   const publishedCount = state.items.filter(isVisibleEntry).length;
-  $("#rightbar").innerHTML =
-    `<section><div class="section-heading"><h2>Announcements</h2>${isAdmin() ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>Drafts</h2><span class="tag">${drafts.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
+  rightbar.innerHTML =
+    `<div class="rightbar-head">${toggleBtn}<span class="eyebrow rightbar-title">WORKSPACE PANEL</span></div><div class="rightbar-body"><section><div class="section-heading"><h2>Announcements</h2>${isAdmin() ? button(icon("plus"), "announcements", 'aria-label="Manage announcements"', "quiet") : icon("bell")}</div>${notices.length ? notices.map((n) => `<article class="notice"><div class="small">${new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div><h3>${escape(n.title)}</h3><div class="reading-copy">${readingText(n.body)}</div></article>`).join("") : '<p class="small-info">You’re up to date. Announcements will appear here.</p>'}${state.announcements.length > 3 ? button("View all", "announcements", "", "quiet") : ""}</section><div class="separator"></div><section><div class="section-heading"><h2>Drafts</h2><span class="tag">${drafts.length}</span></div><p class="small-info">${state.active ? escape(state.active.title) : "Choose a subject"}</p>${
       drafts
         .slice(0, 5)
         .map(
@@ -711,7 +820,7 @@ function renderRight() {
         )
         .join("") ||
       `<p class="small-info">${state.active && !editableSubject ? "Read-only access on this subject." : "No pending drafts in this subject."}</p>`
-    }</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">AT A GLANCE</div><div class="row between"><span class="big">${publishedCount}</span><span class="tag">published entries</span></div><p>${drafts.length ? `${drafts.length} ${drafts.length === 1 ? "draft" : "drafts"} waiting to publish.` : "Knowledge grows, one lesson at a time."}</p></section>`;
+    }</section><div class="separator"></div><section class="progress-box"><div class="eyebrow">AT A GLANCE</div><div class="row between"><span class="big">${publishedCount}</span><span class="tag">published entries</span></div><p>${drafts.length ? `${drafts.length} ${drafts.length === 1 ? "draft" : "drafts"} waiting to publish.` : "Knowledge grows, one lesson at a time."}</p></section></div>`;
 }
 async function navigate(view, id) {
   if (state.account?.must_change_password && view !== "settings") return;
@@ -867,7 +976,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("Repository guide", "Admin and instructor tools in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Navigation &amp; expandable left column</h3><p>Use the left and right arrow buttons at the top of the left navigation column (or Alt+[ and Alt+]) to expand the left column wider for long subject titles and nested folder trees, restore standard width, or collapse it to a compact rail without disturbing active drafts or scroll position. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Export &amp; import packages</h3><p>Use Export in any editable subject header—or Export all and Import in My subjects or Settings—to save or transfer subjects with their multi-level entries, rich formatting, paragraph spacing, pasted images, schedules, assessments, and folder paths. Export filenames automatically include the date and time of creation (YYYY-MM-DD_HH-mm-ss) and a SHA-256 checksum verified before import. Importing always creates new subjects without overwriting existing work.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. Local workspace data is saved under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
+    `<div class="inline-form help-card"><h3>Navigation, collapsible panes &amp; saved workspace state</h3><p>Use the arrow buttons at the top of the left column (Alt+[ / Alt+]) to expand, restore, or collapse the navigation rail, and click the right-pane toggle in the top bar or right pane header (Alt+\\) to minimize or expand Announcements and Drafts without disturbing active drafts or scroll position. Press Ctrl+K or / to jump directly to subject search (Escape clears). Your minimized/expanded entries, collapsed sections, folders, pane widths, and active subject are saved per account and automatically restored when you sign out and sign back in. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Export &amp; import packages</h3><p>Use Export in any editable subject header—or Export all and Import in My subjects or Settings—to save or transfer subjects with their multi-level entries, rich formatting, paragraph spacing, pasted images, schedules, assessments, and folder paths. Export filenames automatically include the date and time of creation (YYYY-MM-DD_HH-mm-ss) and a SHA-256 checksum verified before import. Importing always creates new subjects without overwriting existing work.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. Local workspace data is saved under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1025,7 +1134,6 @@ $("#signin").addEventListener("cancel", (e) => e.preventDefault());
 $("#workspace").addEventListener("change", () => {
   const remote = $("#workspace").value === "organization";
   $("#origin-label").hidden = !remote;
-  $("#org-hint").hidden = !remote;
   $("#demo-hint").hidden = remote;
   $("#login-form").elements.origin.required = remote;
   $("#login-form").elements.username.value = "";
@@ -1045,6 +1153,7 @@ document.addEventListener("click", (event) => {
   if (demo) {
     $("#login-form").elements.username.value = demo.dataset.demo;
     $("#login-form").elements.password.value = demo.dataset.demo;
+    $("#login-form button[type=submit]")?.focus();
     return;
   }
   const target = event.target.closest("[data-action]");
@@ -1053,16 +1162,25 @@ document.addEventListener("click", (event) => {
   if (action === "sidebar-widen") {
     state.sidebarState = state.sidebarState === "collapsed" ? "normal" : "expanded";
     syncSidebarState();
+    saveWorkspacePrefs();
     return;
   }
   if (action === "sidebar-narrow") {
     state.sidebarState = state.sidebarState === "expanded" ? "normal" : "collapsed";
     syncSidebarState();
+    saveWorkspacePrefs();
+    return;
+  }
+  if (action === "rightbar-toggle") {
+    state.rightbarCollapsed = !state.rightbarCollapsed;
+    syncRightbarState();
+    saveWorkspacePrefs();
     return;
   }
   if (action === "toggle-material") {
     if (state.collapsedMaterials.has(id)) state.collapsedMaterials.delete(id);
     else state.collapsedMaterials.add(id);
+    saveWorkspacePrefs();
     const position = capturePosition(id);
     syncMaterialSections();
     restorePosition(position);
@@ -1071,6 +1189,7 @@ document.addEventListener("click", (event) => {
   if (action === "toggle-entry") {
     if (state.collapsedEntries.has(id)) state.collapsedEntries.delete(id);
     else state.collapsedEntries.add(id);
+    saveWorkspacePrefs();
     const position = capturePosition(id);
     syncMaterialSections();
     restorePosition(position);
@@ -1078,8 +1197,11 @@ document.addEventListener("click", (event) => {
   }
   if (action === "toggle-all-entries") {
     const allMin = state.items.length > 0 && state.items.every((item) => state.collapsedEntries.has(item.id));
-    if (allMin) state.collapsedEntries.clear();
-    else for (const item of state.items) state.collapsedEntries.add(item.id);
+    for (const item of state.items) {
+      if (allMin) state.collapsedEntries.delete(item.id);
+      else state.collapsedEntries.add(item.id);
+    }
+    saveWorkspacePrefs();
     syncMaterialSections();
     return;
   }
@@ -1097,6 +1219,7 @@ document.addEventListener("click", (event) => {
   if (action === "toggle-folder") {
     if (state.collapsedFolders.has(id)) state.collapsedFolders.delete(id);
     else state.collapsedFolders.add(id);
+    saveWorkspacePrefs();
     syncSubjectNav();
     return;
   }
@@ -1219,20 +1342,20 @@ document.addEventListener("click", (event) => {
       return navigate(action, id);
     if (action === "logout-all") {
       if(!(await leaveDraft()))return;
+      saveWorkspacePrefs();
       await post("/v1/auth/logout-all",{});
-      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.sidebarState="normal";state.collapsedFolders.clear();state.collapsedEntries.clear();state.active=null;resumeWorkspace=null;
-      window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();$("#app").classList.remove("sidebar-collapsed","sidebar-expanded");$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
+      state.account=null;state.items=[];state.subjects=[];state.folders=[];state.folderForm=null;state.active=null;resumeWorkspace=null;
+      window.academyPresenter?.close();window.academyEditor?.clearImageCache();await window.academyReader.close();clearInMemoryUiState();$("#app").replaceChildren();showLogin();toast("Signed out on all devices.");return;
     }
     if (action === "logout") {
       if (!(await leaveDraft())) return;
+      saveWorkspacePrefs();
       await desktopApi.logout();
       resumeWorkspace = null;
       window.academyPresenter?.close();
       window.academyEditor?.clearImageCache();
       await window.academyReader.close();
-      state.sidebarState = "normal";
-      state.collapsedFolders.clear();
-      state.collapsedEntries.clear();
+      clearInMemoryUiState();
       Object.assign(state, {
         account: null,
         active: null,
@@ -1242,7 +1365,6 @@ document.addEventListener("click", (event) => {
         folderForm: null,
         announcements: [],
       });
-      $("#app").classList.remove("sidebar-collapsed", "sidebar-expanded");
       $("#app").innerHTML = "";
       showLogin();
       return;
@@ -1364,9 +1486,12 @@ document.addEventListener("click", (event) => {
       await post(`/v1/subjects/${subject.id}/archive`, snapshot);
       // Commit UI removal immediately after acknowledgement, independent of refresh availability.
       state.subjects = state.subjects.filter((item) => item.id !== subject.id);
+      for (const removed of snapshot.expected_items) {
+        state.collapsedMaterials.delete(removed.id);
+        state.collapsedEntries.delete(removed.id);
+      }
       Object.assign(state,{active:null,items:[],allItems:[],compose:null,dirty:false,search:""});
-      state.collapsedMaterials.clear();
-      state.collapsedEntries.clear();
+      saveWorkspacePrefs();
       await navigate("subjects");
       toast("Subject deleted.");
       return;
@@ -1444,6 +1569,7 @@ document.addEventListener("click", (event) => {
         state.collapsedMaterials.delete(parent.id);
         state.collapsedEntries.delete(parent.id);
       }
+      saveWorkspacePrefs();
       state.view = "subject";
       shell();
       renderSubject();
@@ -1721,14 +1847,13 @@ document.addEventListener("submit", (event) => {
         current_password: d.current,
         new_password: d.next,
       });
+      saveWorkspacePrefs();
       state.dirty = false;
       resumeWorkspace = null;
       window.academyPresenter?.close();
       window.academyEditor?.clearImageCache();
       await window.academyReader.close();
-      state.sidebarState = "normal";
-      state.collapsedFolders.clear();
-      state.collapsedEntries.clear();
+      clearInMemoryUiState();
       Object.assign(state, {
         account: null,
         active: null,
@@ -1738,7 +1863,6 @@ document.addEventListener("submit", (event) => {
         folderForm: null,
         announcements: [],
       });
-      $("#app").classList.remove("sidebar-collapsed", "sidebar-expanded");
       $("#app").innerHTML = "";
       showLogin();
       toast("Password updated. Sign in again.");
@@ -1880,20 +2004,41 @@ async function moveEntryToLevel(sourceId, nextParentId, targetId = null, positio
   toast(nextParentId ? "Entry moved to new level." : "Entry moved to top level.");
 }
 document.addEventListener("keydown", (event) => {
-  if (
-    state.account &&
-    !$("#app")?.hidden &&
-    event.altKey &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    (event.key === "[" || event.key === "]") &&
-    !event.target.closest("input, textarea, select, [contenteditable='true']")
-  ) {
-    event.preventDefault();
-    if (event.key === "]") state.sidebarState = state.sidebarState === "collapsed" ? "normal" : "expanded";
-    else state.sidebarState = state.sidebarState === "expanded" ? "normal" : "collapsed";
-    syncSidebarState();
-    return;
+  if (state.account && !$("#app")?.hidden) {
+    const typing = Boolean(event.target.closest("input, textarea, select, [contenteditable='true']"));
+    if (event.target.id === "search" && event.key === "Escape" && event.target.value) {
+      event.preventDefault();
+      event.target.value = "";
+      state.search = "";
+      applySubjectSearch();
+      return;
+    }
+    if (((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") || (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && event.key === "/")) {
+      const searchEl = $("#search");
+      if (searchEl) {
+        event.preventDefault();
+        searchEl.focus();
+        searchEl.select();
+        return;
+      }
+    }
+    if (event.altKey && !event.ctrlKey && !event.metaKey && !typing) {
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        if (event.key === "]") state.sidebarState = state.sidebarState === "collapsed" ? "normal" : "expanded";
+        else state.sidebarState = state.sidebarState === "expanded" ? "normal" : "collapsed";
+        syncSidebarState();
+        saveWorkspacePrefs();
+        return;
+      }
+      if (event.key === "\\") {
+        event.preventDefault();
+        state.rightbarCollapsed = !state.rightbarCollapsed;
+        syncRightbarState();
+        saveWorkspacePrefs();
+        return;
+      }
+    }
   }
   const folderRow = event.target.closest("[data-drag-folder]");
   if (folderRow && canManageFolders() && event.altKey && !event.ctrlKey && !event.metaKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
