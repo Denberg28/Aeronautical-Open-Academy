@@ -47,17 +47,20 @@ try {
     await idle();
   };
 
-  // 1. Verify application rename & login workspace hint behavior.
+  // 1. Verify application rename & minimal login window (zero instruction paragraphs).
   await page.waitForSelector('#signin[open]');
   assert.equal(await page.title(), 'Aeronautical Academy Repository');
   const brand = await page.locator('.login-brand').textContent();
   assert.match(brand, /AERONAUTICAL/i);
   assert.match(brand, /ACADEMY REPOSITORY/i);
+  assert.equal(await page.locator('#org-hint').count(), 0);
+  assert.equal(await page.locator('#signin p:not(#login-error)').count(), 0);
   await page.locator('#workspace').selectOption('organization');
-  assert.equal(await page.locator('#org-hint').isVisible(), true);
+  assert.equal(await page.locator('#origin-label').isVisible(), true);
   assert.equal(await page.locator('#demo-hint').isVisible(), false);
   await page.locator('#workspace').selectOption('local');
-  assert.equal(await page.locator('#org-hint').isVisible(), false);
+  assert.equal(await page.locator('#origin-label').isVisible(), false);
+  assert.equal(await page.locator('#demo-hint').isVisible(), true);
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '01-signin-renamed.png') });
 
   // 2. Admin creates a co-instructor (verifying only Instructor/Admin roles exist, zero Student ID field, and password toggle) and grants read_only access.

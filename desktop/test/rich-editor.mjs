@@ -235,8 +235,57 @@ try {
   await loginCredentials('finst@academy.test', finalPass);
   assert.match(await page.locator('.topbar').textContent(), /Flight Instructor/);
 
+  // 7. Workspace state persistence across logout/login + minimize right pane + frictionless shortcuts.
+  await logout();
+  await loginDemo('instructor');
+  const firstEntry = page.locator('article.material').first();
+  const firstEntryId = await firstEntry.getAttribute('data-item');
+  const rightbarWidth = () => page.locator('#rightbar').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  const initialRightW = await rightbarWidth();
+  assert.ok(initialRightW >= 240, `Expected expanded rightbar >= 240px, got ${initialRightW}`);
+
+  // Minimize an entry card, expand left column, and minimize the right pane.
+  await firstEntry.locator('[data-action="toggle-entry"]').click();
+  assert.equal(await firstEntry.locator('[data-entry-body]').isHidden(), true);
+  await page.locator('[data-action="sidebar-widen"]').click();
+  await page.locator('#rightbar [data-action="rightbar-toggle"]').click();
+  const collapsedRightW = await rightbarWidth();
+  assert.ok(collapsedRightW <= 48, `Expected minimized rightbar <= 48px, got ${collapsedRightW}`);
+  assert.equal(await page.locator('#rightbar .rightbar-body').isVisible(), false);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  if (shotsDir) await page.screenshot({ path: join(shotsDir, '16-rightbar-minimized.png') });
+
+  // Ctrl+K focuses search and Escape clears it cleanly.
+  await page.keyboard.press('Control+k');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'search');
+  await page.locator('#search').fill('forces');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#search').inputValue(), '');
+  assert.equal(await firstEntry.locator('[data-entry-body]').isHidden(), true);
+
+  // Logout and sign back in as Instructor: minimized entry, expanded sidebar, and minimized right pane persist!
+  await logout();
+  await loginDemo('instructor');
+  assert.equal(await page.locator('#app').evaluate((el) => el.classList.contains('sidebar-expanded')), true);
+  assert.equal(await page.locator('#app').evaluate((el) => el.classList.contains('rightbar-collapsed')), true);
+  assert.ok((await rightbarWidth()) <= 48);
+  assert.equal(await page.locator(`[data-item="${firstEntryId}"] [data-entry-body]`).isHidden(), true);
+
+  // Verify Alt+\ expands the right pane cleanly and saves state.
+  await page.locator('#center').click({ position: { x: 20, y: 20 } });
+  await page.keyboard.press('Alt+\\');
+  assert.ok((await rightbarWidth()) >= 240);
+  assert.equal(await page.locator('#rightbar .rightbar-body').isVisible(), true);
+
+  // Per-account isolation: Admin must NOT inherit Instructor's minimized entry or expanded sidebar.
+  await logout();
+  await loginDemo('admin');
+  assert.equal(await page.locator('#app').evaluate((el) => el.classList.contains('sidebar-expanded')), false);
+  assert.equal(await page.locator('#app').evaluate((el) => el.classList.contains('rightbar-collapsed')), false);
+  assert.equal(await page.locator(`[data-item="${firstEntryId}"] [data-entry-body]`).isVisible(), true);
+
   assert.deepEqual(errors, []);
-  console.log('PASS: left column expand/collapse arrows, rich content paste format adoption, snip PNG paste, text indentation, paragraph spacing, entry minimize/expand all, multi-level entry drag-and-drop/Alt+ArrowLeft, and admin/instructor password creation/updates.');
+  console.log('PASS: left column expand/collapse arrows, right pane minimize/expand (Alt+\\), workspace state persistence across logout/login with per-account isolation, Ctrl+K/Escape search, rich content paste/snip/indent/spacing, multi-level drag, and password management.');
 } finally {
   if (application) {
     const pages = application.windows();
