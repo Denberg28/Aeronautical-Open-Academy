@@ -1,3 +1,4 @@
+import './prepare-pdf.mjs';
 import { downloadArtifact } from "@electron/get";
 import { extract } from "@electron-internal/extract-zip";
 import { execFileSync } from "node:child_process";
@@ -27,8 +28,11 @@ for (const path of [
   "main.mjs",
   "preload.cjs",
   "bridge.mjs",
+  "transport.mjs",
+  "transfer.mjs",
+  "template.mjs",
+  "assets",
   "materials.mjs",
-  "enrollment.mjs",
   "vendor",
   "package.json",
   "ui",

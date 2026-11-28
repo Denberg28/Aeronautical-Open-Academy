@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 const directory=await mkdtemp(join(tmpdir(),'academy-motion-'));
 let app,page;
 try {
- app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_DATA:directory}});
+ app=await _electron.launch({args:[resolve(import.meta.dirname,'..'),'--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],env:{...process.env,ACADEMY_TEST_LEGACY_SEED: "1", ACADEMY_TEST_DATA:directory}});
  page=await app.firstWindow();page.setDefaultTimeout(15000);
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1480,960));
@@ -47,9 +47,9 @@ try {
  await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.other),{targetPosition:{x:80,y:8}});await wait();await page.waitForTimeout(250);
  assert.ok(Math.abs((await offset(ids.root))-Math.max(24,dropOffset))<3,'Moved material lands at its drop location');
  assert.equal(await page.evaluate(({root,first})=>heldGroup===groupFor(root)&&heldChild===groupFor(first),ids),true);
- // A material dropped on another material's child resolves to that whole material.
- const otherChildBounds=await card(ids.otherChild).boundingBox();
- await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.otherChild),{targetPosition:{x:80,y:otherChildBounds.height-8}});await wait();await page.waitForTimeout(220);
+ // Dropping a material onto the bottom edge of another material places it right after that material at root level.
+ const otherBox=await card(ids.other).boundingBox();
+ await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.other),{targetPosition:{x:80,y:otherBox.height-4}});await wait();await page.waitForTimeout(220);
  assert.equal(await page.evaluate(({root,other})=>{const roots=rootsOf().map(i=>i.id);return roots.indexOf(root)===roots.indexOf(other)+1;},ids),true);
  await action('toggle-material',ids.root);
  // Before/after child placement and repeated moves persist the exact sibling order.
@@ -61,9 +61,10 @@ try {
  // Gaps/add-slot space resolve to the last sibling boundary.
  await page.locator(`[data-drag="${ids.first}"]`).dragTo(page.locator(`[data-add-parent="${ids.root}"]`),{targetPosition:{x:80,y:20}});await wait();await page.waitForTimeout(220);
  assert.deepEqual(await page.evaluate(id=>childrenOf(id).map(i=>i.id),ids.root),[ids.second,ids.first]);
+ // Dragging a material onto its own child is rejected without a write (cycle prevention).
  const beforeInvalid=await page.evaluate(()=>({order:state.items.map(i=>i.id),writes:window.orderWrites}));
- await page.locator(`[data-drag="${ids.first}"]`).dragTo(card(ids.other),{targetPosition:{x:80,y:8}});await wait();
- assert.deepEqual(await page.evaluate(()=>({order:state.items.map(i=>i.id),writes:window.orderWrites})),beforeInvalid,'Cross-parent drag is rejected without a write');
+ await page.locator(`[data-drag="${ids.root}"]`).dragTo(card(ids.first),{targetPosition:{x:80,y:8}});await wait();
+ assert.deepEqual(await page.evaluate(()=>({order:state.items.map(i=>i.id),writes:window.orderWrites})),beforeInvalid,'Self/descendant cycle drag is rejected without a write');
  const persisted=await page.evaluate(async()=> (await api(`/v1/subjects/${state.active.id}`)).items.map(i=>i.id));
  assert.deepEqual(persisted,await page.evaluate(()=>state.items.map(i=>i.id)));
  assert.equal(await page.evaluate(()=>originalCenter===document.querySelector('#center')&&originalSidebar===document.querySelector('.sidebar')),true);
@@ -103,7 +104,7 @@ try {
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.locator(`[data-drag="${ids.root}"]`).press('Alt+ArrowDown');await wait();
  assert.equal(await page.locator('#center').evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);
- await action('edit',ids.root);await page.locator('#composer textarea[name=text]').fill('Updated lesson\nDiscussion notes.');
+ await action('edit',ids.root);await page.locator('#composer input[name=title]').fill('Updated lesson');await page.locator('#rich-editor').fill('Discussion notes.');
  const beforeSave=await page.locator('#center').evaluate(el=>el.scrollTop);await page.locator('#composer button[type=submit]').click();await wait();
  assert.ok(Math.abs(await page.locator('#center').evaluate(el=>el.scrollTop)-beforeSave)<500,'Save stays near the update');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1060,720));

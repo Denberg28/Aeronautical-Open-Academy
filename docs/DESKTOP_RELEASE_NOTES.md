@@ -1,21 +1,33 @@
-# Aeronautical Open Academy for Windows — 0.5.0
+# Aeronautical Academy Repository 0.13.0-rc.4 — Streamlined subject toolbar, instant filters, keyboard authoring & presenter upgrade
 
-25 October 2026 · Multiple-question quizzes
+27 November 2026 · Windows x64 test candidate / prerelease (`pc-v0.13.0-rc.4`; stable `pc-v0.11.0` remains `Latest`)
 
-Instructors can now create one quiz containing 1–50 multiple-choice questions. Set the question count and select Apply, type each question, enter 2–6 options, and click the circle beside its correct answer. Each question card can be minimized or expanded. Editing choices clears that question’s answer selection. Reducing the question count asks before removing populated questions. Changing entry types preserves the question draft. Quiz questions and answer keys are immutable after creation; create a replacement to change them.
+## What is included
 
-Students select Start quiz, confirm readiness, and answer every question. Minimizing and expanding preserves answers in the current view. Final submission confirms the one allowed attempt and grades all questions on the server. The quiz then collapses, shows Done, and displays correct answers / total items, for example 8 / 10 correct. Expand the submitted quiz to review its questions without changing the submission. Results, instructor work views and Excel use the same score and maximum. Answer keys are never included in student question data.
+- **Streamlined subject toolbar with instant filter pills & quick `+ Add` (`desktop/ui/app.js`, `desktop/ui/style.css`):**
+  - Replaced redundant subject filler heading (`Subject content / Create. Arrange across levels. Present.`) with instant **All / Materials / Assessments / Drafts** filter pills (`Drafts` shown for editable subjects) that narrow visible entries cleanly while preserving nested assessment visibility and automatically resetting when switching subjects or creating a new entry.
+  - Placed a 1-click **`+ Add`** primary button directly inside the top subject toolbar (for editable subjects only) so authors working on long 20+ entry subjects never have to scroll to the bottom to add an entry.
+- **Instant `My subjects` catalog search (`desktop/ui/app.js`):**
+  - Added a live **`#subject-search`** bar on `My subjects` (shown when 2+ subjects exist) filtering by subject title, description, and folder path, wired directly to `Ctrl+K` / `/` focus and `Escape` clear.
+- **Faster keyboard authoring flow (`desktop/ui/app.js`):**
+  - **`Ctrl+Enter` / `Cmd+Enter`** saves the active form (`#composer`, `#subject-form`, `#announcement`, `#new-account`, `#reset-password-form`, `#folder-form`) without reaching for the mouse.
+  - **`Escape`** inside `#composer` safely cancels (with unsaved-draft protection) when no modal dialog is open.
+- **Upgraded fullscreen classroom presenter (`desktop/ui/presenter.js`, `desktop/ui/style.css`):**
+  - Written activities and written examinations now render sanitized rich formatting (`body_html`, headings, lists, indentation, paragraph spacing) and hydrate embedded `data-img` figures cleanly on the classroom stage.
+  - Added presenter remote & classroom keyboard shortcuts: **`Space`** / **`PageDown`** (next), **`PageUp`** (previous), and **`F`** (toggle full screen).
+- **Visual calm & compact-width polish (`desktop/ui/style.css`):**
+  - Added `pointer-events: none` on `#toast` so 6-second notifications never block clicks on buttons underneath.
+  - Shortened sidebar workspace indicator (`LOCAL WORKSPACE` / `ORGANIZATION`) with clean ellipsis to eliminate clipping on narrow screens (`<= 1000px`).
+  - Gently softened resting secondary entry actions (`opacity: 0.82` → `1` on card hover/focus) while keeping `Play` prominent and all controls visible and keyboard-accessible.
+- **Full `0.13.0-rc.1`–`0.13.0-rc.3` Admin & Instructor feature set preserved:**
+  - Minimal login window, per-account workspace state persistence across logout/login, minimizable right pane (`Alt+\`), portable `.aoa.json` Subject & Repository Export/Import with creation date-time filenames & SHA-256 verification, standardized `16px / 1.4` typography, rich content paste/snip images, multi-level entry drag-and-drop, admin hierarchical folders, per-subject instructor access control, scheduled dates, protected PDFs, and account password management.
 
-Existing one-question quizzes remain supported. QR enrollment, activity grading, material collapse, left-grip dragging, ordering and subject deletion are retained.
+## Installation, compatibility and rollback
 
-## Installation and compatibility
+Extract the entire Windows x64 ZIP and run `Academy.exe`. Keep all files beside the executable. Local synthetic test accounts are `admin/admin` and `instructor/instructor`.
 
-Extract the entire ZIP and launch Academy.exe. Default synthetic local accounts remain admin/admin, instructor/instructor and student/student. This version upgrades the workspace database from schema 8 to 9 and preserves existing IDs and learner records. Close and back up the local-test-workspace folder before the first launch. Rollback requires the previous app and its matching pre-upgrade backup; do not open a schema-9 database with the old version.
+SQLite schema 15 and the shared backend (`server/**`) remain unchanged; existing PC databases upgrading from schema `< 15` automatically save a consistent `academy-before-pc-0.12.sqlite` backup first. Never copy a Windows local database onto the main schema-8 API. Close and back up `local-test-workspace` before upgrading; rollback to `pc-v0.13.0-rc.3`, `pc-v0.13.0-rc.2`, `pc-v0.13.0-rc.1`, or `pc-v0.12.0-rc.2` requires no schema downgrade, while rollback to `pc-v0.11.0` requires its matching schema-14 backup.
 
-Organization servers must be upgraded separately. An older server limits the editor to one question. The existing Android companion does not attempt multiple-question quizzes; updated Android source shows the PC requirement and reads the correct score total. No APK is included in this Windows delivery.
+## Verification scope and limits
 
-This is an unsigned Windows x64 release on GitHub’s stable distribution channel. Native Windows workflows, scoring/privacy/replay tests, legacy-data migrations, Excel totals, packaged startup and hashes are the automated delivery gates; exact results are in the packaged windows-verification.json. Physical Windows accessibility, real organization deployment and cross-device use remain unverified. There is no timer, proctoring, retake policy or weighted course grade; in-memory draft answers do not survive a crash or app exit.
-
-## Stable promotion
-
-The repository owner requested stable GitHub publication on 25 October 2026. This final 0.5.0 package contains the same feature implementation as the verified 0.5.0-rc.1 build, with its displayed/package version and release documentation finalized. Exact Windows and Android build evidence is supplied with this release. The GitHub stable channel is an owner-approved distribution decision; physical Windows/accessibility, provider access, organization deployment, mobile cross-device operation and signed upgrades remain NOT TESTED. Production readiness beyond the recorded automated checks is not claimed.
+This is a **test candidate / prerelease** (`pc-v0.13.0-rc.4`); stable `pc-v0.11.0` remains `Latest`. Automated gates on the exact final source require all 60 backend/migration tests, 12 desktop unit/bridge/forms/shared-API/transfer tests, all 11 native Windows Electron UI suites (`ui.mjs`, `motion.mjs`, `subject-delete.mjs`, `parity.mjs`, `reader.mjs`, `schedule.mjs`, `access-control.mjs`, `folders.mjs`, `presenter.mjs`, `rich-editor.mjs`, `transfer.mjs`), native and packaged executable IPC smoke tests, package manifest/SHA-256 verification, zero high-severity dependency audit issues, and paired Android verification. Exact automated results are supplied in `windows-verification.json` and `release-verification.json`. Physical Windows 10/11 save/open dialogs, clipboard/DPI/accessibility testing, live organization HTTPS deployment, real external provider sign-in, and Authenticode code signing remain **NOT TESTED**; the executable is unsigned and stable production readiness is not claimed.

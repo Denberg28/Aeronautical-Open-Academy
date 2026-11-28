@@ -24,7 +24,13 @@ jobs:
       - run: npm ci --prefix desktop
       - run: npm audit --prefix desktop --audit-level=high
       - run: npm test --prefix server
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ba4d72c84f1a5742e1076405825ced0e8b3700e
+          path: shared-api
       - run: npm test --prefix desktop
+        env:
+          ACADEMY_SHARED_API_ROOT: ${{ github.workspace }}/shared-api
       - name: Native Electron single-page workflows
         run: npm run test:ui --prefix desktop
       - name: Native IPC startup smoke test
@@ -52,7 +58,7 @@ jobs:
         run: |
           $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
           $channel = if ($version -match '-') { 'prerelease' } else { 'stable' }
-          $evidence = @{commit=$env:GITHUB_SHA; version=$version; windows_runner='windows-2025'; desktop_tests='PASS'; native_ui_workflows='PASS'; packaged_startup_ipc='PASS'; package_integrity='PASS'; backend_regression='PASS'; dependency_audit='PASS'; real_provider_sign_in='NOT TESTED'; physical_windows_accessibility='NOT TESTED'; github_release_channel=$channel; physical_acceptance='NOT TESTED'; production_readiness='NOT CLAIMED'; tier='Windows desktop build'}
+          $evidence = @{shared_api_commit='6ba4d72c84f1a5742e1076405825ced0e8b3700e'; commit=$env:GITHUB_SHA; version=$version; windows_runner='windows-2025'; desktop_tests='PASS'; native_ui_workflows='PASS'; packaged_startup_ipc='PASS'; package_integrity='PASS'; backend_regression='PASS'; dependency_audit='PASS'; real_provider_sign_in='NOT TESTED'; physical_windows_accessibility='NOT TESTED'; github_release_channel=$channel; physical_acceptance='NOT TESTED'; production_readiness='NOT CLAIMED'; tier='Windows desktop build'}
           $evidence | ConvertTo-Json | Set-Content out/windows-verification.json
           Compress-Archive -Path "out/Academy-PC-$version-win32-x64",out/windows-verification.json -DestinationPath "out/Aeronautical-Open-Academy-PC-v$version-Windows-x64.zip"
           Get-ChildItem out/*.zip | Get-FileHash -Algorithm SHA256 | Format-List | Out-File out/SHA256SUMS.txt
@@ -72,3 +78,99 @@ jobs:
           path: out/desktop-qa/
           if-no-files-found: ignore
           retention-days: 7
+  publish:
+    needs: windows
+    if: github.event_name == 'push' && github.ref == 'refs/heads/desktop/compact-controls-grading' && github.repository == 'Denberg28/Aeronautical-Open-Academy'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require paired Android verification of this exact source
+        run: |
+          python3 - <<'PY'
+          import json,os,subprocess,time
+          repo=os.environ['GITHUB_REPOSITORY']; sha=os.environ['GITHUB_SHA']
+          for attempt in range(120):
+              runs=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs?head_sha={sha}&event=push&per_page=20']))['workflow_runs']
+              android=[r for r in runs if r['path']=='.github/workflows/android.yml' and r['head_sha']==sha]
+              if android and android[0]['status']=='completed':
+                  assert android[0]['conclusion']=='success', 'Android compatibility gate failed'
+                  break
+              time.sleep(10)
+          else: raise AssertionError('Android compatibility gate timed out')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: Academy-PC-Windows-${{ github.sha }}
+          path: out/verified
+      - name: Verify and prepare the original Windows release artifact
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,re,subprocess,zipfile
+          from pathlib import Path
+          version=json.loads(Path('desktop/package.json').read_text())['version']
+          is_stable=bool(re.fullmatch(r'\d+\.\d+\.\d+',version))
+          is_prerelease=bool(re.fullmatch(r'\d+\.\d+\.\d+-(rc|alpha|beta)\.\d+',version))
+          assert is_stable or is_prerelease, f'Unsupported desktop version format: {version}'
+          channel='stable' if is_stable else 'prerelease'
+          tag=f'pc-v{version}'
+          repo=os.environ['GITHUB_REPOSITORY']
+          for endpoint in (f'repos/{repo}/releases?per_page=100', f'repos/{repo}/git/matching-refs/tags/{tag}'):
+              records=json.loads(subprocess.check_output(['gh','api',endpoint]))
+              assert not any(r.get('tag_name')==tag or r.get('ref')==f'refs/tags/{tag}' for r in records), f'Release/tag {tag} already exists; never overwrite'
+          root=Path('out/verified'); package=root/f'Aeronautical-Open-Academy-PC-v{version}-Windows-x64.zip'
+          evidence=json.loads((root/'windows-verification.json').read_text(encoding='utf-8-sig'))
+          assert evidence['commit']==os.environ['GITHUB_SHA'] and evidence['version']==version
+          assert evidence.get('github_release_channel')==channel, f'Channel mismatch: {evidence.get("github_release_channel")} != {channel}'
+          for check in ('desktop_tests','native_ui_workflows','packaged_startup_ipc','package_integrity','backend_regression','dependency_audit'):
+              assert evidence[check]=='PASS', check
+          with zipfile.ZipFile(package) as archive:
+              assert archive.testzip() is None
+              prefix=f'Academy-PC-{version}-win32-x64/'
+              manifest=json.loads(archive.read(prefix+'package-manifest.json'))
+              assert manifest['source']==os.environ['GITHUB_SHA'] and manifest['version']==version
+              for name,digest in manifest['sha256'].items():
+                  assert '..' not in Path(name).parts and not Path(name).is_absolute()
+                  assert hashlib.sha256(archive.read(prefix+name)).hexdigest()==digest, name
+          digest=hashlib.sha256(package.read_bytes()).hexdigest()
+          (root/'SHA256SUMS.txt').write_text(digest+'  '+package.name+'\n')
+          (root/'source-commit.txt').write_text(os.environ['GITHUB_SHA']+'\n')
+          tier='owner-authorized stable distribution; unsigned Windows x64' if is_stable else 'unsigned Windows x64 prerelease'
+          (root/'release-verification.json').write_text(json.dumps({
+              'source':os.environ['GITHUB_SHA'],
+              'version':version,
+              'github_release_channel':channel,
+              'windows_native_ui_package_audit':'PASS',
+              'paired_android':'PASS',
+              'package_sha256':digest,
+              'physical_windows_accessibility':'NOT TESTED',
+              'organization_deployment':'NOT TESTED',
+              'production_readiness':'NOT CLAIMED',
+              'tier':tier
+          },indent=2)+'\n')
+          first_line=next((line.strip() for line in Path('docs/DESKTOP_RELEASE_NOTES.md').read_text(encoding='utf-8').splitlines() if line.strip()), f'Academy PC {tag}')
+          title=re.sub(r'^#+\s*','',first_line)
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env:
+              env.write(f'RELEASE_TAG={tag}\n')
+              env.write(f'RELEASE_TITLE={title}\n')
+              env.write(f'IS_STABLE={"true" if is_stable else "false"}\n')
+          PY
+      - name: Publish the verified Windows release
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG"
+          test -n "$RELEASE_TITLE"
+          git archive --format=zip --output="out/verified/Academy-PC-$RELEASE_TAG-source.zip" "$GITHUB_SHA"
+          (cd out/verified && sha256sum *.zip > SHA256SUMS.txt)
+          gh release create "$RELEASE_TAG" out/verified/*.zip out/verified/SHA256SUMS.txt out/verified/source-commit.txt out/verified/windows-verification.json out/verified/release-verification.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "$RELEASE_TITLE" --notes-file docs/DESKTOP_RELEASE_NOTES.md
+          if [ "$IS_STABLE" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
+          else
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets

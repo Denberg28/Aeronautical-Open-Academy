@@ -1,18 +1,29 @@
-import { randomUUID, randomBytes } from "node:crypto";
+import { responseBytes } from './transport.mjs';
+import { LocalMaterials } from '../server/src/materials.mjs';
+import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { DatabaseSync, backup } from "node:sqlite";
+import { installPracticeTemplate } from "./template.mjs";
 import { createAcademy } from "../server/src/server.mjs";
 import { hashPassword } from "../server/src/security.mjs";
+import { detectImageMime, MAX_IMAGE_BYTES } from "../server/src/richtext.mjs";
 import { externalUrl } from "../server/src/links.mjs";
 import { materialPresentation, describeLink } from "./materials.mjs";
-import { enrollmentQr } from "./enrollment.mjs";
 
 const demoPassword = (role) => `${role}-local-demonstration-only`;
-const roles = ["admin", "instructor", "student"];
-export async function startLocal(directory) {
+const roles = ["admin", "instructor"];
+export async function startLocal(directory, {legacyFixture=false,materialsForTests=false}={}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  const database=join(directory,"academy.sqlite"),snapshot=join(directory,"academy-before-pc-0.12.sqlite");
+  if(existsSync(database)&&!existsSync(snapshot)){
+    const previous=new DatabaseSync(database,{readOnly:true});
+    try{if(previous.prepare('PRAGMA user_version').get().user_version<15)await backup(previous,snapshot);}finally{previous.close();}
+  }
   const academy = await createAcademy({
     dbPath: join(directory, "academy.sqlite"),
+    materials: materialsForTests ? new LocalMaterials(join(directory,"files")) : undefined,
   });
   // Seed only a completely empty LOCAL demonstration database; never touch a remote service.
   if (!academy.db.prepare("SELECT id FROM accounts LIMIT 1").get()) {
@@ -25,23 +36,19 @@ export async function startLocal(directory) {
       roles.forEach((role, i) =>
         academy.db
           .prepare(
-            "INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,0,?,?)",
+            "INSERT INTO accounts(id,email,name,role,password_hash,must_change_password,created_at,student_number) VALUES(?,?,?,?,?,0,?,NULL)",
           )
           .run(
             ids[i],
             `${role}@academy.test`,
-            role === "admin"
-              ? "Administrator"
-              : role === "instructor"
-                ? "Demo instructor"
-                : "Demo student",
+            role === "admin" ? "Administrator" : "Demo instructor",
             role,
             hashes[i],
             Date.now(),
-            role === "student" ? "TEST-001" : null,
           ),
       );
       const subject = randomUUID();
+      const seededAt = Date.now();
       academy.db
         .prepare(
           "INSERT INTO subjects(id,title,description,owner_id,created_at,self_enrol,eligibility_all) VALUES(?,?,?,?,?,1,1)",
@@ -51,13 +58,13 @@ export async function startLocal(directory) {
           "Introduction to Aeronautics",
           "A place for your lessons, references and learning activities.",
           ids[1],
-          Date.now(),
+          seededAt,
         );
       academy.db
         .prepare(
-          "INSERT INTO enrolments(subject_id,student_id,source) VALUES(?,?,'admin')",
+          "INSERT INTO subject_instructors(subject_id,instructor_id,access_level,status,updated_by,updated_at) VALUES(?,?,'editor','active',?,?)",
         )
-        .run(subject, ids[2]);
+        .run(subject, ids[1], ids[0], seededAt);
       const materialId = randomUUID();
       academy.db
         .prepare(
@@ -102,6 +109,7 @@ export async function startLocal(directory) {
       throw error;
     }
   }
+  if(!legacyFixture)try{await installPracticeTemplate(academy.db);}catch(error){await academy.close();throw error;}
   // A private random header also prevents other local browser tabs from reaching this test API.
   const accessKey = randomBytes(32).toString("hex");
   const handler = academy.server.listeners("request")[0];
@@ -157,7 +165,7 @@ function validateRequest(path, options) {
     throw new Error("Invalid request method.");
   if (
     options.body !== undefined &&
-    Buffer.byteLength(JSON.stringify(options.body)) > 65536
+    Buffer.byteLength(JSON.stringify(options.body)) > 131072
   )
     throw new Error("This entry is too long.");
   if (options.key && !/^[a-f0-9-]{36}$/.test(options.key))
@@ -176,7 +184,8 @@ export class AcademyBridge {
   }
   async fetch(path, options = {}, binary = false) {
     const method = validateRequest(path, options);
-    const headers = {};
+    const identity = this.origin + "|" + this.token;
+    const headers = {"X-Academy-Features":"choice-forms-v1"};
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (this.mode === "local")
       headers["X-Academy-Desktop"] = this.local.accessKey;
@@ -198,20 +207,23 @@ export class AcademyBridge {
         "Cannot reach the learning service. Your unsaved text is still here. Try again.",
       );
     }
+    if(identity!==this.origin+"|"+this.token){const error=new Error("The session changed. Sign in again.");error.status=401;throw error;}
     if (response.status === 401) {
       this.token = "";
       this.account = null;
     }
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = JSON.parse((await responseBytes(response,65536)).toString("utf8"));
       const err = new Error(
         error.error || error.message || `Request failed (${response.status}).`,
       );
       err.status = response.status;
       throw err;
     }
-    if (binary) return Buffer.from(await response.arrayBuffer());
-    return response.json();
+    const bytes=await responseBytes(response,binary?50*1024*1024:2*1024*1024);
+    if(identity!==this.origin+"|"+this.token){const error=new Error("The session changed. Sign in again.");error.status=401;throw error;}
+    if(binary){const digest=response.headers.get("X-Content-SHA256");if(path.endsWith("/content")&&(!digest||createHash("sha256").update(bytes).digest("hex")!==digest||bytes.subarray(0,5).toString()!=="%PDF-"||!bytes.subarray(-1024).includes(Buffer.from("%%EOF"))))throw new Error("Material integrity check failed.");return bytes;}
+    return JSON.parse(bytes.toString("utf8"));
   }
   async login({ mode = "local", origin, username, password }) {
     if (!["local", "organization"].includes(mode))
@@ -230,6 +242,17 @@ export class AcademyBridge {
       method: "POST",
       body: { email, password: pass },
     });
+    if (!["admin", "instructor"].includes(result.account?.role)) {
+      this.token = result.token || "";
+      try {
+        if (this.token) await this.fetch("/v1/auth/logout", { method: "POST" });
+      } catch { /* Best-effort session cleanup for rejected role. */ }
+      this.token = "";
+      this.account = null;
+      const err = new Error("Aeronautical Academy Repository desktop is for administrators and instructors only.");
+      err.status = 403;
+      throw err;
+    }
     this.token = result.token;
     this.account = result.account;
     return {
@@ -244,20 +267,126 @@ export class AcademyBridge {
       error.status = 401;
       throw error;
     }
+    const cleanPath = path.split("?")[0];
     if (
-      path.startsWith("/v1/auth/login") ||
-      path.endsWith("/export") ||
-      path.endsWith("/content")
+      cleanPath.startsWith("/v1/auth/login") ||
+      cleanPath.endsWith("/export") ||
+      cleanPath.endsWith("/content") ||
+      cleanPath.includes("/images")
     )
-      throw new Error("Use the dedicated sign-in or export action.");
-    const result = await this.fetch(path, options);
-    if (path === "/v1/auth/password") {
+      throw new Error("Use the dedicated sign-in or media action.");
+    if (
+      /^\/v1\/subjects\/discover$/.test(cleanPath) ||
+      /\/(enrol|eligibility|learners|complete|submission|answers|quiz|grade)(?:\/|$)/.test(cleanPath) ||
+      /^\/v1\/admin\/enrolments$/.test(cleanPath) ||
+      /^\/v1\/submissions\//.test(cleanPath)
+    ) {
+      const error = new Error("Student features are not available in this desktop application.");
+      error.status = 403;
+      throw error;
+    }
+    let opts = options;
+    if (
+      path === "/v1/auth/password" &&
+      this.mode === "local" &&
+      options.body &&
+      typeof options.body.current_password === "string" &&
+      this.account?.email
+    ) {
+      const alias = this.account.email.replace(/@academy\.test$/i, "").toLowerCase();
+      if (
+        roles.includes(alias) &&
+        this.account.email.toLowerCase() === `${alias}@academy.test` &&
+        options.body.current_password === alias
+      ) {
+        opts = {
+          ...options,
+          body: { ...options.body, current_password: demoPassword(alias) },
+        };
+      }
+    }
+    const result = await this.fetch(path, opts);
+    if (["/v1/auth/password","/v1/auth/logout-all"].includes(path)) {
       this.token = "";
       this.account = null;
     }
     if (Array.isArray(result.items))
       result.items = result.items.map((item) => ({ ...item, material: materialPresentation(item) }));
     return result;
+  }
+  // Sync — No local-demo uploads; all shared edits/results already save through the API.
+  async sync() {
+    const me=await this.request('/v1/me');
+    if(me.capabilities?.sync!=='refresh-v1')throw new Error('Update the Academy backend to enable sync.');
+    const receipt=await this.request('/v1/sync');
+    this.account=receipt.account;
+    return {...receipt,mode:this.mode,capabilities:me.capabilities};
+  }
+  async readMaterial(id, revision) {
+    if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('Choose a material.');
+    const {item}=await this.request(`/v1/items/${id}`);
+    if(item.kind!=='material'||!item.has_file||item.revision!==revision)throw new Error('Material changed. Sync before reading.');
+    const bytes=await this.fetch(`/v1/items/${id}/content`,{},true);
+    const current=await this.request(`/v1/items/${id}`);
+    if(current.item.revision!==revision)throw new Error('Material changed. Sync before reading.');
+    return {data:bytes.toString('base64'),title:item.title,revision};
+  }
+  async uploadMaterial(id, version, bytes) {
+    if(!/^[a-f0-9-]{36}$/.test(id)||!Number.isInteger(version)||!Buffer.isBuffer(bytes)||bytes.length>50*1024*1024||bytes.subarray(0,5).toString()!=='%PDF-'||!bytes.subarray(-1024).includes(Buffer.from('%%EOF')))
+      throw new Error('Choose a complete PDF up to 50 MiB.');
+    const {item}=await this.request(`/v1/items/${id}`);
+    if(item.material_mode!=='file'||item.edit_version!==version)throw new Error('Material changed. Sync before uploading.');
+    const identity=this.origin+'|'+this.token;
+    const response=await this.fetcher(this.origin+`/v1/items/${id}/file`,{
+      method:'POST',redirect:'error',signal:AbortSignal.timeout(150000),body:bytes,
+      headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/pdf','X-Item-Version':String(version),
+        ...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})}});
+    if(identity!==this.origin+'|'+this.token)throw new Error('The session changed during upload.');
+    const result=JSON.parse((await responseBytes(response,65536)).toString('utf8'));
+    if(!response.ok){const error=new Error(result.error||'Upload failed.');error.status=response.status;if(response.status===401){this.token='';this.account=null;}throw error;}
+    return result;
+  }
+  async uploadImage(subjectId, bytes) {
+    if(!this.token){const error=new Error('Sign in to continue.');error.status=401;throw error;}
+    if(!/^[a-f0-9-]{36}$/.test(subjectId))throw new Error('Choose a subject.');
+    if(!Buffer.isBuffer(bytes)||bytes.length<12||bytes.length>MAX_IMAGE_BYTES)throw new Error('Paste or choose an image up to 5 MB.');
+    const mime=detectImageMime(bytes);
+    if(!mime)throw new Error('Unsupported image format. Use PNG, JPEG, WebP, or GIF.');
+    const identity=this.origin+'|'+this.token;
+    const response=await this.fetcher(this.origin+`/v1/subjects/${subjectId}/images`,{
+      method:'POST',redirect:'error',signal:AbortSignal.timeout(60000),body:bytes,
+      headers:{Authorization:'Bearer '+this.token,'Content-Type':mime,
+        ...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})}});
+    if(identity!==this.origin+'|'+this.token){const error=new Error('The session changed. Sign in again.');error.status=401;throw error;}
+    const result=JSON.parse((await responseBytes(response,65536)).toString('utf8'));
+    if(!response.ok){const error=new Error(result.error||'Image upload failed.');error.status=response.status;if(response.status===401){this.token='';this.account=null;}throw error;}
+    return {...result,dataUrl:`data:${mime};base64,${bytes.toString('base64')}`};
+  }
+  async readImage({ itemId, subjectId, imageId }) {
+    if(!this.token){const error=new Error('Sign in to continue.');error.status=401;throw error;}
+    if(!/^[a-f0-9-]{36}$/.test(imageId))throw new Error('Invalid image.');
+    let path;
+    if(itemId&&/^[a-f0-9-]{36}$/.test(itemId))path=`/v1/items/${itemId}/images/${imageId}`;
+    else if(subjectId&&/^[a-f0-9-]{36}$/.test(subjectId))path=`/v1/subjects/${subjectId}/images/${imageId}`;
+    else throw new Error('Choose an entry or subject.');
+    const identity=this.origin+'|'+this.token;
+    const headers={Authorization:'Bearer '+this.token,...(this.mode==='local'?{'X-Academy-Desktop':this.local.accessKey}:{})};
+    let response;
+    try{
+      response=await this.fetcher(this.origin+path,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(30000)});
+    }catch{
+      throw new Error('Could not load pasted image.');
+    }
+    if(identity!==this.origin+'|'+this.token){const error=new Error('The session changed. Sign in again.');error.status=401;throw error;}
+    if(!response.ok){
+      if(response.status===401){this.token='';this.account=null;}
+      const error=new Error('Image unavailable.');error.status=response.status;throw error;
+    }
+    const bytes=await responseBytes(response,MAX_IMAGE_BYTES);
+    const digest=response.headers.get('X-Content-SHA256');
+    const mime=detectImageMime(bytes);
+    if(!mime||!digest||createHash('sha256').update(bytes).digest('hex')!==digest)throw new Error('Image integrity check failed.');
+    return {mime_type:mime,dataUrl:`data:${mime};base64,${bytes.toString('base64')}`};
   }
   inspectLink(raw) {
     const link = describeLink(raw);
@@ -284,24 +413,5 @@ export class AcademyBridge {
     const safe = externalUrl(result.url);
     await this.openExternal(safe);
     return { opened: true };
-  }
-  async subjectQr(id) {
-    if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))
-      throw new Error("Choose a valid subject.");
-    const {subject} = await this.request(`/v1/subjects/${id}`);
-    if (!this.account || !(this.account.role === "admin" || this.account.role === "instructor" && subject.owner_id === this.account.id))
-      throw new Error("Only the subject instructor or administrator can generate enrollment codes.");
-    return enrollmentQr(subject.id);
-  }
-  async exportReport(id, offset = 0) {
-    if (
-      !this.token ||
-      !/^[a-f0-9-]{36}$/.test(id) ||
-      !Number.isInteger(offset) ||
-      offset < 0 ||
-      offset > 100000
-    )
-      throw new Error("Choose a subject and report page.");
-    return this.fetch(`/v1/subjects/${id}/export?offset=${offset}`, {}, true);
   }
 }

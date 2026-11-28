@@ -7,7 +7,16 @@ export class ApiError extends Error {
 }
 export function requireThat(condition,status,message){if(!condition)throw new ApiError(status,message);}
 export function text(value,name,max=200){requireThat(typeof value==='string'&&value.trim().length>0&&value.length<=max,400,`Invalid ${name}.`);return value.trim();}
-export function email(value){const e=text(value,'email',254).toLowerCase();requireThat(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),400,'Enter a valid email.');return e;}
+// Accounts — Identity validation. Keep controls/bidi out of single-line identity fields.
+export function accountName(value){
+ const name=text(value,'name',100);
+ requireThat(!/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value),400,'Enter a name without control or invisible formatting characters.');return name;
+}
+export function email(value){
+ const e=text(value,'email',254).toLowerCase();
+ const valid=/^[a-z0-9.!#$%&'*+\/=?^_\x60{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+ requireThat(!/[\p{Cc}\p{Cf}]/u.test(value)&&valid.test(e)&&e.indexOf('@')<=64&&!e.startsWith('.')&&!e.includes('..')&&!e.includes('.@'),400,'Enter a valid email.');return e;
+}
 export function password(value){requireThat(typeof value==='string'&&value.length>=15&&value.length<=128,400,'Use a password/passphrase with 15–128 characters.');return value;}
 export const digest=value=>createHash('sha256').update(value).digest('hex');
 export const token=()=>randomBytes(32).toString('base64url');

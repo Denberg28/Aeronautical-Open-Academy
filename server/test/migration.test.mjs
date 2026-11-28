@@ -16,16 +16,16 @@ test('v1 data migrates without changing identity, enrollment, file references or
    INSERT INTO enrolments VALUES('subject','student');
    INSERT INTO items VALUES('item','subject','teacher','quiz','Quiz','Question',1,0,'["A","B"]',1,1,'private-file','sha',12,1,0);
    INSERT INTO attempts VALUES('attempt','student','item',1,1,1,'request',1);
-   INSERT INTO progress VALUES('student','item',1,1,1);PRAGMA user_version=1;`);db.close();db=null;
+   INSERT INTO progress VALUES('student','item',1,1,1);DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=1;`);db.close();db=null;
   for(let n=0;n<2;n++){
-   db=openDatabase(path);assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+   db=openDatabase(path);assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
    assert.equal(db.prepare('SELECT self_enrol FROM subjects').get().self_enrol,0);
    assert.equal(db.prepare('SELECT file_ref FROM items').get().file_ref,'private-file');
    assert.equal(db.prepare('SELECT score FROM attempts').get().score,1);
    assert.equal(db.prepare('SELECT count(*) n FROM enrolments').get().n,1);
    assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);db.close();db=null;
   }
-  db=new DatabaseSync(path);db.exec('PRAGMA user_version=99');db.close();db=null;assert.throws(()=>openDatabase(path),/newer than this server/);
+  db=new DatabaseSync(path);db.exec('DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=99');db.close();db=null;assert.throws(()=>openDatabase(path),/newer than this server/);
  }finally{if(db)db.close();rmSync(dir,{recursive:true,force:true});}
 });
 
@@ -40,7 +40,7 @@ test('published v2 database upgrades to v4 with prior enrollments, open courses 
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at) VALUES('work','subject','i','activity','Activity','Write',1,1);
    INSERT INTO submissions VALUES('output','s','work',1,'Prior output',0,'Prior feedback','i',1,2,'request');`);
   db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
   assert.equal(db.prepare('SELECT eligibility_all FROM subjects').get().eligibility_all,1);
   assert.equal(db.prepare('SELECT source FROM enrolments').get().source,'legacy');
   assert.equal(db.prepare('SELECT student_number FROM accounts WHERE id=?').get('s').student_number,null);
@@ -59,7 +59,7 @@ test('published v3 upgrades to v4 without changing IDs, eligibility, file materi
    INSERT INTO subjects(id,title,description,owner_id,created_at,self_enrol) VALUES('subject','Subject A','Original','i',1,1);
    INSERT INTO eligible_students VALUES('subject','0001-X');INSERT INTO enrolments VALUES('subject','s','qr');
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,file_ref,edit_version) VALUES('pdf','subject','i','material','PDF','Original',1,1,'private-file',7);`);
-  db.close();db=openDatabase(path);assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+  db.close();db=openDatabase(path);assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
   assert.equal(db.prepare('SELECT student_number FROM accounts WHERE id=?').get('s').student_number,'0001-X');
   assert.equal(db.prepare('SELECT student_number FROM eligible_students').get().student_number,'0001-X');assert.equal(db.prepare('SELECT source FROM enrolments').get().source,'qr');
   const item=db.prepare('SELECT * FROM items').get();assert.equal(item.material_mode,'file');assert.equal(item.file_ref,'private-file');assert.equal(item.edit_version,7);assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
@@ -74,8 +74,8 @@ test('published v4 upgrades to v5 preserving chronological order and reopening s
    INSERT INTO accounts(id,email,name,role,password_hash,created_at) VALUES('i','i@test.example','Instructor','instructor','private-hash',1);
    INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES('s','Subject','Notes','i',1);
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,edit_version) VALUES('late','s','i','material','Later','Body',1,20,3),('early','s','i','material','Earlier','Body',1,10,4);
-   PRAGMA user_version=4;`);db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);assert.deepEqual(db.prepare('SELECT id FROM items ORDER BY sort_order').all().map(r=>r.id),['early','late']);assert.equal(db.prepare("SELECT edit_version FROM items WHERE id='early'").get().edit_version,4);
+   DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=4;`);db.close();db=openDatabase(path);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);assert.deepEqual(db.prepare('SELECT id FROM items ORDER BY sort_order').all().map(r=>r.id),['early','late']);assert.equal(db.prepare("SELECT edit_version FROM items WHERE id='early'").get().edit_version,4);
   db.prepare("UPDATE items SET sort_order=8 WHERE id='early'").run();db.close();db=openDatabase(path);assert.deepEqual(db.prepare('SELECT id FROM items ORDER BY sort_order').all().map(r=>r.id),['late','early']);assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
  }finally{db?.close();rmSync(directory,{recursive:true,force:true});}
 });
@@ -92,9 +92,9 @@ test('published v5 upgrade preserves standalone entries, IDs and work without gu
    INSERT INTO subjects(id,title,description,owner_id,created_at,order_revision) VALUES('subject','Subject','Notes','i',1,9);
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,edit_version,sort_order) VALUES('material','subject','i','material','Material','Body',1,1,4,0),('activity','subject','i','activity','Activity','Work',1,2,7,1);
    INSERT INTO submissions VALUES('work','s','activity',1,'Keep this answer',88,'Keep feedback','i',1,2,'key');
-   PRAGMA user_version=5;`);
+   DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=5;`);
   db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
   assert.deepEqual(db.prepare('SELECT id,parent_id,edit_version FROM items ORDER BY sort_order').all().map(x=>({...x})),[{id:'material',parent_id:null,edit_version:4},{id:'activity',parent_id:null,edit_version:7}]);
   assert.equal(db.prepare('SELECT order_revision FROM subjects').get().order_revision,9);
   assert.equal(db.prepare('SELECT output FROM submissions').get().output,'Keep this answer');
@@ -113,14 +113,14 @@ test('schema-6 grouping upgrades and reopens without subsections without changin
    INSERT INTO subjects(id,title,description,owner_id,created_at,order_revision) VALUES('subject','Subject','Notes','i',1,4);
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,parent_id,edit_version) VALUES('root','subject','i','material','Root','Original',1,1,NULL,3),('child','subject','i','activity','Practice','Instructions',1,2,'root',2);
    INSERT INTO submissions VALUES('work','s','child',1,'Student work',93,'Feedback','i',1,2,'key');
-   ALTER TABLE items DROP COLUMN questions_json; PRAGMA user_version=6;`);
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing; DROP INDEX IF EXISTS items_release; ALTER TABLE items DROP COLUMN publish_at; ALTER TABLE items DROP COLUMN due_at; ALTER TABLE items DROP COLUMN questions_json; DROP INDEX IF EXISTS subjects_folder; ALTER TABLE subjects DROP COLUMN folder_id; DROP TABLE IF EXISTS subject_folders; DROP TABLE IF EXISTS subject_instructors; DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=6;`);
   const before=JSON.stringify(db.prepare('SELECT * FROM items ORDER BY id').all());
   db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
-  assert.equal(JSON.stringify(db.prepare('SELECT * FROM items ORDER BY id').all().map(({questions_json,...item})=>item)),before);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
+  assert.equal(JSON.stringify(db.prepare('SELECT * FROM items ORDER BY id').all().map(({questions_json,publish_at,due_at,body_html,paragraph_spacing,...item})=>item)),before);
   assert.equal(db.prepare('SELECT score FROM submissions').get().score,93);
-  assert.throws(()=>db.exec(`INSERT INTO items(id,subject_id,owner_id,kind,title,body,created_at,parent_id) VALUES('section','subject','i','material','Subsection','Reference',3,'root');`),/Invalid material parent/);
-  assert.throws(()=>db.exec("UPDATE items SET parent_id='section' WHERE id='root'"),/Invalid material parent/);
+  assert.throws(()=>db.exec("UPDATE items SET parent_id='child' WHERE id='root'"),/Invalid material parent/);
+  assert.throws(()=>db.exec("UPDATE items SET parent_id='root' WHERE id='root'"),/Invalid material parent/);
   db.close();db=openDatabase(path);
   assert.equal(db.prepare("SELECT parent_id FROM items WHERE id='child'").get().parent_id,'root');
   assert.equal(db.prepare('SELECT output FROM submissions').get().output,'Student work');
@@ -132,7 +132,7 @@ test('schema-7 subsections become root materials retaining learner work and effe
  const directory=mkdtempSync(join(tmpdir(),'academy-v7-remove-')),path=join(directory,'academy.sqlite');let db;
  try{
   db=openDatabase(path);
-  // Reproduce the published v7 data shape. Its triggers are replaced by v8 on open.
+  // Reproduce the published v7 data shape. Its triggers are replaced by v8 and v15 on open.
   db.exec(`DROP TRIGGER items_tree_insert;DROP TRIGGER items_tree_update;
    CREATE TRIGGER items_tree_insert BEFORE INSERT ON items WHEN NEW.parent_id IS NOT NULL BEGIN SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.assessment_type='examination' OR NEW.id=NEW.parent_id OR NOT EXISTS(SELECT 1 FROM items p WHERE p.id=NEW.parent_id AND p.subject_id=NEW.subject_id AND p.kind='material' AND p.archived=0 AND (NEW.kind<>'material' OR p.parent_id IS NULL)); END;
    CREATE TRIGGER items_tree_update BEFORE UPDATE OF parent_id ON items WHEN NEW.parent_id IS NOT NULL BEGIN SELECT RAISE(ABORT,'Invalid material parent') WHERE NEW.id=NEW.parent_id; END;
@@ -145,9 +145,9 @@ test('schema-7 subsections become root materials retaining learner work and effe
      ('last','subject','i','material','Last material','Notes',1,4,NULL,3,1,1);
    INSERT INTO progress VALUES('s','section',4,1,1);
    INSERT INTO submissions VALUES('work','s','child',2,'Keep this answer',96,'Keep feedback','i',1,2,'key');
-   ALTER TABLE items DROP COLUMN questions_json; PRAGMA user_version=7;`);
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing; DROP INDEX IF EXISTS items_release; ALTER TABLE items DROP COLUMN publish_at; ALTER TABLE items DROP COLUMN due_at; ALTER TABLE items DROP COLUMN questions_json; DROP INDEX IF EXISTS subjects_folder; ALTER TABLE subjects DROP COLUMN folder_id; DROP TABLE IF EXISTS subject_folders; DROP TABLE IF EXISTS subject_instructors; DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=7;`);
   db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
   const material=db.prepare("SELECT * FROM items WHERE id='section'").get();
   assert.equal(material.parent_id,null);assert.equal(material.published,0);assert.equal(material.revision,4);assert.equal(material.edit_version,6);
   assert.equal(material.body,'https://docs.google.com/document/d/example/edit');
@@ -156,7 +156,7 @@ test('schema-7 subsections become root materials retaining learner work and effe
   assert.equal(db.prepare('SELECT completed FROM progress').get().completed,1);
   assert.equal(db.prepare('SELECT order_revision FROM subjects').get().order_revision,10);
   assert.deepEqual(db.prepare('SELECT id FROM items ORDER BY sort_order').all().map(i=>i.id),['root','section','child','last']);
-  assert.throws(()=>db.exec("UPDATE items SET parent_id='root' WHERE id='section'"),/Invalid material parent/);
+  assert.throws(()=>db.exec("UPDATE items SET parent_id='child' WHERE id='section'"),/Invalid material parent/);
   db.close();db=openDatabase(path);assert.equal(db.prepare('SELECT order_revision FROM subjects').get().order_revision,10);
   assert.equal(db.prepare('SELECT output FROM submissions').get().output,'Keep this answer');
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
@@ -170,19 +170,89 @@ test('schema-8 quiz attempts retain IDs and one-point scores through schema-9 mi
   db.exec(`INSERT INTO accounts(id,email,name,role,password_hash,created_at) VALUES('i','i@example.test','Teacher','instructor','fixture',1),('s','s@example.test','Student','student','fixture',1);
    INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES('subject','Subject','Notes','i',1);
    INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at,options_json,correct_index) VALUES('quiz','subject','i','quiz','Quiz','Legacy question',1,1,'["A","B"]',1);
-   ALTER TABLE items DROP COLUMN questions_json;
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing; DROP INDEX IF EXISTS items_release; ALTER TABLE items DROP COLUMN publish_at; ALTER TABLE items DROP COLUMN due_at; ALTER TABLE items DROP COLUMN questions_json;
    DROP TABLE attempts;
    CREATE TABLE attempts(id TEXT PRIMARY KEY,student_id TEXT NOT NULL REFERENCES accounts(id),item_id TEXT NOT NULL REFERENCES items(id),revision INTEGER NOT NULL,choice INTEGER NOT NULL,score INTEGER NOT NULL CHECK(score IN (0,1)),request_key TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(student_id,item_id,revision),UNIQUE(student_id,request_key)) STRICT;
    INSERT INTO attempts VALUES('legacy-attempt','s','quiz',1,1,1,'legacy-key',12);
-   PRAGMA user_version=8;`);
+   DROP INDEX IF EXISTS subjects_folder; ALTER TABLE subjects DROP COLUMN folder_id; DROP TABLE IF EXISTS subject_folders; DROP TABLE IF EXISTS subject_instructors; DROP TABLE IF EXISTS desktop_templates; DROP TABLE IF EXISTS security_limits; DROP INDEX IF EXISTS sessions_expiry; PRAGMA user_version=8;`);
   db.close();db=openDatabase(path);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
   const attempt=db.prepare('SELECT * FROM attempts').get();
   assert.equal(attempt.id,'legacy-attempt');assert.equal(attempt.score,1);assert.equal(attempt.max_score,1);assert.equal(attempt.request_key,'legacy-key');assert.equal(attempt.answers_json,null);
   assert.equal(db.prepare("SELECT correct_index FROM items WHERE id='quiz'").get().correct_index,1);
   db.exec(`INSERT INTO attempts VALUES('multi-attempt','s','quiz',2,0,2,'multi-key',13,'[0,1,0]',3);`);
   db.close();db=openDatabase(path);
   assert.equal(db.prepare("SELECT score FROM attempts WHERE id='multi-attempt'").get().score,2);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+ }finally{db?.close();rmSync(directory,{recursive:true,force:true});}
+});
+
+test('schema-12 upgrades to schema-13 backfilling instructor owners as active editors without altering admin subjects',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'academy-v12-access-')),path=join(directory,'academy.sqlite');let db;
+ try{
+  db=openDatabase(path);
+  db.exec(`INSERT INTO accounts(id,email,name,role,password_hash,created_at) VALUES
+     ('a','a@example.test','Admin','admin','fixture',1),
+     ('i','i@example.test','Teacher','instructor','fixture',1),
+     ('s','s@example.test','Student','student','fixture',1);
+   INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES
+     ('sub-inst','Instructor Subject','Notes','i',10),
+     ('sub-admin','Admin Subject','Notes','a',20);
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing;
+   DROP INDEX IF EXISTS subjects_folder; ALTER TABLE subjects DROP COLUMN folder_id; DROP TABLE IF EXISTS subject_folders;
+   DROP TABLE IF EXISTS subject_instructors;
+   PRAGMA user_version=12;`);
+  db.close();db=openDatabase(path);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
+  const grants=db.prepare('SELECT subject_id,instructor_id,access_level,status FROM subject_instructors ORDER BY subject_id').all().map(r=>({...r}));
+  assert.deepEqual(grants,[{subject_id:'sub-inst',instructor_id:'i',access_level:'editor',status:'active'}]);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+ }finally{db?.close();rmSync(directory,{recursive:true,force:true});}
+});
+
+test('schema-13 upgrades to schema-14 adding subject_folders and nullable subjects.folder_id while preserving existing data',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'academy-v13-folders-')),path=join(directory,'academy.sqlite');let db;
+ try{
+  db=openDatabase(path);
+  db.exec(`INSERT INTO accounts(id,email,name,role,password_hash,created_at) VALUES
+     ('a','a@example.test','Admin','admin','fixture',1),
+     ('i','i@example.test','Teacher','instructor','fixture',1);
+   INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES('sub','Existing Subject','Notes','i',10);
+   INSERT INTO subject_instructors VALUES('sub','i','editor','active','a',10);
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing;
+   DROP INDEX IF EXISTS subjects_folder; ALTER TABLE subjects DROP COLUMN folder_id; DROP TABLE IF EXISTS subject_folders;
+   PRAGMA user_version=13;`);
+  db.close();db=openDatabase(path);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
+  assert.equal(db.prepare("SELECT folder_id FROM subjects WHERE id='sub'").get().folder_id,null);
+  assert.equal(db.prepare('SELECT count(*) n FROM subject_folders').get().n,0);
+  db.exec("INSERT INTO subject_folders VALUES('f1','Core',NULL,0,'a',11,11); UPDATE subjects SET folder_id='f1' WHERE id='sub';");
+  db.close();db=openDatabase(path);
+  assert.equal(db.prepare("SELECT folder_id FROM subjects WHERE id='sub'").get().folder_id,'f1');
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+ }finally{db?.close();rmSync(directory,{recursive:true,force:true});}
+});
+
+test('schema-14 upgrades to schema-15 adding body_html, paragraph_spacing, item_images and multi-level tree triggers',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'academy-v14-rich-')),path=join(directory,'academy.sqlite');let db;
+ try{
+  db=openDatabase(path);
+  db.exec(`INSERT INTO accounts(id,email,name,role,password_hash,created_at) VALUES('i','i@example.test','Teacher','instructor','fixture',1);
+   INSERT INTO subjects(id,title,description,owner_id,created_at) VALUES('sub','Existing','Notes','i',10);
+   INSERT INTO items(id,subject_id,owner_id,kind,title,body,published,created_at) VALUES('m1','sub','i','material','Module 1','Notes',1,10),('m2','sub','i','material','Module 2','Notes',1,11);
+   DROP TABLE IF EXISTS item_images; ALTER TABLE items DROP COLUMN body_html; ALTER TABLE items DROP COLUMN paragraph_spacing;
+   PRAGMA user_version=14;`);
+  db.close();db=openDatabase(path);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
+  const row=db.prepare("SELECT body_html,paragraph_spacing FROM items WHERE id='m1'").get();
+  assert.equal(row.body_html,null);
+  assert.equal(row.paragraph_spacing,'normal');
+  db.exec("UPDATE items SET parent_id='m1',paragraph_spacing='relaxed',body_html='<p data-indent=\"1\">Nested</p>' WHERE id='m2';");
+  db.close();db=openDatabase(path);
+  const moved=db.prepare("SELECT parent_id,paragraph_spacing,body_html FROM items WHERE id='m2'").get();
+  assert.equal(moved.parent_id,'m1');
+  assert.equal(moved.paragraph_spacing,'relaxed');
+  assert.equal(moved.body_html,'<p data-indent="1">Nested</p>');
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
  }finally{db?.close();rmSync(directory,{recursive:true,force:true});}
 });

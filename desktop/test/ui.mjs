@@ -1,7 +1,5 @@
 import { _electron } from "playwright";
 import assert from "node:assert/strict";
-import jsQR from "jsqr";
-import { extract } from "@electron-internal/extract-zip";
 import { mkdtemp, rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -17,7 +15,7 @@ try {
       "--disable-gpu",
       "--disable-dev-shm-usage",
     ],
-    env: { ...process.env, ACADEMY_TEST_DATA: directory },
+    env: { ...process.env, ACADEMY_TEST_LEGACY_SEED: "1", ACADEMY_TEST_DATA: directory },
     timeout: 30000,
   });
   console.log("Electron launched");
@@ -40,7 +38,8 @@ try {
       !(await page.locator(`[data-action="${name}"]`).first().isVisible())
     )
       await page.getByText("MORE", { exact: true }).click();
-    await page.locator(`[data-action="${name}"]${extra}`).first().click();
+    const control=page.locator(`[data-action="${name}"]${extra}`).first();
+    await control.click();
     await page.waitForFunction(
       () => !document.body.classList.contains("working"),
     );
@@ -65,6 +64,7 @@ try {
       () => !document.body.classList.contains("working"),
     );
   };
+  assert.equal(await page.locator('[data-demo="student"]').count(), 0);
   await login("instructor");
   assert.ok((await page.locator('.sidebar-foot').textContent()).includes(version));
   assert.equal(
@@ -72,11 +72,8 @@ try {
     "Introduction to Aeronautics",
   );
   await action("add");
-  await page
-    .locator("#composer textarea[name=text]")
-    .fill(
-      "Lesson 02 — Aircraft structure\nA reference for our next discussion.",
-    );
+  await page.locator("#composer input[name=title]").fill("Lesson 02 — Aircraft structure");
+  await page.locator("#rich-editor").fill("A reference for our next discussion.");
   await action("attach");
   await page.locator("#composer input[name=link]").fill("ftp://www.faa.gov/");
   await page.locator("#composer button[type=submit]").click();
@@ -84,8 +81,12 @@ try {
     () => !document.body.classList.contains("working"),
   );
   assert.equal(
-    await page.locator("#composer textarea").inputValue(),
-    "Lesson 02 — Aircraft structure\nA reference for our next discussion.",
+    await page.locator("#composer input[name=title]").inputValue(),
+    "Lesson 02 — Aircraft structure",
+  );
+  assert.match(
+    await page.locator("#rich-editor").textContent(),
+    /A reference for our next discussion\./,
   );
   await page.locator("#composer input[name=link]").fill("https://www.faa.gov/");
   const materials = [
@@ -138,9 +139,8 @@ try {
   await newCard.locator("[data-action=edit]").click();
   assert.equal(await page.locator("#composer input[name=link]").count(), 7);
   assert.deepEqual(await page.locator("#composer input[name=link]").evaluateAll((inputs) => inputs.slice(1).map((input) => input.value)), materials.map(([url]) => url));
-  await page
-    .locator("#composer textarea")
-    .fill("Lesson 02 — Aircraft structures\nUpdated notes for class.");
+  await page.locator("#composer input[name=title]").fill("Lesson 02 — Aircraft structures");
+  await page.locator("#rich-editor").fill("Updated notes for class.");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -155,7 +155,7 @@ try {
   await newCard.locator("[data-drag]").press("Alt+ArrowUp");
   await page.waitForFunction(() => !state.busy);
   await action("add");
-  await page.locator("#composer textarea").fill("Keep this draft");
+  await page.locator("#composer input[name=title]").fill("Keep this draft");
   console.log("Cancel quit check");
   // A simulated cancelled close must leave the local service alive.
   await application.evaluate(({ app, BrowserWindow }) => {
@@ -176,7 +176,7 @@ try {
   await page.locator("#signin[open]").waitFor();
   await page.waitForFunction(() => !document.body.classList.contains("working"));
   await login("instructor");
-  assert.equal(await page.locator("#composer textarea").inputValue(), "Keep this draft");
+  assert.equal(await page.locator("#composer input[name=title]").inputValue(), "Keep this draft");
   // Navigation asks before discarding and keeps the text when cancelled.
   await page.locator(".sidebar [data-action=tasks]").click();
   await page.locator("#confirm[open]").waitFor();
@@ -185,7 +185,7 @@ try {
     () => !document.body.classList.contains("working"),
   );
   assert.equal(
-    await page.locator("#composer textarea").inputValue(),
+    await page.locator("#composer input[name=title]").inputValue(),
     "Keep this draft",
   );
   await page.locator("[data-action=cancel-compose]").click();
@@ -194,7 +194,7 @@ try {
     () => !document.body.classList.contains("working"),
   );
   await action("add");
-  await page.locator("#composer textarea").fill("Saved despite refresh failure");
+  await page.locator("#composer input[name=title]").fill("Saved despite refresh failure");
   await page.evaluate(() => {
     window.academyOriginalReload = reloadActive;
     reloadActive = async () => { throw new Error("Synthetic refresh outage"); };
@@ -208,7 +208,8 @@ try {
   assert.equal(await page.getByRole("heading", { name: "Saved despite refresh failure", exact: true }).count(), 1);
   await action("add");
   await page.selectOption("#entry-kind", "examination");
-  await page.locator("#composer textarea").fill("Midterm examination\nExplain the four forces.");
+  await page.locator("#composer input[name=title]").fill("Midterm examination");
+  await page.locator("#rich-editor").fill("Explain the four forces.");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(() => !state.busy);
   const examGroup = page.locator("[data-group]").filter({ has: page.getByRole("heading", {name:"Midterm examination",exact:true}) });
@@ -236,7 +237,8 @@ try {
   assert.equal(await page.locator('[data-question-editor]').count(),3);
   assert.equal(await firstQuestion.locator('[data-question-prompt]').inputValue(),prompts[0]);
   assert.equal(await firstQuestion.locator('input[type=radio][value="1"]').isChecked(),true);
-  await page.locator('#composer textarea[name=text]').fill('Practice quiz\nThree multiple-choice questions.');
+  await page.locator('#composer input[name=title]').fill('Practice quiz');
+  await page.locator('#rich-editor').fill('Three multiple-choice questions.');
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -294,7 +296,7 @@ try {
   const quizCard = page.locator(`[data-item="${quizId}"]`);
   // Keep the 12,000-character migration fixture, but use adjacent compact cards for pointer drags.
   await action('add',`[data-parent="${materialId}"]`);
-  await page.locator('#composer textarea[name=text]').fill('Short drag activity');
+  await page.locator('#composer input[name=title]').fill('Short drag activity');
   await page.locator('#composer button[type=submit]').click();
   await page.waitForFunction(() => !state.busy);
   const dragCard = childRegion.locator('[data-item]').filter({has:page.getByRole('heading',{name:'Short drag activity',exact:true})});
@@ -316,12 +318,12 @@ try {
   await page.waitForFunction(() => !state.busy);
   // Collapsing another section never rebuilds or clears the active draft.
   await quizCard.locator('[data-action=edit]').click();
-  await page.locator('#composer textarea[name=text]').fill('Retain this nested draft');
+  await page.locator('#composer input[name=title]').fill('Retain this nested draft');
   assert.equal(await minimize.isDisabled(),true);
   // Pick by ID rather than relying on section order.
   const anotherId = await page.evaluate((id) => state.items.find((i) => i.kind==='material' && i.id!==id).id,materialId);
   await action('toggle-material',`[data-id="${anotherId}"]`);
-  assert.equal(await page.locator('#composer textarea[name=text]').inputValue(),'Retain this nested draft');
+  assert.equal(await page.locator('#composer input[name=title]').inputValue(),'Retain this nested draft');
   await page.locator('[data-action=cancel-compose]').click();
   await page.locator('#confirm-yes').click();
   await page.waitForFunction(() => !state.busy);
@@ -331,7 +333,7 @@ try {
   assert.equal(await page.locator('[data-action=add][data-parent]:not([data-parent=""])').count(),0);
   await page.evaluate(() => {state.treeSupported=true;renderSubject();});
   await action("add");
-  await page.locator("#composer textarea").fill("Unpublished sample");
+  await page.locator("#composer input[name=title]").fill("Unpublished sample");
   await page.locator("#composer [name=published]").uncheck();
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
@@ -339,118 +341,15 @@ try {
   );
   await page.evaluate(() => { document.querySelector("#center").scrollTop=0; });
   await page.screenshot({path:fileURLToPath(new URL("../../out/desktop-qa/subject-tree-instructor.png",import.meta.url)),fullPage:true});
-  await action("eligibility");
-  await page.locator("#eligibility").waitFor();
-  await action("generate-qr");
-  await page.locator("#subject-qr img").waitFor();
-  const qrPixels = await page.locator("#subject-qr img").evaluate(async (image) => {
-    await image.decode();
-    const canvas = document.createElement("canvas"); canvas.width=canvas.height=512;
-    const ctx = canvas.getContext("2d"); ctx.fillStyle="white"; ctx.fillRect(0,0,512,512);
-    ctx.drawImage(image,0,0,512,512);
-    return [...ctx.getImageData(0,0,512,512).data];
-  });
-  const subjectId = await page.locator('[aria-label="Subject code"]').inputValue();
-  assert.equal(jsQR(new Uint8ClampedArray(qrPixels),512,512)?.data, `aoa://subject/${subjectId}`);
-  await action("save-qr");
-  assert.match(await readFile(join(directory,"test-subject-qr.svg"),"utf8"), /<svg/);
-  await action("learners");
-  await page
-    .getByRole("heading", { name: "Students & progress", exact: true })
-    .waitFor();
-  await action("export");
-  await action("logout");
-  await login("student");
-  assert.equal(
-    await page
-      .getByRole("heading", { name: "Unpublished sample", exact: true })
-      .count(),
-    0,
-  );
-  assert.equal(await page.locator("[data-action=add]").count(), 0);
-  assert.equal(await page.locator('[data-drag]').count(),0);
-  const studentToggle = page.locator('[data-action=toggle-material]').first();
-  const studentRegion = page.locator('#'+await studentToggle.getAttribute('aria-controls'));
-  await studentToggle.click();
-  assert.equal(await studentRegion.isVisible(),false);
-  await studentToggle.click();
-  assert.equal(await studentRegion.isVisible(),true);
-  await action("complete");
-  const written = page.locator("article.material").filter({has:page.getByRole("heading",{name:"Reflect on the four forces",exact:true})}).locator("form[data-form=submission]");
-  await written
-    .locator("textarea")
-    .fill("Lift balances weight. Thrust balances drag.");
-  const writtenParent = await written.evaluate((form) => form.closest('[data-item]').dataset.parent);
-  const writtenToggle = page.locator(`[data-action="toggle-material"][data-id="${writtenParent}"]`);
-  await writtenToggle.click();
-  assert.equal(await written.isVisible(),false);
-  await writtenToggle.click();
-  assert.equal(await written.locator('textarea').inputValue(),'Lift balances weight. Thrust balances drag.');
-  await written.locator("button[type=submit]").click();
-  await page.locator("#confirm-yes").click();
-  await page.waitForFunction(
-    () => !document.body.classList.contains("working"),
-  );
-  assert.equal(await written.count(), 0);
-  await page.locator('[data-action=start-quiz]').click();
-  await page.locator('#confirm-no').click();
-  await page.waitForFunction(()=>!state.busy);
-  assert.equal(await page.locator('.quiz-attempt').isVisible(),false);
-  await page.locator('[data-action=start-quiz]').click();
-  await page.locator('#confirm-yes').click();
-  await page.waitForFunction(()=>!state.busy);
-  const quiz = page.locator("form[data-form=quiz]");
-  await quiz.locator('input[name="answer-0"][value="1"]').check();
-  await page.locator('.quiz-attempt > summary').click();
-  assert.equal(await quiz.isVisible(),false);
-  await page.locator('.quiz-attempt > summary').click();
-  assert.equal(await quiz.locator('input[name="answer-0"][value="1"]').isChecked(),true);
-  await quiz.locator('input[name="answer-1"][value="0"]').check();
-  await quiz.locator('input[name="answer-2"][value="0"]').check();
-  await quiz.locator("button[type=submit]").click();
-  await page.locator("#confirm-yes").click();
-  await page.waitForFunction(()=>!state.busy);
-  await page.getByText("Done · 2 / 3 correct").waitFor();
-  assert.equal(await page.locator('form[data-form=quiz]').count(),0);
-  assert.equal(await page.locator('.quiz-review[open]').count(),0);
-  await page.screenshot({
-    path: fileURLToPath(new URL("../../out/desktop-qa/student-viewer.png", import.meta.url)),
-    fullPage: true,
-  });
-  await action("results");
-  assert.ok(
-    (await page.locator("#center").textContent()).includes("Quiz score: 2 / 3"),
-  );
+  // Verify removed student/enrolment controls are absent for instructors.
+  for (const removed of ["learners", "eligibility", "results", "discover", "generate-qr", "export"]) {
+    assert.equal(await page.locator(`[data-action="${removed}"]`).count(), 0, `Removed action ${removed} must not render`);
+  }
   await action("tasks");
-  await action("discover");
+  await page.locator("#center").getByRole("heading", { name: "Drafts", exact: true }).waitFor();
+  await page.locator("#center").getByText("Unpublished sample", { exact: true }).waitFor();
   await action("settings");
   await action("help");
-  await action("logout");
-  await login("instructor");
-  await action("learners");
-  await action("learner");
-  await page.locator("[data-form=grade] [name=score]").fill("95");
-  await page
-    .locator("[data-form=grade] [name=feedback]")
-    .fill("Clear explanation.");
-  await page.locator("[data-form=grade] button").click();
-  await page.waitForFunction(
-    () => !document.body.classList.contains("working"),
-  );
-  assert.equal(
-    await page.locator("[data-form=grade] [name=score]").inputValue(),
-    "95",
-  );
-  await action("learners");
-  await action("export");
-  const reportDir = join(directory,"report");
-  await extract(join(directory,"test-report.xlsx"), {dir:reportDir});
-  const assessments = await readFile(join(reportDir,"xl/worksheets/sheet2.xml"),"utf8");
-  assert.match(assessments, /<v>95<\/v>/);
-  const quizRow=assessments.match(/<row[^>]*>(?:(?!<\/row>)[\s\S])*Practice quiz(?:(?!<\/row>)[\s\S])*<\/row>/)?.[0];
-  assert.ok(quizRow);
-  assert.match(quizRow, /<v>2<\/v>/);
-  assert.match(quizRow, /<v>3<\/v>/);
   await action("logout");
   await login("admin");
   await action("announcements");
@@ -463,18 +362,26 @@ try {
     .waitFor();
   await action("accounts");
   await action("new-account");
-  await page.locator("#new-account [name=name]").fill("Test learner");
+  assert.deepEqual(
+    await page.locator("#new-account [name=role] option").evaluateAll((options) => options.map((option) => option.value)),
+    ["instructor", "admin"],
+  );
+  assert.equal(await page.locator("#new-account [name=student_number]").count(), 0);
+  await page.locator("#new-account [name=name]").fill("Test instructor");
   await page.locator("#new-account [name=email]").fill("new@academy.test");
-  await page.locator("#new-account [name=student_number]").fill("TEST-002");
   await page
     .locator("#new-account [name=password]")
+    .fill("A temporary test passphrase!");
+  await page
+    .locator("#new-account [name=confirm_password]")
     .fill("A temporary test passphrase!");
   await submit("#new-account");
   await page.getByText("new@academy.test", { exact: true }).waitFor();
   // HTML in user text is rendered as text, never executed.
   await action("subject");
   await action("add");
-  await page.locator("#composer textarea").fill("<img src=x onerror=alert(1)>");
+  await page.locator("#composer input[name=title]").fill("<img src=x onerror=alert(1)>");
+  await page.locator("#rich-editor").fill("<img src=x onerror=alert(1)>");
   await page.locator("#composer button[type=submit]").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -499,7 +406,7 @@ try {
   await page.locator("#subject-form [name=title]").fill("Aircraft Maintenance");
   await page
     .locator("#subject-form [name=description]")
-    .fill("A new subject for enrollment testing.");
+    .fill("A new subject for repository authoring.");
   await page.locator("#subject-form button.primary").click();
   await page.waitForFunction(
     () => !document.body.classList.contains("working"),
@@ -507,25 +414,9 @@ try {
   await page
     .getByRole("heading", { name: "Aircraft Maintenance", exact: true })
     .waitFor();
-  await action("eligibility");
-  await page.locator("#eligibility [name=all]").check();
-  await page.locator("#eligibility button.primary").click();
-  await page.locator("#confirm-yes").click();
-  await page.waitForFunction(
-    () => !document.body.classList.contains("working"),
-  );
-  await action("logout");
-  await login("student");
-  await action("discover");
-  const discoveredId = await page.locator('[data-action="enrol"]').first().getAttribute('data-id');
-  await page.locator('#join-code [name=code]').fill(`aoa://subject/${discoveredId}`);
-  await submit('#join-code');
-  await page
-    .getByRole("heading", { name: "Aircraft Maintenance", exact: true })
-    .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: contextual subject/material + controls, collapsed sections/search/draft preservation, left-grip native drag before/after and keyboard reordering, nested quiz creation/type switching, root examinations, material group moves; instructor material/link/edit/reorder/quiz/draft; student reading/submissions/quiz/results; grading/export; admin announcements/accounts; escaped content; 1060px layout.",
+    "PASS: contextual subject/material + controls, collapsed sections/search/draft preservation, left-grip native drag before/after and keyboard reordering, nested quiz creation/type switching, root examinations, material group moves; instructor material/link/edit/reorder/quiz/drafts; admin announcements/accounts/subjects; student features removed; escaped content; 1060px + 125-200% zoom layout.",
   );
 } catch (error) {
   console.error(error);

@@ -8,6 +8,16 @@ import { createAcademy } from '../src/server.mjs';
 import { LocalMaterials } from '../src/materials.mjs';
 import { canManage,hashPassword,verifyPassword } from '../src/security.mjs';
 
+// Workbook verification — Let the HTTP event loop drain keep-alive timers while Python starts.
+// Synchronous parsing can make a pooled test connection stale on slower Windows runners.
+async function pythonCheck(script,bytes){
+ const {spawn}=await import('node:child_process');
+ return new Promise((resolve,reject)=>{
+  const child=spawn('python3',['-c',script],{timeout:30000}),errors=[];
+  child.stdout.resume();child.stderr.on('data',chunk=>errors.push(chunk));child.on('error',reject);
+  child.stdin.on('error',reject);child.on('close',status=>resolve({status,stderr:Buffer.concat(errors)}));child.stdin.end(bytes);
+ });
+}
 const pass='A long private testing passphrase!';
 async function fixture(options={}){
  const directory=await mkdtemp(join(tmpdir(),'academy-api-test-'));let time=Date.now();
@@ -193,7 +203,7 @@ test('reading, written output, exams, quiz results and grading have separate rev
   await f.call('/v1/items/'+exam+'/submission',{method:'POST',token:s.token,key:randomUUID(),body:{output:'Written examination response'}});
   await f.call('/v1/items/'+quiz+'/quiz',{method:'POST',token:s.token,key:randomUUID(),body:{choice:0,score:1}});
   let view=(await f.call('/v1/subjects/'+id,{token:s.token})).body;
-  assert.deepEqual(view.summary,{read:1,materials:1,read_percent:100,submitted:3,required:3,compliance_percent:100,graded:1,awaiting_assessment:2,completed:4,total:4,completion_percent:100});
+  assert.deepEqual(view.summary,{overdue:0,late:0,read:1,materials:1,read_percent:100,submitted:3,required:3,compliance_percent:100,graded:1,awaiting_assessment:2,completed:4,total:4,completion_percent:100});
   assert.equal(view.items.find(x=>x.id===exam).assessment_type,'examination');
   assert.equal(view.items.find(x=>x.id===work).submission.score,null);
   assert.ok(!JSON.stringify((await f.call('/v1/subjects/'+id,{token:o.token})).body).includes(output));
@@ -227,17 +237,16 @@ test('Excel export is a real, scoped workbook with literal strings, numeric resu
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject C',description:'Export'}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
   const result=await f.call('/v1/subjects/'+id+'/export',{token:i.token});assert.equal(result.status,200);assert.equal(result.headers.get('cache-control'),'no-store');assert.equal(result.body.subarray(0,2).toString(),'PK');
-  const {spawnSync}=await import('node:child_process');
-  const checked=spawnSync('python3',['-c',`import sys,io,zipfile,xml.etree.ElementTree as E
+  const checked=await pythonCheck(`import sys,io,zipfile,xml.etree.ElementTree as E
 z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None
 n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
-w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Summary','Assessments','Report notes']
+w=E.fromstring(z.read('xl/workbook.xml')); assert [s.attrib['name'] for s in w.findall('s:sheets/s:sheet',n)]==['Quiz scores','Summary','Assessments','Report notes']
 for f in z.namelist():
  if f.endswith('.xml'):
   x=E.fromstring(z.read(f)); assert not x.findall('.//s:f',n)
-s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
-assert 'Total enrolled students' in z.read('xl/worksheets/sheet3.xml').decode()
-print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`],{input:result.body});
+s=E.fromstring(z.read('xl/worksheets/sheet2.xml')); cell=s.find(".//s:c[@r='B2']",n); assert cell.attrib['t']=='inlineStr'; assert cell.find('s:is/s:t',n).text.startswith('=HYPERLINK')
+assert 'Total enrolled students' in z.read('xl/worksheets/sheet4.xml').decode()
+print('PASS OOXML ZIP CRC, workbook relationships, literal formula-like strings, XML and report scope')`,result.body);
   assert.equal(checked.status,0,checked.stderr?.toString());
   const empty=await f.call('/v1/subjects/'+id+'/learners?offset=100',{token:i.token});assert.equal(empty.body.learners.length,0);assert.equal(empty.body.total,1);assert.equal(empty.body.next_offset,null);
   assert.ok(f.app.db.prepare("SELECT id FROM audit WHERE action='gradebook-export' AND target_id=?").get(id));
@@ -389,7 +398,7 @@ test('material metadata and audit fail atomically, preserving the prior readable
 test('text-first materials work without file storage; links remain private references and do not imply reading',async()=>{
  const f=await fixture({materials:undefined});try{
   const i=await f.account('text-i@example.test','instructor'),s=await f.account('text-s@example.test','student'),o=await f.account('text-o@example.test','student'),j=await f.account('text-j@example.test','instructor');
-  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
+  const me=(await f.call('/v1/me',{token:i.token})).body;assert.deepEqual(me.capabilities,{sync:"refresh-v1",student_download:false,student_role_default:"reader",instructor_subject_access:"v1",subject_folders:"v1",rich_content:"v1",entry_images:"v1",multi_level_entries:"v1",global_sign_out:true,scheduling:"dates-v1",choice_forms:true,subject_tree:1,multi_question_quiz:1,max_quiz_questions:50,external_links:true,material_upload:false});
   const description='Subject links https://docs.google.com/document/d/demo/edit and http://www.example.org/intro';
   const id=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Subject A',description}})).body.id;
   await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:id,student_id:s.id}});
@@ -478,11 +487,12 @@ test('subject tree groups activities and quizzes, retains root examinations and 
   detail=await view(student.token);const moved=detail.items.find(i=>i.id===quiz);assert.equal(moved.parent_id,second);assert.equal(moved.revision,1);assert.equal(moved.attempt.score,1);assert.equal(moved.completed,true);
   assert.deepEqual(detail.items.map(i=>i.id),[first,activity,second,quiz,exam]);
   assert.equal((await f.call(`/v1/subjects/${subject}/order`,{method:'POST',token:owner.token,body:{item_ids:detail.items.map(i=>i.id),expected_revision:oldRevision}})).status,409);
-  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,400);
+  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:first,expected_edit_version:1,expected_order_revision:detail.subject.order_revision}})).status,200);
+  detail=await view();assert.equal(detail.items.find(i=>i.id===exam).parent_id,first);
+  assert.equal((await f.call(`/v1/items/${exam}`,{method:'PATCH',token:owner.token,body:{parent_id:null,expected_edit_version:2,expected_order_revision:detail.subject.order_revision}})).status,200);
   const other=(await f.call('/v1/subjects',{method:'POST',token:owner.token,body:{title:'Other',description:'Other'}})).body.id;
   assert.equal((await f.call(`/v1/subjects/${other}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Wrong parent',body:'Wrong',parent_id:first}})).status,400);
-  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'material',title:'Nested material',body:'Subsection',parent_id:first}})).status,400);
-  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'examination',title:'Nested examination',body:'Wrong',parent_id:first}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:owner.token,body:{kind:'activity',title:'Non-material parent',body:'Wrong',parent_id:activity}})).status,400);
   assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:student.token,body:{kind:'activity',title:'Forbidden',body:'Wrong',parent_id:first}})).status,404);
  }finally{await f.close();}
 });
@@ -511,13 +521,18 @@ test('draft and archived material groups hide children from students, direct acc
  }finally{await f.close();}
 });
 
-test('material creation rejects nested materials while activities and quizzes remain available',async()=>{
+test('multi-level tree supports nested entries under materials up to 4 levels while rejecting non-material parents',async()=>{
  const f=await fixture({materials:null});try{
   const teacher=await f.account('simple-teacher@example.test','instructor');
-  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Simple tree',description:'Materials with activities and quizzes'}})).body.id;
-  const root=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Lesson',body:'References',published:true}})).body.id;
-  for(const kind of ['material','examination'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Invalid child',body:'References',parent_id:root}})).status,400);
-  for(const kind of ['activity','quiz'])assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind,title:'Practice',body:'Instructions',parent_id:root,...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}})).status,201);
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:teacher.token,body:{title:'Multi-level tree',description:'Nested materials, activities, quizzes and exams'}})).body.id;
+  const l1=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 1',body:'References',published:true}})).body.id;
+  const l2=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 2',body:'Sub-lesson',parent_id:l1,published:true}})).body.id;
+  const l3=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 3',body:'Topic',parent_id:l2,published:true}})).body.id;
+  const l4=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'material',title:'Level 4',body:'Deepest',parent_id:l3,published:true}})).body.id;
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'activity',title:'Too deep',body:'Level 5 rejected',parent_id:l4}})).status,400);
+  const actId=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'activity',title:'Practice',body:'Instructions',parent_id:l2}})).body.id;
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'quiz',title:'Invalid under activity',body:'No',parent_id:actId,options:['A','B'],correct_index:0}})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:teacher.token,body:{kind:'quiz',title:'Check',body:'Instructions',parent_id:l2,options:['A','B'],correct_index:0}})).status,201);
  }finally{await f.close();}
 });
 
@@ -602,5 +617,143 @@ test('multi-question quiz scores all answers atomically, hides keys, validates r
   f.app.db.exec("CREATE TRIGGER quiz_audit_failure BEFORE INSERT ON audit WHEN NEW.action='quiz-submit' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;");
   assert.equal((await f.call(`/v1/items/${other}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers:[0,1,2],expected_revision:1}})).status,500);
   assert.equal(f.app.db.prepare('SELECT COUNT(*) n FROM attempts WHERE item_id=?').get(other).n,0);
+ }finally{await f.close();}
+});
+
+
+test('activity grades commit atomically, return the saved version and reject stale regrading',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('atomic-grade-i@example.test','instructor'),s=await f.account('atomic-grade-s@example.test','student');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Atomic grading',description:'Synthetic'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:s.id}});
+  const item=(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'activity',title:'Activity',body:'Explain your answer',published:true}})).body.id;
+  await f.call(`/v1/items/${item}/submission`,{method:'POST',token:s.token,key:randomUUID(),body:{output:'Student response'}});
+  const submission=f.app.db.prepare('SELECT * FROM submissions WHERE item_id=?').get(item);
+  const grade=body=>f.call(`/v1/submissions/${submission.id}/grade`,{method:'POST',token:i.token,body});
+  f.app.db.exec("CREATE TRIGGER grade_audit_failure BEFORE INSERT ON audit WHEN NEW.action='work-grade' BEGIN SELECT RAISE(ABORT,'synthetic audit outage'); END;");
+  assert.equal((await grade({score:85,feedback:'Not committed',expected_graded_at:null})).status,500);
+  assert.equal(f.app.db.prepare('SELECT score FROM submissions WHERE id=?').get(submission.id).score,null);
+  f.app.db.exec('DROP TRIGGER grade_audit_failure');
+  const saved=await grade({score:0,feedback:'  Review the instructions.  ',expected_graded_at:null});
+  assert.equal(saved.status,200);assert.equal(saved.body.submission.score,0);assert.equal(saved.body.submission.feedback,'Review the instructions.');
+  const stamp=saved.body.submission.graded_at;assert.ok(stamp);
+  assert.equal((await grade({score:100,feedback:'Stale',expected_graded_at:null})).status,409);
+  const updated=await grade({score:92.5,feedback:'Improved',expected_graded_at:stamp});
+  assert.equal(updated.status,200);assert.ok(updated.body.submission.graded_at>stamp);
+  const student=(await f.call(`/v1/items/${item}`,{token:s.token})).body.item;
+  assert.equal(student.submission.score,92.5);assert.equal(student.submission.feedback,'Improved');
+ }finally{await f.close();}
+});
+
+test('quiz score sheet uses dated columns, numeric counts, blank missing scores and current visible revisions',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('matrix-i@example.test','instructor'),s=await f.account('matrix-s@example.test','student','2026-001'),o=await f.account('matrix-o@example.test','student','2026-002');
+  const subject=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Score matrix',description:'Synthetic'}})).body.id;
+  for(const student of [s,o])await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:subject,student_id:student.id}});
+  const add=async(title,published=true)=>(await f.call(`/v1/subjects/${subject}/items`,{method:'POST',token:i.token,body:{kind:'quiz',title,body:'Instructions',published,questions:[0,1,2].map(n=>({prompt:`Question ${n+1}`,options:['A','B','C'],correct_index:n}))}})).body.id;
+  const first=await add('Flight quiz'),zero=await add('Flight quiz'),missing=await add('Pending quiz'),hidden=await add('Hidden quiz',false),revised=await add('Revised quiz');
+  f.app.db.prepare('UPDATE items SET created_at=? WHERE subject_id=?').run(Date.parse('2026-10-25T17:00:00Z'),subject);
+  for(const [item,answers]of [[first,[0,1,0]],[zero,[1,2,0]],[revised,[0,1,2]]])assert.equal((await f.call(`/v1/items/${item}/quiz`,{method:'POST',token:s.token,key:randomUUID(),body:{answers,expected_revision:1}})).status,201);
+  await f.call(`/v1/items/${revised}`,{method:'PATCH',token:i.token,body:{body:'New instructions require new work'}});
+  const report=await f.call(`/v1/subjects/${subject}/export?timezone=Asia%2FManila`,{token:i.token});assert.equal(report.status,200);
+  const {spawnSync}=await import('node:child_process');
+  const decoded=spawnSync('python3',['-c',`import sys,io,zipfile,json,xml.etree.ElementTree as E
+z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); n={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+x=E.fromstring(z.read('xl/worksheets/sheet1.xml'))
+def value(c):
+ v=c.find('s:v',n)
+ return float(v.text) if v is not None else ''.join(c.itertext())
+print(json.dumps([[value(c) for c in r] for r in x.findall('s:sheetData/s:row',n)]))`],{input:report.body});
+  assert.equal(decoded.status,0,decoded.stderr?.toString());const rows=JSON.parse(decoded.stdout);
+  assert.deepEqual(rows[0],['Student ID number','Name','2026-10-26 · Flight quiz','2026-10-26 · Flight quiz (2)','2026-10-26 · Pending quiz','2026-10-26 · Revised quiz']);
+  assert.deepEqual(rows.find(row=>row[0]==='2026-001').slice(2),[2,0,'','']);
+  assert.deepEqual(rows.find(row=>row[0]==='2026-002').slice(2),['','','','']);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export?timezone=invalid-zone`,{token:i.token})).status,400);
+  assert.equal((await f.call(`/v1/subjects/${subject}/export`,{token:s.token})).status,404);
+ }finally{await f.close();}
+});
+
+test('scheduled release is server-timed for all four entry types; deadlines retain late work and on-time reading',async()=>{
+ const f=await fixture();try{
+  const author=await f.account('dates-author@example.test','instructor'),student=await f.account('dates-student@example.test','student'),outsider=await f.account('dates-other@example.test','instructor');
+  const sid=(await f.call('/v1/subjects',{method:'POST',token:author.token,body:{title:'Scheduled course',description:'Synthetic dates'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:sid,student_id:student.id}});
+  const start=f.app.db.prepare('SELECT created_at FROM accounts WHERE email=?').get('admin@example.test').created_at;
+  const publish=start+60000,due=start+120000,ids=[];
+  const schedule=async(id,token,fields={})=>{
+   const row=f.app.db.prepare('SELECT * FROM items WHERE id=?').get(id);
+   return f.call(`/v1/items/${id}/schedule`,{method:'POST',token,body:{published:true,publish_at:publish,due_at:due,expected_edit_version:row.edit_version,...fields}});
+  };
+  for(const kind of ['material','quiz','activity','examination']){
+   const created=await f.call(`/v1/subjects/${sid}/items`,{method:'POST',token:author.token,body:{kind,title:kind,body:'Synthetic instructions',published:false,...(kind==='material'?{material_mode:'text'}:{}),...(kind==='quiz'?{options:['A','B'],correct_index:0}:{})}});
+   assert.equal(created.status,201);ids.push(created.body.id);
+   assert.equal((await schedule(created.body.id,student.token)).status,403);
+   assert.notEqual((await schedule(created.body.id,outsider.token)).status,200);
+   assert.equal((await schedule(created.body.id,author.token)).status,200);
+   assert.equal((await f.call('/v1/items/'+created.body.id,{token:student.token})).status,404);
+   assert.equal((await f.call(`/v1/items/${created.body.id}/open-link`,{method:'POST',token:student.token,body:{expected_revision:1,url:'https://example.com'}})).status,404);
+   assert.equal((await f.call('/v1/items/'+created.body.id,{token:author.token})).body.item.publication_state,'scheduled');
+  }
+  assert.equal((await f.call('/v1/subjects/'+sid,{token:student.token})).body.items.length,0);
+  assert.equal((await f.call('/v1/subjects/'+sid+'/learners/'+student.id,{token:author.token})).body.summary.total,0);
+  f.advance(59999);assert.equal((await f.call('/v1/items/'+ids[0],{token:student.token})).status,404);
+  f.advance(1);const released=(await f.call('/v1/subjects/'+sid,{token:student.token})).body;
+  assert.equal(released.items.length,4);assert.equal(released.summary.total,4);assert.ok(released.items.every(i=>i.publication_state==='published'&&i.due_at===due&&i.due_state==='upcoming'));
+  f.advance(60000);assert.equal((await f.call(`/v1/items/${ids[0]}/complete`,{method:'POST',token:student.token,body:{completed:true}})).status,200);
+  assert.equal((await f.call('/v1/items/'+ids[0],{token:student.token})).body.item.due_state,'completed');
+  f.advance(1);assert.equal((await f.call('/v1/subjects/'+sid,{token:student.token})).body.summary.overdue,3);
+  // Repeated "read" acknowledgements keep the first completed timestamp.
+  await f.call(`/v1/items/${ids[0]}/complete`,{method:'POST',token:student.token,body:{completed:true}});
+  assert.equal((await f.call('/v1/items/'+ids[0],{token:student.token})).body.item.due_state,'completed');
+  assert.equal((await f.call(`/v1/items/${ids[1]}/quiz`,{method:'POST',token:student.token,key:randomUUID(),body:{choice:0}})).status,201);
+  for(const id of ids.slice(2))assert.equal((await f.call(`/v1/items/${id}/submission`,{method:'POST',token:student.token,key:randomUUID(),body:{output:'Late written work'}})).status,201);
+  const report=(await f.call(`/v1/subjects/${sid}/learners/${student.id}`,{token:author.token})).body;
+  assert.equal(report.summary.overdue,0);assert.equal(report.summary.late,3);
+  assert.ok(report.items.slice(1).every(i=>i.due_state==='late'));
+  const row=f.app.db.prepare('SELECT * FROM items WHERE id=?').get(ids[1]);
+  assert.equal((await schedule(ids[1],author.token,{due_at:due+60000})).status,200);
+  const updated=(await f.call('/v1/items/'+ids[1],{token:student.token})).body.item;
+  assert.equal(updated.revision,row.revision);assert.equal(updated.due_state,'completed');assert.equal(updated.attempt.score,1);
+  const exported=await f.call(`/v1/subjects/${sid}/export`,{token:author.token});assert.equal(exported.status,200);
+  const checked=await pythonCheck("import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); text=''.join(z.read(n).decode() for n in z.namelist() if n.endswith('.xml')); assert 'Deadline status' in text and 'Due UTC' in text and 'late' in text",exported.body);
+  assert.equal(checked.status,0,checked.stderr.toString());
+  assert.equal((await schedule(ids[0],author.token,{published:false,publish_at:null,due_at:null})).status,200);
+  assert.equal((await f.call('/v1/items/'+ids[0],{token:student.token})).status,404);
+ }finally{await f.close();}
+});
+
+test('schedule validation, optimistic versions and audit writes fail atomically',async()=>{
+ const f=await fixture();try{
+  const author=await f.account('validation-dates@example.test','instructor');
+  const sid=(await f.call('/v1/subjects',{method:'POST',token:author.token,body:{title:'Dates',description:'Synthetic'}})).body.id;
+  const id=(await f.call(`/v1/subjects/${sid}/items`,{method:'POST',token:author.token,body:{kind:'material',material_mode:'text',title:'Draft',body:'Synthetic'}})).body.id;
+  const original=f.app.db.prepare('SELECT * FROM items WHERE id=?').get(id),start=original.created_at;
+  const body={expected_edit_version:original.edit_version,published:true,publish_at:start+60000,due_at:start+120000};
+  for(const patch of [{publish_at:'tomorrow'},{due_at:true},{due_at:1.1},{due_at:-1},{due_at:start+60000},{due_at:start},{published:false},{publish_at:4102444800001},{due_at:4102444800001}]){
+   assert.equal((await f.call(`/v1/items/${id}/schedule`,{method:'POST',token:author.token,body:{...body,...patch}})).status,400);
+   assert.deepEqual(f.app.db.prepare('SELECT * FROM items WHERE id=?').get(id),original);
+  }
+  assert.equal((await f.call(`/v1/items/${id}/schedule`,{method:'POST',token:author.token,body:{...body,expected_edit_version:0}})).status,409);
+  f.app.db.exec("CREATE TRIGGER fail_schedule_audit BEFORE INSERT ON audit WHEN NEW.action='item-schedule' BEGIN SELECT RAISE(ABORT,'test fault'); END");
+  assert.equal((await f.call(`/v1/items/${id}/schedule`,{method:'POST',token:author.token,body})).status,500);
+  assert.deepEqual(f.app.db.prepare('SELECT * FROM items WHERE id=?').get(id),original);
+  f.app.db.exec('DROP TRIGGER fail_schedule_audit');
+  assert.equal((await f.call(`/v1/items/${id}/schedule`,{method:'POST',token:author.token,body})).status,200);
+  assert.equal((await f.call(`/v1/items/${id}/schedule`,{method:'POST',token:author.token,body})).status,409);
+ }finally{await f.close();}
+});
+
+test('a future material release also protects its published child assessments',async()=>{
+ const f=await fixture();try{
+  const i=await f.account('parent-time@example.test','instructor'),s=await f.account('child-time@example.test','student');
+  const sid=(await f.call('/v1/subjects',{method:'POST',token:i.token,body:{title:'Grouped dates',description:'Synthetic'}})).body.id;
+  await f.call('/v1/admin/enrolments',{method:'POST',token:f.admin,body:{subject_id:sid,student_id:s.id}});
+  const parent=(await f.call(`/v1/subjects/${sid}/items`,{method:'POST',token:i.token,body:{kind:'material',material_mode:'text',title:'Parent',body:'Synthetic',published:true}})).body.id;
+  const child=(await f.call(`/v1/subjects/${sid}/items`,{method:'POST',token:i.token,body:{kind:'activity',parent_id:parent,title:'Child',body:'Synthetic',published:true}})).body.id;
+  const row=f.app.db.prepare('SELECT * FROM items WHERE id=?').get(parent),release=row.created_at+60000;
+  assert.equal((await f.call(`/v1/items/${parent}/schedule`,{method:'POST',token:i.token,body:{expected_edit_version:row.edit_version,published:true,publish_at:release,due_at:null}})).status,200);
+  assert.equal((await f.call(`/v1/items/${child}`,{token:s.token})).status,404);
+  assert.equal((await f.call(`/v1/subjects/${sid}`,{token:s.token})).body.summary.total,0);
+  f.advance(60000);assert.equal((await f.call(`/v1/items/${child}`,{token:s.token})).status,200);
  }finally{await f.close();}
 });
