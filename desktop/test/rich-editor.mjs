@@ -284,8 +284,65 @@ try {
   assert.equal(await page.locator('#app').evaluate((el) => el.classList.contains('rightbar-collapsed')), false);
   assert.equal(await page.locator(`[data-item="${firstEntryId}"] [data-entry-body]`).isVisible(), true);
 
+  // 8. Streamlined workflow checks: filter pills, quick + Add, Escape cancel, Ctrl+Enter save, My subjects search, and click-through toast.
+  assert.equal(await page.locator('#toast').evaluate((el) => getComputedStyle(el).pointerEvents), 'none');
+  // Quick + Add in top toolbar -> Escape closes cleanly when clean -> Ctrl+Enter submits new draft entry.
+  await page.locator('.utility [data-action="add"][data-parent=""]').click();
+  await page.locator('#composer input[name=title]').waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#composer').count(), 0);
+
+  await page.locator('.utility [data-action="add"][data-parent=""]').click();
+  await page.locator('#composer input[name=title]').fill('Draft Flight Checklist');
+  await page.locator('#composer input[name=published]').uncheck();
+  await page.keyboard.press('Control+Enter');
+  await idle();
+  await page.locator('[data-item]', { hasText: 'Draft Flight Checklist' }).first().waitFor();
+
+  // Filter pills narrow visible entries accurately and restore on All.
+  await page.locator('[data-action="filter-entries"][data-filter="drafts"]').click();
+  assert.equal(await page.locator('[data-action="filter-entries"][data-filter="drafts"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'Draft Flight Checklist' }).count(), 1);
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'The principles of flight' }).count(), 0);
+
+  await page.locator('[data-action="filter-entries"][data-filter="assessments"]').click();
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'Reflect on the four forces' }).count(), 1);
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'Draft Flight Checklist' }).count(), 0);
+
+  await page.locator('[data-action="filter-entries"][data-filter="materials"]').click();
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'Reflect on the four forces' }).count(), 0);
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'The principles of flight' }).count(), 1);
+
+  await page.locator('[data-action="filter-entries"][data-filter="all"]').click();
+  assert.equal(await page.locator('[data-item]:visible', { hasText: 'Draft Flight Checklist' }).count(), 1);
+
+  // Create a second subject via Ctrl+Enter and test instant search on My subjects (Ctrl+K + Escape).
+  await page.locator('[data-action="subjects"]').click();
+  await idle();
+  await page.locator('[data-action="new-subject"]').click();
+  await page.locator('#subject-form [name=title]').fill('Avionics Navigation');
+  await page.locator('#subject-form [name=description]').fill('VOR, ILS, and inertial reference basics.');
+  await page.keyboard.press('Control+Enter');
+  await idle();
+  await page.locator('[data-action="subjects"]').click();
+  await idle();
+  await page.locator('#subject-search').waitFor();
+  await page.keyboard.press('Control+k');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'subject-search');
+  await page.locator('#subject-search').fill('Avionics');
+  assert.equal(await page.locator('#subjects-grid .course-card:not([hidden])').count(), 1);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#subject-search').inputValue(), '');
+  assert.ok((await page.locator('#subjects-grid .course-card:not([hidden])').count()) >= 2);
+
+  // Verify zero horizontal overflow at compact 1060px width with the streamlined subject toolbar.
+  await page.locator('#subjects-grid .course-card').first().click();
+  await idle();
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1060, 820));
+  assert.equal(await hasOverflow(), false);
+
   assert.deepEqual(errors, []);
-  console.log('PASS: left column expand/collapse arrows, right pane minimize/expand (Alt+\\), workspace state persistence across logout/login with per-account isolation, Ctrl+K/Escape search, rich content paste/snip/indent/spacing, multi-level drag, and password management.');
+  console.log('PASS: streamlined filter pills, quick + Add, Ctrl+Enter/Escape authoring, My subjects search, left/right collapsible panes, workspace state persistence, rich content paste/snip/indent/spacing, multi-level drag, and password management.');
 } finally {
   if (application) {
     const pages = application.windows();

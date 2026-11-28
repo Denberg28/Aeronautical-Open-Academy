@@ -58,15 +58,21 @@ window.academyPresenter = (() => {
       );
     return {
       id: item.id,
+      subjectId: item.subject_id || "",
       kind,
       title: String(item.title ?? ""),
       body: String(item.body ?? ""),
+      bodyHtml: typeof item.body_html === "string" && item.body_html.trim() ? item.body_html : null,
+      paragraphSpacing: ["compact", "normal", "relaxed", "loose"].includes(item.paragraph_spacing)
+        ? item.paragraph_spacing
+        : "normal",
       subjectTitle: String(subjectTitle ?? ""),
       questions,
       hasAnswerKey,
       index: 0,
       view: questions.length ? "slide" : "written",
       confirmOpen: false,
+      readImage: null,
     };
   }
 
@@ -86,7 +92,12 @@ window.academyPresenter = (() => {
     let navMarkup = "";
 
     if (current.view === "written") {
-      stageMarkup = `<div class="presenter-card presenter-written"><div class="presenter-eyebrow">${escapeHtml(current.kind.toUpperCase())} · INSTRUCTOR-GUIDED</div><h2>${escapeHtml(current.title)}</h2><div class="presenter-body">${paragraphs(current.body)}</div></div>`;
+      const richMarkup =
+        current.bodyHtml && window.academyEditor?.renderSafeHtml
+          ? window.academyEditor.renderSafeHtml(current.bodyHtml, current.id)
+          : "";
+      const bodyMarkup = richMarkup || paragraphs(current.body);
+      stageMarkup = `<div class="presenter-card presenter-written"><div class="presenter-eyebrow">${escapeHtml(current.kind.toUpperCase())} · INSTRUCTOR-GUIDED</div><h2>${escapeHtml(current.title)}</h2><div class="presenter-body${richMarkup ? " rich-copy" : ""}" data-spacing="${escapeHtml(current.paragraphSpacing)}">${bodyMarkup}</div></div>`;
       navMarkup = `<span class="presenter-counter">Written prompt · no multiple-choice answer key</span><button type="button" class="primary" data-presenter="close">Exit presentation</button>`;
     } else if (current.view === "slide") {
       const q = current.questions[current.index];
@@ -127,7 +138,13 @@ window.academyPresenter = (() => {
         }</div></div></div>`
       : "";
 
-    dialog.innerHTML = `<div class="presenter-shell"><header class="presenter-header"><div class="presenter-meta"><span class="tag blue">${escapeHtml(current.kind)}</span><div><div class="presenter-title">${escapeHtml(current.title)}</div>${current.subjectTitle ? `<div class="presenter-subject">${escapeHtml(current.subjectTitle)}</div>` : ""}</div></div><div class="presenter-status" role="status" aria-live="polite">${escapeHtml(statusText)}</div><div class="presenter-controls"><button type="button" class="quiet" data-presenter="fullscreen" aria-label="Toggle full screen">${document.fullscreenElement === dialog ? "Exit full screen" : "Full screen"}</button><button type="button" class="quiet" data-presenter="close" aria-label="Exit presentation">Exit</button></div></header><main class="presenter-stage">${stageMarkup}</main><footer class="presenter-footer">${navMarkup}</footer>${confirmMarkup}</div>`;
+    dialog.innerHTML = `<div class="presenter-shell"><header class="presenter-header"><div class="presenter-meta"><span class="tag blue">${escapeHtml(current.kind)}</span><div><div class="presenter-title">${escapeHtml(current.title)}</div>${current.subjectTitle ? `<div class="presenter-subject">${escapeHtml(current.subjectTitle)}</div>` : ""}</div></div><div class="presenter-status" role="status" aria-live="polite">${escapeHtml(statusText)}</div><div class="presenter-controls"><button type="button" class="quiet" data-presenter="fullscreen" aria-label="Toggle full screen" title="Toggle full screen (F)">${document.fullscreenElement === dialog ? "Exit full screen" : "Full screen"}</button><button type="button" class="quiet" data-presenter="close" aria-label="Exit presentation" title="Exit presentation (Esc)">Exit</button></div></header><main class="presenter-stage">${stageMarkup}</main><footer class="presenter-footer">${navMarkup}</footer>${confirmMarkup}</div>`;
+
+    if (current.view === "written" && current.readImage && window.academyEditor?.hydrateImages) {
+      void window.academyEditor.hydrateImages(dialog, current.readImage, {
+        subjectId: current.subjectId,
+      });
+    }
 
     if (current.confirmOpen) {
       dialog.querySelector('[data-presenter="confirm-no"], [data-presenter="confirm-yes"]')?.focus();
@@ -150,6 +167,14 @@ window.academyPresenter = (() => {
     if (current.index > 0) {
       current.index--;
       render();
+    }
+  }
+
+  function toggleFullscreen(dialog) {
+    if (document.fullscreenElement === dialog) {
+      document.exitFullscreen().catch(() => {});
+    } else if (typeof dialog.requestFullscreen === "function") {
+      dialog.requestFullscreen().catch(() => {});
     }
   }
 
@@ -195,13 +220,7 @@ window.academyPresenter = (() => {
         render();
         return;
       }
-      if (action === "fullscreen") {
-        if (document.fullscreenElement === dialog) {
-          document.exitFullscreen().catch(() => {});
-        } else if (typeof dialog.requestFullscreen === "function") {
-          dialog.requestFullscreen().catch(() => {});
-        }
-      }
+      if (action === "fullscreen") toggleFullscreen(dialog);
     });
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -212,14 +231,20 @@ window.academyPresenter = (() => {
         close();
       }
     });
-    dialog.addEventListener("keydown", (event) => {
-      if (!current) return;
-      if (event.key === "ArrowRight") {
+    document.addEventListener("keydown", (event) => {
+      if (!current || !dialog.open || current.confirmOpen) return;
+      if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault();
         advance();
-      } else if (event.key === "ArrowLeft") {
+      } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
         back();
+      } else if (event.key === " " && !event.target.closest("button")) {
+        event.preventDefault();
+        advance();
+      } else if (event.key.toLowerCase() === "f" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        toggleFullscreen(dialog);
       }
     });
     document.addEventListener("fullscreenchange", () => {
@@ -227,11 +252,12 @@ window.academyPresenter = (() => {
     });
   }
 
-  function open(item, subjectTitle = "") {
+  function open(item, subjectTitle = "", { readImage = null } = {}) {
     wire();
     const dialog = dialogEl();
     if (!dialog || !item) return;
     current = normalizeItem(item, subjectTitle);
+    current.readImage = typeof readImage === "function" ? readImage : null;
     render();
     if (!dialog.open) dialog.showModal();
     if (typeof dialog.requestFullscreen === "function") {

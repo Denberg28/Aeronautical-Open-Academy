@@ -62,10 +62,14 @@ try {
   assert.equal(await dlg.locator('[data-presenter="prev"]').isDisabled(), true);
   if (shotsDir) await page.screenshot({ path: join(shotsDir, '07-presenter-slide.png') });
 
-  // Navigate forward with Next arrow and back with Previous arrow.
+  // Navigate forward with Next arrow and back with Previous arrow, plus PageDown / PageUp keyboard shortcuts.
   await dlg.locator('[data-presenter="next"]').click();
   assert.match(await dlg.locator('.presenter-status').textContent(), /^Question 2 of \d+$/);
   assert.equal(await dlg.locator('[data-presenter="prev"]').isDisabled(), false);
+  await page.keyboard.press('PageUp');
+  assert.match(await dlg.locator('.presenter-status').textContent(), /^Question 1 of \d+$/);
+  await page.keyboard.press('PageDown');
+  assert.match(await dlg.locator('.presenter-status').textContent(), /^Question 2 of \d+$/);
   await dlg.locator('[data-presenter="prev"]').click();
   assert.match(await dlg.locator('.presenter-status').textContent(), /^Question 1 of \d+$/);
 
@@ -109,7 +113,7 @@ try {
     await dlg.locator('[data-presenter="close"]').first().click();
   }
 
-  // 3. XSS sanitization check: HTML tags in quiz prompt/options render strictly as text in presenter.
+  // 3. XSS sanitization check + rich HTML rendering on written activity slides.
   await page.evaluate(async () => {
     const parent = state.items.find((i) => i.kind === 'material').id;
     await post(`/v1/subjects/${state.active.id}/items`, {
@@ -120,6 +124,15 @@ try {
       published: true,
       questions: [{ prompt: '<img src=x onerror=alert(1)> Prompt', options: ['<b>Alpha</b>', '<script>evil()</script>'], correct_index: 0 }],
     });
+    await post(`/v1/subjects/${state.active.id}/items`, {
+      kind: 'activity',
+      parent_id: parent,
+      title: 'Formatted Written Activity',
+      body: 'Formatted Written Activity\nAnalyze airfoil camber.',
+      body_html: '<p data-indent="1"><strong>Analyze</strong> airfoil camber.</p><script>window.__presenterXss=1</script>',
+      paragraph_spacing: 'relaxed',
+      published: true,
+    });
     await reloadActive();
   });
   await page.locator('[data-item]', { hasText: 'XSS Safety Quiz' }).first().locator('[data-action="play-item"]').click();
@@ -128,6 +141,14 @@ try {
   await dlg.locator('[data-presenter="next"]').click();
   await dlg.locator('[data-presenter="confirm-yes"]').click();
   assert.equal(await dlg.locator('img, script').count(), 0);
+  await dlg.locator('[data-presenter="close"]').first().click();
+
+  await page.locator('[data-item]', { hasText: 'Formatted Written Activity' }).first().locator('[data-action="play-item"]').click();
+  await dlg.waitFor();
+  assert.equal(await dlg.locator('.presenter-body.rich-copy strong').textContent(), 'Analyze');
+  assert.equal(await dlg.locator('.presenter-body.rich-copy [data-indent="1"]').count(), 1);
+  assert.equal(await dlg.locator('script').count(), 0);
+  assert.equal(await page.evaluate(() => window.__presenterXss), undefined);
   await dlg.locator('[data-presenter="close"]').first().click();
 
   // 4. Read-only instructor can play slides (letter options only) but cannot reveal answer key at end.
