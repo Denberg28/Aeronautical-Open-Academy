@@ -79,6 +79,8 @@ const state = {
   capabilities: {},
   view: "subject",
   search: "",
+  entryFilter: "all",
+  subjectSearch: "",
   compose: null,
   dirty: false,
   busy: false,
@@ -155,6 +157,8 @@ function loadWorkspacePrefs() {
 function clearInMemoryUiState() {
   state.sidebarState = "normal";
   state.rightbarCollapsed = false;
+  state.entryFilter = "all";
+  state.subjectSearch = "";
   state.collapsedMaterials.clear();
   state.collapsedEntries.clear();
   state.collapsedFolders.clear();
@@ -181,9 +185,14 @@ function showLogin() {
   }
   if (!$("#signin").open) $("#signin").showModal();
 }
+let pendingFocus = null;
+function focusAfterAct(selector, options = { preventScroll: true }) {
+  pendingFocus = { selector, options };
+}
 async function act(fn) {
   if (state.busy) return;
   state.busy = true;
+  pendingFocus = null;
   document.body.classList.add("working");
   $("#app").inert = true;
   toast("Working…", "busy");
@@ -209,6 +218,12 @@ async function act(fn) {
     state.busy = false;
     document.body.classList.remove("working");
     $("#app").inert = false;
+    if (pendingFocus) {
+      const target = pendingFocus;
+      pendingFocus = null;
+      const el = typeof target.selector === "function" ? target.selector() : $(target.selector);
+      el?.focus(target.options);
+    }
   }
 }
 document.addEventListener("academy-reader-error",event=>{
@@ -440,7 +455,7 @@ function shell() {
       pendingPassword
         ? `<details open><summary>SECURITY</summary>${nav("Settings", "settings", "settings", true)}</details>`
         : `<details open><summary>WORKSPACE</summary>${nav("My subjects", "subjects", "book", ["subject", "subjects"].includes(state.view), canManageFolders() ? 'data-folder-drop="root"' : "")}<div id="subject-nav">${renderSubjectNav()}</div>${nav("Drafts", "tasks", "tasks", state.view === "tasks")}${!isAdmin() ? nav("Announcements", "announcements", "bell", state.view === "announcements") : ""}</details>${isAdmin() ? `<details open><summary>ADMINISTRATION</summary>${nav("Subject access", "access", "check", state.view === "access")}${nav("Accounts", "accounts", "users", state.view === "accounts")}${nav("Announcements", "announcements", "bell", state.view === "announcements")}</details>` : ""}<details ${["settings", "help"].includes(state.view) ? "open" : ""}><summary>MORE</summary>${nav("Settings", "settings", "settings", state.view === "settings")}${nav("Help", "help", "help", state.view === "help")}</details>`
-    }<div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span>${state.mode === "local" ? "LOCAL TEST WORKSPACE" : "ORGANIZATION WORKSPACE"}</p><p class="small muted">Aeronautical Academy Repository · ${escape(state.version)}</p></div></aside><header class="topbar"><div class="breadcrumbs">Repository <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
+    }<div class="sidebar-foot"><p class="workspace-label"><span class="dot"></span><span>${state.mode === "local" ? "LOCAL WORKSPACE" : "ORGANIZATION"}</span></p><p class="small muted">Aeronautical Academy Repository · ${escape(state.version)}</p></div></aside><header class="topbar"><div class="breadcrumbs">Repository <span aria-hidden="true"> / </span><strong>${escape(navLabel())}</strong></div><div class="row"><span class="top-date">${new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><div class="account"><span class="avatar">${escape(
       a.name
         .split(" ")
         .map((s) => s[0])
@@ -465,6 +480,7 @@ async function refreshData() {
 }
 async function loadSubject(id) {
   const sequence = ++loadSequence;
+  const previousId = state.active?.id || null;
   const data = await api(`/v1/subjects/${id}`);
   if (sequence !== loadSequence) return;
   state.active = data.subject;
@@ -475,6 +491,9 @@ async function loadSubject(id) {
   state.formsSupported = data.choice_forms === true || state.capabilities.choice_forms === true;
   state.compose = null;
   state.dirty = false;
+  if (previousId !== data.subject.id || (state.entryFilter === "drafts" && !canEditSubject(data.subject))) {
+    state.entryFilter = "all";
+  }
   saveWorkspacePrefs();
 }
 async function start() {
@@ -490,6 +509,8 @@ async function start() {
   state.accountOffset = 0;
   state.view = "subject";
   state.search = "";
+  state.entryFilter = "all";
+  state.subjectSearch = "";
   state.compose = null;
   const targetSubject =
     (preferredSubjectId && state.subjects.find((s) => s.id === preferredSubjectId)) ||
@@ -501,8 +522,22 @@ async function start() {
   renderSubject();
 }
 function utility() {
+  const editable = canEditSubject();
   const allMin = state.items.length > 0 && state.items.every((item) => state.collapsedEntries.has(item.id));
-  return `<div class="utility"><span class="eyebrow">${isAdmin() ? "ADMIN SPACE" : "INSTRUCTOR SPACE"}</span><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}</div>`;
+  const pills = state.items.length
+    ? [
+        ["all", "All"],
+        ["materials", "Materials"],
+        ["assessments", "Assessments"],
+        ...(editable ? [["drafts", "Drafts"]] : []),
+      ]
+        .map(
+          ([key, label]) =>
+            `<button type="button" class="filter-pill${state.entryFilter === key ? " active" : ""}" data-action="filter-entries" data-filter="${key}" aria-pressed="${state.entryFilter === key}">${label}</button>`,
+        )
+        .join("")
+    : "";
+  return `<div class="utility">${pills ? `<div class="filter-pills" role="group" aria-label="Filter entries">${pills}</div>` : `<span class="eyebrow">${isAdmin() ? "ADMIN SPACE" : "INSTRUCTOR SPACE"}</span>`}<div class="utility-tools"><div class="search-wrap">${icon("search")}<input id="search" type="search" aria-label="Search subject entries" placeholder="Search in this subject" value="${escape(state.search)}"></div>${state.items.length ? button(allMin ? "Expand all" : "Minimize all", "toggle-all-entries", `title="${allMin ? "Expand all subject entries" : "Minimize all subject entries"}"`, "quiet") : ""}${button("Refresh", "refresh", 'title="Reload this subject"', "quiet")}${editable ? button("+ Add", "add", 'data-parent="" title="Add a material, activity, quiz, or examination"', "primary utility-add") : ""}</div></div>`;
 }
 function header(title, subtitle, actions = "") {
   return `<div class="row between page-header"><div class="page-header-copy"><div class="eyebrow">YOUR WORKSPACE</div><h1>${escape(title)}</h1><p class="muted small">${escape(subtitle)}</p></div>${actions ? `<div class="header-actions">${actions}</div>` : ""}</div>`;
@@ -576,34 +611,65 @@ const isVisibleEntry = (item) => [item, ...ancestorsOf(item)].every((entry) => e
 function flattenTree(roots, groups = new Map()) {
   return roots.flatMap((item) => [item.id, ...flattenTree(groups.get(item.id) || childrenOf(item.id), groups)]);
 }
+const isFilteringEntries = () => Boolean(state.search.trim()) || state.entryFilter !== "all";
+function matchesEntryFilter(item) {
+  if (!item) return false;
+  if (state.entryFilter === "materials") return item.kind === "material";
+  if (state.entryFilter === "assessments") return item.kind !== "material";
+  if (state.entryFilter === "drafts") return !item.published;
+  return true;
+}
 function applySubjectSearch() {
-  const query = state.search.toLowerCase();
-  const matches = (item) => (item.title + " " + item.body).toLowerCase().includes(query);
+  const query = state.search.trim().toLowerCase();
+  const filtering = isFilteringEntries();
+  const matches = (item) =>
+    matchesEntryFilter(item) &&
+    (!query || (item.title + " " + item.body).toLowerCase().includes(query));
   let count = 0;
   for (const group of document.querySelectorAll("[data-group]")) {
     const item = state.items.find((entry) => entry.id === group.dataset.group);
-    const visible = [item, ...ancestorsOf(item), ...descendantsOf(item.id)].some(matches);
+    const visible =
+      !filtering ||
+      [item, ...descendantsOf(item.id)].some(matches) ||
+      (state.entryFilter === "all" && Boolean(query) && ancestorsOf(item).some(matches));
     group.hidden = !visible;
     if (visible) count++;
   }
+  for (const pill of document.querySelectorAll('[data-action="filter-entries"]')) {
+    const active = pill.dataset.filter === state.entryFilter;
+    pill.classList.toggle("active", active);
+    pill.setAttribute("aria-pressed", String(active));
+  }
   syncMaterialSections();
-  if ($("#search-empty")) $("#search-empty").hidden = count > 0 || !query;
+  if ($("#search-empty")) $("#search-empty").hidden = count > 0 || !filtering;
+}
+function applyMySubjectsSearch() {
+  const query = state.subjectSearch.trim().toLowerCase();
+  let count = 0;
+  for (const card of document.querySelectorAll("#subjects-grid .course-card")) {
+    const visible = !query || (card.dataset.search || "").toLowerCase().includes(query);
+    card.hidden = !visible;
+    if (visible) count++;
+  }
+  const emptyEl = $("#subjects-empty");
+  if (emptyEl) emptyEl.hidden = count > 0 || !query;
 }
 // Collapse only changes the view, leaving active editors intact.
 function syncMaterialSections() {
+  const filtering = isFilteringEntries();
   for (const bodyEl of document.querySelectorAll("[data-entry-body]")) {
     const id = bodyEl.dataset.entryBody;
     const card = document.querySelector(`[data-item="${id}"]`);
     const toggle = document.querySelector(`[data-action="toggle-entry"][data-id="${id}"]`);
     const editing = Boolean(document.querySelector(`[data-edit-slot="${id}"] #composer`));
-    const expanded = !state.collapsedEntries.has(id) || Boolean(state.search) || editing;
+    const expanded = !state.collapsedEntries.has(id) || filtering || editing;
     bodyEl.hidden = !expanded;
     card?.classList.toggle("is-minimized", !expanded);
     if (toggle) {
       toggle.setAttribute("aria-expanded", String(expanded));
       toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} entry`);
-      toggle.disabled = Boolean(state.search) || editing;
-      toggle.title = editing ? "Finish or cancel editing before minimizing" : state.search ? "Clear search to minimize" : expanded ? "Minimize entry" : "Expand entry";
+      toggle.disabled = filtering || editing;
+      toggle.title = editing ? "Finish or cancel editing before minimizing" : filtering ? "Clear search or filter to minimize" : expanded ? "Minimize entry" : "Expand entry";
       toggle.textContent = expanded ? "Minimize" : "Expand";
     }
   }
@@ -611,19 +677,19 @@ function syncMaterialSections() {
     const id = region.dataset.children;
     const toggle = document.querySelector(`[data-action="toggle-material"][data-id="${id}"]`);
     const editing = Boolean(region.querySelector("#composer")) || Boolean(document.querySelector(`[data-edit-slot="${id}"] #composer`));
-    const expanded = !state.collapsedMaterials.has(id) || Boolean(state.search) || editing;
+    const expanded = !state.collapsedMaterials.has(id) || filtering || editing;
     region.hidden = !expanded;
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.setAttribute("aria-label", `${expanded ? "Minimize" : "Expand"} activities and quizzes`);
-    toggle.disabled = Boolean(state.search) || editing;
-    toggle.title = editing ? "Finish or cancel editing before minimizing" : state.search ? "Clear search to minimize" : expanded ? "Minimize section" : "Expand section";
+    toggle.disabled = filtering || editing;
+    toggle.title = editing ? "Finish or cancel editing before minimizing" : filtering ? "Clear search or filter to minimize" : expanded ? "Minimize section" : "Expand section";
   }
   const allBtn = document.querySelector('[data-action="toggle-all-entries"]');
   if (allBtn && state.items.length) {
     const allMin = state.items.every((item) => state.collapsedEntries.has(item.id));
-    allBtn.disabled = Boolean(state.search);
+    allBtn.disabled = filtering;
     allBtn.textContent = allMin ? "Expand all" : "Minimize all";
-    allBtn.title = state.search ? "Clear search to minimize" : allMin ? "Expand all subject entries" : "Minimize all subject entries";
+    allBtn.title = filtering ? "Clear search or filter to minimize" : allMin ? "Expand all subject entries" : "Minimize all subject entries";
   }
 }
 function treeMarkup(items = rootsOf(), prefix = "") {
@@ -677,7 +743,7 @@ function renderSubject() {
   context.innerHTML = `<section class="subject-hero"><div class="row between"><div class="hero-title-group"><h1>${escape(s.title)}</h1>${folderPath ? `<span class="tag hero-folder-tag">${escape(folderPath)}</span>` : ""}</div>${editableSubject ? `<div class="hero-actions">${button(icon("export") + "Export", "export-subject", `data-id="${escape(s.id)}" aria-label="Export subject package"`, "quiet")}${button(icon("edit") + "Edit", "edit-subject", 'aria-label="Edit subject"', "quiet")}</div>` : '<span class="tag blue">Read-only access</span>'}</div><span class="subject-meta">${materials} materials · ${assessments} activities & quizzes · ${examinations} examinations${readOnlyInstructor ? " · View only (editing and answer keys disabled)" : ""}</span></section>`;
   center.innerHTML =
     utility() +
-    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div class="section-heading"><h2>Subject content</h2><span>${editableSubject ? "Create. Arrange across levels. Present." : "Read-only instructor view."}</span></div><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : "No entries have been added to this subject yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another search.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable nested entries inside materials.</p>' : ""}` : ""}`;
+    `<details class="subject-details"><summary>About this subject</summary><div class="reading-copy">${readingText(s.description)}</div></details><div id="entries">${state.items.length ? treeMarkup() : empty("A fresh start", editableSubject ? "Add a material or an examination to begin." : "No entries have been added to this subject yet.")}</div><div id="search-empty" hidden>${empty("No matching entries", "Try another filter or search term.")}</div>${editableSubject ? `<div class="composer-slot root-add-slot" data-add-parent=""></div>${!state.treeSupported ? '<p class="small muted">Update your organization backend to enable nested entries inside materials.</p>' : ""}` : ""}`;
   if (editableSubject) renderComposer();
   applySubjectSearch();
   window.academyEditor?.hydrateImages(center, desktopApi.readImage, { subjectId: s.id });
@@ -827,6 +893,8 @@ async function navigate(view, id) {
   if (!(await leaveDraft())) return;
   state.compose = null;
   state.search = "";
+  if (view !== "subject") state.entryFilter = "all";
+  if (view !== "subjects") state.subjectSearch = "";
   state.view = view;
   if (view === "subject") {
     const selected = id || state.active?.id || state.subjects[0]?.id;
@@ -845,10 +913,15 @@ async function navigate(view, id) {
           (canExportAny ? button(icon("export") + "Export all", "export-repository", 'aria-label="Export all editable subjects"', "quiet") : "") +
           button("+ New subject", "new-subject", "", "primary"),
       ) +
-      `<div class="course-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}"><div class="course-card-tags"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p><span class="course-card-foot">Open subject ${icon("arrow")}</span></button>`; }).join("")}</div>` +
+      (state.subjects.length >= 2
+        ? `<div class="subjects-search-bar"><div class="search-wrap">${icon("search")}<input id="subject-search" type="search" aria-label="Search subjects" placeholder="Search subjects or folders" value="${escape(state.subjectSearch)}"></div></div>`
+        : "") +
+      `<div class="course-grid" id="subjects-grid">${state.subjects.map((s) => { const fp = folderPathName(s.folder_id); const searchHaystack = `${s.title} ${s.description || ""} ${fp || ""}`; return `<button class="course-card" data-action="subject" data-id="${escape(s.id)}" data-search="${escape(searchHaystack)}"><div class="course-card-tags"><span class="tag ${s.access_level === "read_only" ? "blue" : ""}">${s.access_level === "read_only" ? "READ ONLY" : s.access_level === "editor" ? "EDITOR" : "SUBJECT"}</span>${fp ? `<span class="tag">${escape(fp)}</span>` : ""}</div><h3>${escape(s.title)}</h3><p>${escape(s.description)}</p><span class="course-card-foot">Open subject ${icon("arrow")}</span></button>`; }).join("")}</div>` +
+      `<div id="subjects-empty" hidden>${empty("No matching subjects", "Try a different subject or folder name.")}</div>` +
       (state.subjects.length
         ? ""
         : empty("No subjects yet", "Create a subject, import an exported package, or ask an administrator for access."));
+    applyMySubjectsSearch();
   }
   if (view === "tasks") await renderDrafts();
   if (view === "access") await renderAccess();
@@ -976,7 +1049,7 @@ function renderSettings() {
 function renderHelp() {
   $("#center").innerHTML =
     header("Repository guide", "Admin and instructor tools in Aeronautical Academy Repository.") +
-    `<div class="inline-form help-card"><h3>Navigation, collapsible panes &amp; saved workspace state</h3><p>Use the arrow buttons at the top of the left column (Alt+[ / Alt+]) to expand, restore, or collapse the navigation rail, and click the right-pane toggle in the top bar or right pane header (Alt+\\) to minimize or expand Announcements and Drafts without disturbing active drafts or scroll position. Press Ctrl+K or / to jump directly to subject search (Escape clears). Your minimized/expanded entries, collapsed sections, folders, pane widths, and active subject are saved per account and automatically restored when you sign out and sign back in. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Export &amp; import packages</h3><p>Use Export in any editable subject header—or Export all and Import in My subjects or Settings—to save or transfer subjects with their multi-level entries, rich formatting, paragraph spacing, pasted images, schedules, assessments, and folder paths. Export filenames automatically include the date and time of creation (YYYY-MM-DD_HH-mm-ss) and a SHA-256 checksum verified before import. Importing always creates new subjects without overwriting existing work.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and select + Add material or examination. Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, and pick Compact, Normal, Relaxed, or Loose paragraph spacing.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present questions full screen with lettered options (A–F) only, Previous/Next arrow navigation, and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. Local workspace data is saved under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
+    `<div class="inline-form help-card"><h3>Navigation, collapsible panes &amp; saved workspace state</h3><p>Use the arrow buttons at the top of the left column (Alt+[ / Alt+]) to expand, restore, or collapse the navigation rail, and click the right-pane toggle in the top bar or right pane header (Alt+\\) to minimize or expand Announcements and Drafts without disturbing active drafts or scroll position. Press Ctrl+K or / to jump directly to subject or catalog search (Escape clears), and use the All / Materials / Assessments / Drafts pills in any subject toolbar to narrow entries instantly. Your minimized/expanded entries, collapsed sections, folders, pane widths, and active subject are saved per account and automatically restored when you sign out and sign back in. Administrators can organize subjects into nested folders (up to 5 levels deep) using + New folder and drag-and-drop.</p><h3>Export &amp; import packages</h3><p>Use Export in any editable subject header—or Export all and Import in My subjects or Settings—to save or transfer subjects with their multi-level entries, rich formatting, paragraph spacing, pasted images, schedules, assessments, and folder paths. Export filenames automatically include the date and time of creation (YYYY-MM-DD_HH-mm-ss) and a SHA-256 checksum verified before import. Importing always creates new subjects without overwriting existing work.</p><h3>Administrator subject access &amp; accounts</h3><p>Administrators create administrator and instructor accounts with strong 15–128 character passwords under Administration → Accounts and can update any account’s password at any time. Under Administration → Subject access, administrators assign instructors per subject as Read only or Editor and can suspend or activate access immediately. Any user can update their own password under Settings.</p><h3>Rich subject content &amp; pasted images</h3><p>Open an editable subject and click + Add in the top toolbar (or + Add material or examination at the bottom). Enter a Title, then type or paste formatted text from Word, Google Docs, or web pages—bold, italic, underline, headings, lists, and indentation are adopted and sanitized automatically. Press Ctrl+V inside the content box to paste screenshot snips, drop an image file, or click Image to insert a PNG, JPEG, WebP, or GIF image (up to 5 MB). Use Tab / Shift+Tab or the toolbar buttons to indent paragraphs, pick Compact, Normal, Relaxed, or Loose paragraph spacing, press Ctrl+Enter to save, or press Escape to cancel safely.</p><h3>Minimize entries &amp; drag across levels</h3><p>Click Minimize on any entry card—or Minimize all in the subject toolbar—to collapse cards to a clean outline without losing drafts. Drag the grip at the left of any entry to reorder it before/after entries at any level, drop onto the middle of a material to nest it inside (up to 4 levels deep), or move it back to top level. Keyboard shortcuts: Alt+↑/↓ reorders siblings, Alt+→ indents inside the preceding material, and Alt+← outdents up one level.</p><h3>Instructor-guided fullscreen presentation</h3><p>Click Play on any Quiz, Activity, or Examination card to present formatted questions and figures full screen with lettered options (A–F) only, Previous/Next arrows (or Space, PageDown, PageUp, and F for full screen), and an end-of-item confirmation dialog before revealing the class answer key (restricted to authoring editors and administrators).</p><h3>Current desktop scope and limitations</h3><p>This desktop application is designed for administrators and instructors. Local workspace data is saved under %APPDATA%\\aeronautical-open-academy-desktop\\local-test-workspace\\academy.sqlite; organization synchronization requires a deployed compatible backend. Use Schedule on any saved entry to set publication and due dates in Philippine time.</p></div>`;
 }
 function renderSubjectForm(edit = false) {
   const s = edit ? state.active : null;
@@ -1205,6 +1278,14 @@ document.addEventListener("click", (event) => {
     syncMaterialSections();
     return;
   }
+  if (action === "filter-entries") {
+    const next = target.dataset.filter || "all";
+    if (["all", "materials", "assessments", "drafts"].includes(next)) {
+      state.entryFilter = next;
+      applySubjectSearch();
+    }
+    return;
+  }
   if (action === "editor-cmd") {
     const editorEl = $("#rich-editor");
     if (!editorEl) return;
@@ -1252,7 +1333,7 @@ document.addEventListener("click", (event) => {
     if (!state.account) return;
     const item = state.items.find((entry) => entry.id === id);
     if (!item || item.kind === "material") return;
-    window.academyPresenter?.open(item, state.active?.title || "");
+    window.academyPresenter?.open(item, state.active?.title || "", { readImage: desktopApi.readImage });
     return;
   }
   if (action === "toggle-field-password" || action === "toggle-confirm-password") {
@@ -1376,12 +1457,12 @@ document.addEventListener("click", (event) => {
       state.compose = { parentId, kind: parentId ? "activity" : "material" };
       renderComposer();
       revealNearby($("#composer"));
-      $("#composer input[name=title]")?.focus({preventScroll:true});
+      focusAfterAct("#composer input[name=title]");
     }
     if (action === "attach") {
       if ($("#link-fields").children.length >= 12) throw new Error("Use up to 12 attached links per entry.");
       $("#link-fields").insertAdjacentHTML("beforeend", linkField());
-      $("#link-fields").lastElementChild.querySelector("input").focus();
+      focusAfterAct(() => $("#link-fields")?.lastElementChild?.querySelector("input"), {});
       state.dirty = true;
     }
     if (action === "remove-link") {
@@ -1434,7 +1515,7 @@ document.addEventListener("click", (event) => {
       state.compose = { item: state.items.find((i) => i.id === id) };
       renderComposer();
       revealNearby($("#composer"));
-      $("#composer input[name=title]")?.focus({preventScroll:true});
+      focusAfterAct("#composer input[name=title]");
     }
     if (action === "open-link")
       await desktopApi.openLink({
@@ -1740,6 +1821,7 @@ document.addEventListener("submit", (event) => {
         }
         const created = await post(`/v1/subjects/${state.active.id}/items`, payload);
         savedId = created.id;
+        state.entryFilter = "all";
       }
       state.dirty = false;
       state.compose = null;
@@ -1875,6 +1957,11 @@ document.addEventListener("input", (event) => {
     applySubjectSearch();
     return;
   }
+  if (event.target.id === "subject-search") {
+    state.subjectSearch = event.target.value;
+    applyMySubjectsSearch();
+    return;
+  }
   if (event.target.matches("[data-question-option]")) {
     event.target.closest("[data-question-editor]").querySelectorAll('input[type=radio]').forEach(el=>{el.checked=false;});
   }
@@ -2004,17 +2091,44 @@ async function moveEntryToLevel(sourceId, nextParentId, targetId = null, positio
   toast(nextParentId ? "Entry moved to new level." : "Entry moved to top level.");
 }
 document.addEventListener("keydown", (event) => {
-  if (state.account && !$("#app")?.hidden) {
+  const modalOpen = Boolean(document.querySelector("dialog[open]"));
+  if (state.account && !$("#app")?.hidden && !modalOpen) {
     const typing = Boolean(event.target.closest("input, textarea, select, [contenteditable='true']"));
-    if (event.target.id === "search" && event.key === "Escape" && event.target.value) {
-      event.preventDefault();
-      event.target.value = "";
-      state.search = "";
-      applySubjectSearch();
-      return;
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key === "Enter") {
+      const form = event.target.closest("#composer, #subject-form, #announcement, #new-account, #reset-password-form, #folder-form");
+      if (form && !state.busy) {
+        event.preventDefault();
+        form.requestSubmit();
+        return;
+      }
+    }
+    if (event.key === "Escape" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.target.id === "search" && event.target.value) {
+        event.preventDefault();
+        event.target.value = "";
+        state.search = "";
+        applySubjectSearch();
+        return;
+      }
+      if (event.target.id === "subject-search" && event.target.value) {
+        event.preventDefault();
+        event.target.value = "";
+        state.subjectSearch = "";
+        applyMySubjectsSearch();
+        return;
+      }
+      if (event.target.closest("#composer") && !state.busy) {
+        event.preventDefault();
+        act(async () => {
+          if (!(await leaveDraft())) return;
+          state.compose = null;
+          renderComposer();
+        });
+        return;
+      }
     }
     if (((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") || (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && event.key === "/")) {
-      const searchEl = $("#search");
+      const searchEl = $("#search") || $("#subject-search");
       if (searchEl) {
         event.preventDefault();
         searchEl.focus();

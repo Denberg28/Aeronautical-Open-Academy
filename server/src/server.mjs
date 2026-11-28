@@ -295,7 +295,7 @@ export async function createAcademy({dbPath=':memory:',materials,bootstrap,clock
   try{
    const url=new URL(req.url,'http://localhost'),path=url.pathname,method=req.method;
    requireThat(req.url.length<2048,414,'Request URL is too long.');
-   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.13.0-rc.3'});
+   if(path==='/health'&&method==='GET')return send(200,{status:'ok',version:'0.13.0-rc.4'});
    if(['POST','PATCH'].includes(method)&&path!=='/v1/auth/logout'&&!/^\/v1\/items\/[a-f0-9-]{36}\/file$/.test(path)&&!/^\/v1\/subjects\/[a-f0-9-]{36}\/images$/.test(path))requireThat((req.headers['content-type']||'').startsWith('application/json'),415,'Send application/json.');
    const payload=(['POST','PATCH'].includes(method)&&(req.headers['content-type']||'').startsWith('application/json'))?await json(req):null;
    if(path==='/v1/auth/login'&&method==='POST'){

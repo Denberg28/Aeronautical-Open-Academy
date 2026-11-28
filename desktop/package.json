@@ -1,6 +1,6 @@
 {
   "name": "aeronautical-open-academy-desktop",
-  "version": "0.13.0-rc.3",
+  "version": "0.13.0-rc.4",
   "private": true,
   "type": "module",
   "main": "main.mjs",
