@@ -1969,7 +1969,7 @@ document.addEventListener("input", (event) => {
     clearTimeout(event.target.linkTimer);
     event.target.linkTimer = setTimeout(() => inspectLinkField(event.target), 200);
   }
-  if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
+  if (!state.busy && event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 document.addEventListener("change", (event) => {
   if (event.target.matches("[data-editor-block]")) {
@@ -2032,7 +2032,7 @@ document.addEventListener("change", (event) => {
       shell();
       if (state.view === "access") await renderAccess();
     });
-  else if (event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
+  else if (!state.busy && event.target.closest("#app form:not(#folder-form)")) state.dirty = true;
 });
 function computeMultiLevelIds(sourceId, nextParentId, targetId = null, position = "inside") {
   const source = state.items.find((entry) => entry.id === sourceId);
@@ -2098,6 +2098,9 @@ document.addEventListener("keydown", (event) => {
       const form = event.target.closest("#composer, #subject-form, #announcement, #new-account, #reset-password-form, #folder-form");
       if (form && !state.busy) {
         event.preventDefault();
+        if (document.activeElement instanceof HTMLElement && form.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
         form.requestSubmit();
         return;
       }
